@@ -113,6 +113,9 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8,  Legal);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,  Expand);
 
+  // Trap — lower to TRAP pseudo which expands to SWI 0
+  setOperationAction(ISD::TRAP, MVT::Other, Legal);
+
   // Frame/stack pointer
   setOperationAction(ISD::FRAMEADDR,          MVT::i32, Custom);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
