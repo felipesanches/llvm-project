@@ -681,8 +681,8 @@ def SWI : SingleByteImm8Inst<0xF8, (outs), (ins i32imm:$num),
                              "swi", "$num", []>,
           Sched<[WriteJmp]>;
 
-// RETI — Return from interrupt
-// Encoding: 0x07 0xFE (2 bytes — TBD, placeholder)
+// RETI — Return from interrupt (pops SR then PC from stack)
+// Encoding: 0x0B (1 byte)
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
 def RETI : SingleByteInst<0x0B, (outs), (ins), "reti", "", []>,
            Sched<[WriteJmp]>;

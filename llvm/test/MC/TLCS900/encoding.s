@@ -17,6 +17,9 @@ halt
 ; CHECK: di      ; encoding: [0x07]
 di
 
+; CHECK: reti    ; encoding: [0x0b]
+reti
+
 ; === Register-in-opcode instructions ===
 
 ; PUSH r32: 0x48 + reg_encoding
