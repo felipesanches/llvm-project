@@ -1,9 +1,8 @@
 //===-- TLCS900InstPrinter.cpp - Convert TLCS900 MCInst to assembly syntax ----===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -28,29 +27,21 @@ using namespace llvm;
 #define PRINT_ALIAS_INSTR
 #include "TLCS900GenAsmWriter.inc"
 
-TLCS900InstPrinter::TLCS900InstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
-                                   const MCRegisterInfo &MRI)
-    : MCInstPrinter(MAI, MII, MRI) {}
-
-void TLCS900InstPrinter::printRegName(raw_ostream &OS, unsigned RegNo) const {
-  OS << StringRef(getRegisterName(RegNo)).lower();
-}
-
 void TLCS900InstPrinter::printInst(const MCInst *MI, uint64_t Address,
-                                 StringRef Annot, const MCSubtargetInfo &STI,
-                                 raw_ostream &O) {
+                                   StringRef Annot, const MCSubtargetInfo &STI,
+                                   raw_ostream &O) {
   // Try to print any aliases first.
-  if (!printAliasInstr(MI, O)) {
+  if (!printAliasInstr(MI, Address, O)) {
     printInstruction(MI, Address, O);
   }
   printAnnotation(O, Annot);
 }
 
 void TLCS900InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
-                                    raw_ostream &O) {
+                                      raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
-    printRegName(O, Op.getReg());
+    O << StringRef(getRegisterName(Op.getReg())).lower();
     return;
   }
 

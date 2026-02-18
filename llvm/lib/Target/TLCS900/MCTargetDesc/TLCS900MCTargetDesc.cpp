@@ -47,7 +47,7 @@ static MCRegisterInfo *createTLCS900MCRegisterInfo(const Triple &TT) {
 
 static MCSubtargetInfo *
 createTLCS900MCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS) {
-  std::string CPUName = CPU;
+  std::string CPUName(CPU);
   if (CPUName.empty())
     CPUName = "generic";
   return createTLCS900MCSubtargetInfoImpl(TT, CPUName, /*TuneCPU*/ CPUName, FS);
@@ -67,7 +67,7 @@ static MCAsmInfo *createTLCS900MCAsmInfo(const MCRegisterInfo &MRI,
   MCAsmInfo *MAI = new TLCS900MCAsmInfo(TT);
 
   unsigned WP = MRI.getDwarfRegNum(TLCS900::XSP, true);
-  MCCFIInstruction Inst = MCCFIInstruction::createDefCfa(nullptr, WP, 0);
+  MCCFIInstruction Inst = MCCFIInstruction::cfiDefCfa(nullptr, WP, 0);
   MAI->addInitialFrameState(Inst);
 
   return MAI;

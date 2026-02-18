@@ -49,10 +49,10 @@ BitVector TLCS900RegisterInfo::getReservedRegs(const MachineFunction &MF) const 
   return Reserved;
 }
 
-void TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-                                           int SPAdj,
-                                           unsigned FIOperandNum,
-                                           RegScavenger *RS) const {
+bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+                                              int SPAdj,
+                                              unsigned FIOperandNum,
+                                              RegScavenger *RS) const {
   llvm_unreachable("Unsupported eliminateFrameIndex");
 }
 
