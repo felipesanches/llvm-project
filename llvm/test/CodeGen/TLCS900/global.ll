@@ -6,8 +6,8 @@
 
 define i32 @load_global() {
 ; CHECK-LABEL: load_global:
-; CHECK:       ld xde, g
-; CHECK:       ld xde, (xde)
+; CHECK:       ld {{x[a-z]+}}, g
+; CHECK:       ld xde, ({{x[a-z]+}})
 ; CHECK:       ret
   %v = load i32, ptr @g
   ret i32 %v

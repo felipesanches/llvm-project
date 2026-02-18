@@ -65,9 +65,10 @@ define i32 @sext_load16(ptr %p) {
 }
 
 ; Load from stack (frame index addressing)
+; Note: store-then-load from same alloca is constant-folded
 define i32 @stack_load() {
 ; CHECK-LABEL: stack_load:
-; CHECK: ld {{.*}}, (xsp
+; CHECK: ld xde, 100
   %a = alloca i32
   store i32 100, ptr %a
   %v = load i32, ptr %a

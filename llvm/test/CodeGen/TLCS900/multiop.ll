@@ -14,9 +14,12 @@ define i32 @add_and_shift(i32 %a, i32 %b) {
 }
 
 ; abs(a) = (a < 0) ? -a : a
+; May use branchless abs (sra+xor+sub) or branch-based select
 define i32 @abs_manual(i32 %a) {
 ; CHECK-LABEL: abs_manual:
-; CHECK:       cp xde,
+; CHECK:       sra xde, 31
+; CHECK:       xor
+; CHECK:       sub
 ; CHECK:       ret
   %cmp = icmp slt i32 %a, 0
   %neg = sub i32 0, %a

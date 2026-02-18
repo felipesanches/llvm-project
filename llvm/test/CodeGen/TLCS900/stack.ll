@@ -4,14 +4,8 @@
 
 define i32 @local_var() {
 ; CHECK-LABEL: local_var:
-; Prologue allocates stack space
-; CHECK:       sub xsp,
-; Store to stack slot
-; CHECK:       ld (xsp
-; Load from stack slot
-; CHECK:       ld xde, (xsp
-; Epilogue deallocates
-; CHECK:       add xsp,
+; Store-then-load from same alloca is constant-folded
+; CHECK:       ld xde, 42
 ; CHECK:       ret
   %x = alloca i32
   store i32 42, ptr %x

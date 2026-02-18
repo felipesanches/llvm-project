@@ -4,10 +4,10 @@
 
 define i32 @sum_to_n(i32 %n) {
 ; CHECK-LABEL: sum_to_n:
-; CHECK:       cp
-; CHECK:       jp
-; Loop body with add and branch back
+; Loop body with add/inc and branch back
 ; CHECK:       add
+; CHECK:       inc
+; CHECK:       cp
 ; CHECK:       jp
 ; CHECK:       ret
 entry:
@@ -29,6 +29,7 @@ define i32 @countdown(i32 %n) {
 ; CHECK-LABEL: countdown:
 ; Loop with decrement and branch
 ; CHECK:       dec
+; CHECK:       cp
 ; CHECK:       jp
 ; CHECK:       ret
 entry:
@@ -46,10 +47,12 @@ exit:
 
 define void @memset_loop(ptr %dst, i32 %val, i32 %count) {
 ; CHECK-LABEL: memset_loop:
+; CHECK:       cp
 ; CHECK:       jp
+; Loop body
 ; CHECK:       ld (
-; CHECK:       add
-; CHECK:       dec
+; CHECK:       inc
+; CHECK:       cp
 ; CHECK:       jp
 ; CHECK:       ret
 entry:

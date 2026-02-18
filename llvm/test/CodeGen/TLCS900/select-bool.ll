@@ -27,14 +27,12 @@ define i32 @bool_and(i32 %a, i32 %b, i32 %c, i32 %d) {
   ret i32 %ext
 }
 
-; Boolean OR: (a != 0) | (b != 0)
+; Boolean OR: (a != 0) | (b != 0) — may be optimized to (a|b) != 0
 define i32 @bool_or(i32 %a, i32 %b) {
 ; CHECK-LABEL: bool_or:
-; CHECK: cp
-; CHECK: scc
-; CHECK: cp
-; CHECK: scc
 ; CHECK: or
+; CHECK: cp
+; CHECK: scc
   %c1 = icmp ne i32 %a, 0
   %c2 = icmp ne i32 %b, 0
   %r = or i1 %c1, %c2

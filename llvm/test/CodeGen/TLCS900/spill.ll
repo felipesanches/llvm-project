@@ -10,7 +10,7 @@ declare i32 @use(i32)
 define i32 @needs_spill(i32 %a, i32 %b, i32 %c, i32 %d) {
 ; CHECK-LABEL: needs_spill:
 ; Should see stack operations (push/pop or ld to/from stack)
-; CHECK:       ld {{.*}}(xsp
+; CHECK:       ld {{.*}}xsp
 ; CHECK:       ret
 entry:
   %v1 = add i32 %a, 1

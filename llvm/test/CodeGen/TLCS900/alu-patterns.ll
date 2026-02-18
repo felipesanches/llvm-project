@@ -86,7 +86,7 @@ define i32 @res_bit5(i32 %a) {
 ; CHG bit: XOR with power of 2
 define i32 @chg_bit7(i32 %a) {
 ; CHECK-LABEL: chg_bit7:
-; CHECK: xor
+; CHECK: chg 7, xde
   %r = xor i32 %a, 128
   ret i32 %r
 }
