@@ -287,6 +287,11 @@ def EXTZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                           "extz", "$rd", []>,
               Sched<[WriteIALU, ReadIALU]>;
 
+// DAA rd — Decimal Adjust after Addition (BCD)
+def DAA32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                         "daa", "$rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
 } // Constraints = "$rd = $rs1"
 
 // Patterns for NEG and CPL
@@ -409,6 +414,16 @@ def Select32 : Pseudo<(outs GPR:$rd),
                       [(set GPR:$rd,
                         (tlcs900_select_cc GPR:$trueVal, GPR:$falseVal,
                                            (i32 imm:$cc)))]>;
+
+//===----------------------------------------------------------------------===//
+// Set Condition Code
+//===----------------------------------------------------------------------===//
+
+// SCC cc, rd — Set register to 1 if condition true, 0 otherwise
+let Uses = [SR] in
+def SCC32 : TLCS900Inst<(outs GPR:$rd), (ins cc:$cc),
+                         "scc", "$cc, $rd", []>,
+            Sched<[WriteIALU]>;
 
 //===----------------------------------------------------------------------===//
 // System Instructions
@@ -535,6 +550,57 @@ let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1 in
 def DJNZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
                           "djnz", "$rd, $target", []>,
              Sched<[WriteIALU, WriteJmp]>;
+
+//===----------------------------------------------------------------------===//
+// Memory-register arithmetic (CISC: operates directly on memory)
+//===----------------------------------------------------------------------===//
+
+// ADD (mem), rs — Add register to memory location
+def ADD32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
+                           "add", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+
+// SUB (mem), rs — Subtract register from memory location
+def SUB32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
+                           "sub", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+
+// AND (mem), rs — AND register with memory location
+def AND32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
+                           "and", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+
+// OR (mem), rs — OR register with memory location
+def OR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
+                          "or", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+
+// XOR (mem), rs — XOR register with memory location
+def XOR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
+                           "xor", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+
+// CP (mem), rs — Compare memory with register
+let Defs = [SR] in
+def CP32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
+                          "cp", "$addr, $rs", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+
+// CP (mem), #imm — Compare memory with immediate
+let Defs = [SR] in
+def CP32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
+                          "cp", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+
+// ADD (mem), #imm — Add immediate to memory location
+def ADD32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
+                           "add", "$addr, $imm", []>,
+              Sched<[WriteSTW, ReadMemBase]>;
+
+// SUB (mem), #imm — Subtract immediate from memory location
+def SUB32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
+                           "sub", "$addr, $imm", []>,
+              Sched<[WriteSTW, ReadMemBase]>;
 
 //===----------------------------------------------------------------------===//
 // Multiply / Divide Instructions (hardware, 16-bit operands)
