@@ -19,8 +19,8 @@ using namespace llvm;
 void TLCS900MCAsmInfo::anchor() { }
 
 TLCS900MCAsmInfo::TLCS900MCAsmInfo(const Triple &TheTriple) {
-  // This architecture is little endian only
-  IsLittleEndian = false;
+  // TLCS900 is little endian
+  IsLittleEndian = true;
 
   AlignmentIsInBytes          = false;
   Data16bitsDirective         = "\t.hword\t";

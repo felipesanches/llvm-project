@@ -25,11 +25,11 @@ def TLCS900_CCallingConv : CallingConv<[
   CCIfType<[i32], CCAssignToStack<4, 4>>
 ]>;
 
-// BeyondRISC C Return Convention
+// TLCS900 C Return Convention
 def TLCS900_CRetConv : CallingConv<[
   CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
 
-  // i32 are returned in registers X0, X1
+  // i32 are returned in registers
   CCIfType<[i32], CCAssignToReg<[XDE, XBC, XIX, XIY]>>,
 
   // Integer values get stored in stack slots that are 4 bytes in size and
