@@ -6,7 +6,7 @@
 define i32 @select_cc(i32 %a, i32 %b, i32 %x, i32 %y) {
 ; CHECK-LABEL: select_cc:
 ; CHECK: cp
-; CHECK: jp
+; CHECK: jr
   %cmp = icmp slt i32 %a, %b
   %r = select i1 %cmp, i32 %x, i32 %y
   ret i32 %r
@@ -18,7 +18,7 @@ define i32 @bool_and(i32 %a, i32 %b, i32 %c, i32 %d) {
 ; CHECK-LABEL: bool_and:
 ; CHECK: cp
 ; CHECK: ld {{.*}}, 1
-; CHECK: jp
+; CHECK: jr
 ; CHECK: ld {{.*}}, 0
 ; CHECK: and
   %c1 = icmp eq i32 %a, %b
@@ -34,7 +34,7 @@ define i32 @bool_or(i32 %a, i32 %b) {
 ; CHECK: or
 ; CHECK: cp
 ; CHECK: ld {{.*}}, 1
-; CHECK: jp
+; CHECK: jr
 ; CHECK: ld {{.*}}, 0
   %c1 = icmp ne i32 %a, 0
   %c2 = icmp ne i32 %b, 0
@@ -47,7 +47,7 @@ define i32 @bool_or(i32 %a, i32 %b) {
 define i32 @min_signed(i32 %a, i32 %b) {
 ; CHECK-LABEL: min_signed:
 ; CHECK: cp
-; CHECK: jp
+; CHECK: jr
   %cmp = icmp slt i32 %a, %b
   %r = select i1 %cmp, i32 %a, i32 %b
   ret i32 %r

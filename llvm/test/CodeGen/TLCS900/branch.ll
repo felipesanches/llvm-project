@@ -5,7 +5,7 @@
 define i32 @max(i32 %a, i32 %b) {
 ; CHECK-LABEL: max:
 ; CHECK:       cp xde, xbc
-; CHECK:       jp gt,
+; CHECK:       jr gt,
   %cmp = icmp sgt i32 %a, %b
   %sel = select i1 %cmp, i32 %a, i32 %b
   ret i32 %sel
@@ -14,7 +14,7 @@ define i32 @max(i32 %a, i32 %b) {
 define i32 @min(i32 %a, i32 %b) {
 ; CHECK-LABEL: min:
 ; CHECK:       cp xde, xbc
-; CHECK:       jp lt,
+; CHECK:       jr lt,
   %cmp = icmp slt i32 %a, %b
   %sel = select i1 %cmp, i32 %a, i32 %b
   ret i32 %sel
@@ -36,7 +36,7 @@ define i32 @abs_val(i32 %a) {
 define void @branch_eq(i32 %a, i32 %b, ptr %p) {
 ; CHECK-LABEL: branch_eq:
 ; CHECK:       cp xde, xbc
-; CHECK:       jp nz,
+; CHECK:       jr nz,
 entry:
   %cmp = icmp eq i32 %a, %b
   br i1 %cmp, label %if.then, label %if.end
