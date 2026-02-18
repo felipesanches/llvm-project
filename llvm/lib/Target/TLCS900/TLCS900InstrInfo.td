@@ -364,12 +364,14 @@ def EXTZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                           "extz", "$rd", []>,
               Sched<[WriteIALU, ReadIALU]>;
 
+} // Constraints = "$rd = $rs1", Defs = [SR]
+
 // DAA rd — Decimal Adjust after Addition (BCD) (affects all flags)
+// Reads N and H flags from prior arithmetic to determine BCD correction.
+let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR] in
 def DAA32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                          "daa", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
-
-} // Constraints = "$rd = $rs1", Defs = [SR]
 
 // Patterns for NEG and CPL
 def : Pat<(sub 0, GPR:$rs), (NEG32 GPR:$rs)>;
@@ -605,7 +607,8 @@ def RETD : TLCS900Inst<(outs), (ins i32imm:$imm), "retd", "$imm", []>,
 // Rotate Instructions (single-operand, in-place)
 //===----------------------------------------------------------------------===//
 
-let Constraints = "$rd = $rs1", Defs = [SR] in {
+// Rotate instructions read AND write carry flag (33-bit rotates through carry).
+let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR], hasSideEffects = 0 in {
 
 // RLC rd — Rotate left through carry (1 bit)
 def RLC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
@@ -627,38 +630,38 @@ def RR32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                          "rr", "$rd", []>,
             Sched<[WriteShift, ReadIALU]>;
 
-} // Constraints, Defs
+} // Constraints, Defs, Uses
 
 //===----------------------------------------------------------------------===//
 // Bit Manipulation Instructions
 //===----------------------------------------------------------------------===//
 
-// BIT #bit, rd — Test bit (set Z flag)
-let Defs = [SR] in
+// BIT #bit, rd — Test bit (set Z flag; effect captured by Defs)
+let Defs = [SR], hasSideEffects = 0 in
 def BIT32 : TLCS900Inst<(outs), (ins i32imm:$bit, GPR:$rs),
                          "bit", "$bit, $rs", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
-// SET #bit, rd — Set bit
-let Constraints = "$rd = $rs1" in
+// SET #bit, rd — Set bit (pure computation on register)
+let Constraints = "$rd = $rs1", hasSideEffects = 0 in
 def SET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                          "set", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
-// RES #bit, rd — Reset (clear) bit
-let Constraints = "$rd = $rs1" in
+// RES #bit, rd — Reset (clear) bit (pure computation on register)
+let Constraints = "$rd = $rs1", hasSideEffects = 0 in
 def RES32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                          "res", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
-// CHG #bit, rd — Change (toggle) bit
-let Constraints = "$rd = $rs1" in
+// CHG #bit, rd — Change (toggle) bit (pure computation on register)
+let Constraints = "$rd = $rs1", hasSideEffects = 0 in
 def CHG32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                          "chg", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // TSET #bit, rd — Test and set bit (set Z flag, then set the bit)
-let Constraints = "$rd = $rs1", Defs = [SR] in
+let Constraints = "$rd = $rs1", Defs = [SR], hasSideEffects = 0 in
 def TSET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                           "tset", "$bit, $rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
