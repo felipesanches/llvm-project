@@ -183,6 +183,7 @@ def : Pat<(i32 tblockaddress:$addr), (LD32ri tblockaddress:$addr)>;
 let Constraints = "$rd = $rs1", Defs = [SR] in {
 
 // ADD rd, rs — rd = rd + rs (affects S, Z, H, V, N, C)
+let isCommutable = 1 in
 def ADD32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "add", "$rd, $rs2",
                           [(set GPR:$rd, (add GPR:$rs1, GPR:$rs2))]>,
@@ -233,6 +234,7 @@ def SBC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
 //===----------------------------------------------------------------------===//
 
 // AND rd, rs (affects S, Z, H=1, V=parity, N=0, C=0)
+let isCommutable = 1 in
 def AND32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "and", "$rd, $rs2",
                           [(set GPR:$rd, (and GPR:$rs1, GPR:$rs2))]>,
@@ -245,6 +247,7 @@ def AND32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
               Sched<[WriteIALU, ReadIALU]>;
 
 // OR rd, rs (affects S, Z, H=0, V=parity, N=0, C=0)
+let isCommutable = 1 in
 def OR32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                          "or", "$rd, $rs2",
                          [(set GPR:$rd, (or GPR:$rs1, GPR:$rs2))]>,
@@ -257,6 +260,7 @@ def OR32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
              Sched<[WriteIALU, ReadIALU]>;
 
 // XOR rd, rs (affects S, Z, H=0, V=parity, N=0, C=0)
+let isCommutable = 1 in
 def XOR32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "xor", "$rd, $rs2",
                           [(set GPR:$rd, (xor GPR:$rs1, GPR:$rs2))]>,
@@ -396,7 +400,7 @@ def : Pat<(add GPR:$rs, -8), (DEC32 GPR:$rs, 8)>;
 // Compare Instructions (set flags in SR)
 //===----------------------------------------------------------------------===//
 
-let Defs = [SR] in {
+let Defs = [SR], isCompare = 1 in {
 
 // CP rd, rs — Compare registers (rd - rs, set flags, discard result)
 def CP32rr : TLCS900Inst<(outs), (ins GPR:$rs1, GPR:$rs2),
@@ -709,7 +713,7 @@ def XOR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
 } // Defs = [SR], mayLoad, mayStore
 
 // CP only reads memory (no write-back), and has patterns so mayLoad is inferred.
-let Defs = [SR] in {
+let Defs = [SR], isCompare = 1 in {
 
 // CP (mem), rs — Compare memory with register (folds load into compare)
 def CP32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
