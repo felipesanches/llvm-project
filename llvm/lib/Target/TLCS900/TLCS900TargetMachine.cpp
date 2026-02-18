@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TLCS900TargetMachine.h"
+#include "TLCS900ISelDAGToDAG.h"
 #include "TLCS900Subtarget.h"
 #include "TLCS900TargetObjectFile.h"
 #include "TargetInfo/TLCS900TargetInfo.h"
