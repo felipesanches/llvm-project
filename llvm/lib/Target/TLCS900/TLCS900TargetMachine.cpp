@@ -45,11 +45,11 @@ static std::string computeDataLayout() {
   // 64-bit integers, 64 bit aligned
   Ret += "-i64:64";
 
-  // 32-bit native integer width i.e register are 32-bit
-  Ret += "-n32";
+  // Native integer widths: 8, 16, and 32-bit
+  Ret += "-n8:16:32";
 
-  // 128-bit natural stack alignment
-  Ret += "-S128";
+  // 16-bit stack alignment (TLCS900 has 16-bit external data bus)
+  Ret += "-S16";
 
   return Ret;
 }
