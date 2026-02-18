@@ -79,6 +79,15 @@ def MEMri : Operand<i32> {
 // Address pattern: matches base+offset and frame indices
 def addr : ComplexPattern<iPTR, 2, "SelectAddr", [frameindex], []>;
 
+// Register operands that print as sub-register names (for 8/16-bit ops)
+def GPR_lo8 : RegisterOperand<GPR> {
+  let PrintMethod = "printGPRAsLoByte";
+}
+
+def GPR_lo16 : RegisterOperand<GPR> {
+  let PrintMethod = "printGPRAsLoWord";
+}
+
 //===----------------------------------------------------------------------===//
 // Data Transfer Instructions
 //===----------------------------------------------------------------------===//
@@ -114,6 +123,18 @@ def LD32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$val),
                          "ld", "$addr, $val",
                          [(store (i32 imm:$val), addr:$addr)]>,
              Sched<[WriteSTW, ReadMemBase]>;
+
+// LD (base+disp), rs:lo16 — Truncating store: writes low 16 bits to memory
+def LD16mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR_lo16:$rs),
+                          "ld", "$addr, $rs",
+                          [(truncstorei16 GPR:$rs, addr:$addr)]>,
+             Sched<[WriteSTW, ReadMemBase]>;
+
+// LD (base+disp), rs:lo8 — Truncating store: writes low 8 bits to memory
+def LD8mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR_lo8:$rs),
+                         "ld", "$addr, $rs",
+                         [(truncstorei8 GPR:$rs, addr:$addr)]>,
+            Sched<[WriteSTW, ReadMemBase]>;
 
 // Patterns for global address and external symbol materialization
 def : Pat<(i32 tglobaladdr:$addr), (LD32ri tglobaladdr:$addr)>;

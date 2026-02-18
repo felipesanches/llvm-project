@@ -100,6 +100,10 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BlockAddress,     MVT::i32, Custom);
   setOperationAction(ISD::ExternalSymbol,   MVT::i32, Custom);
 
+  // 8/16-bit truncating stores are supported directly by LD8mr/LD16mr
+  setTruncStoreAction(MVT::i32, MVT::i16, Legal);
+  setTruncStoreAction(MVT::i32, MVT::i8, Legal);
+
   // Sign/zero extend — i16 handled by EXTS instruction
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Legal);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8,  Expand);

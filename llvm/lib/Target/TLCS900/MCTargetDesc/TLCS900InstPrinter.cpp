@@ -88,3 +88,34 @@ void TLCS900InstPrinter::printCondCode(const MCInst *MI, unsigned OpNo,
   assert(CC < 16 && "Invalid condition code");
   O << CondNames[CC];
 }
+
+void TLCS900InstPrinter::printGPRAsLoByte(const MCInst *MI, unsigned OpNo,
+                                           raw_ostream &O) {
+  unsigned Reg = MI->getOperand(OpNo).getReg();
+  // Map 32-bit GPR to its low 8-bit sub-register name.
+  // Only XWA/XBC/XDE/XHL have 8-bit sub-registers.
+  switch (Reg) {
+  case TLCS900::XWA: O << "a"; break;
+  case TLCS900::XBC: O << "c"; break;
+  case TLCS900::XDE: O << "e"; break;
+  case TLCS900::XHL: O << "l"; break;
+  default: llvm_unreachable("Register has no 8-bit sub-register");
+  }
+}
+
+void TLCS900InstPrinter::printGPRAsLoWord(const MCInst *MI, unsigned OpNo,
+                                           raw_ostream &O) {
+  unsigned Reg = MI->getOperand(OpNo).getReg();
+  // Map 32-bit GPR to its low 16-bit sub-register name.
+  switch (Reg) {
+  case TLCS900::XWA: O << "wa"; break;
+  case TLCS900::XBC: O << "bc"; break;
+  case TLCS900::XDE: O << "de"; break;
+  case TLCS900::XHL: O << "hl"; break;
+  case TLCS900::XIX: O << "ix"; break;
+  case TLCS900::XIY: O << "iy"; break;
+  case TLCS900::XIZ: O << "iz"; break;
+  case TLCS900::XSP: O << "sp"; break;
+  default: llvm_unreachable("Invalid GPR for 16-bit operation");
+  }
+}
