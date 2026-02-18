@@ -44,7 +44,8 @@ define i32 @or_imm(i32 %a) {
 
 define i32 @xor_imm(i32 %a) {
 ; CHECK-LABEL: xor_imm:
-; CHECK:       xor xde, -1
+; CPL is used for xor with -1 (bitwise NOT)
+; CHECK:       cpl xde
 ; CHECK:       ret
   %c = xor i32 %a, -1
   ret i32 %c
