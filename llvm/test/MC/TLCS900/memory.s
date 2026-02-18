@@ -1,0 +1,76 @@
+; RUN: llvm-mc -triple tlcs900 < %s | FileCheck %s
+
+; Test memory operands with various displacements
+
+; Zero displacement (base register only)
+; CHECK: ld	xwa, (xsp)
+ld xwa, (xsp)
+
+; Positive displacement
+; CHECK: ld	xde, (xsp+4)
+ld xde, (xsp+4)
+
+; CHECK: ld	xbc, (xhl+100)
+ld xbc, (xhl+100)
+
+; Large displacement
+; CHECK: ld	xwa, (xix+32767)
+ld xwa, (xix+32767)
+
+; Store with displacement
+; CHECK: ld	(xsp+8), xwa
+ld (xsp+8), xwa
+
+; CHECK: ld	(xiy+16), xde
+ld (xiy+16), xde
+
+; Store immediate to memory
+; CHECK: ld	(xsp+4), 0
+ld (xsp+4), 0
+
+; CHECK: ld	(xhl), 255
+ld (xhl), 255
+
+; Memory-register arithmetic
+; CHECK: add	(xhl), xwa
+add (xhl), xwa
+
+; CHECK: sub	(xsp+4), xde
+sub (xsp+4), xde
+
+; CHECK: and	(xix), xbc
+and (xix), xbc
+
+; CHECK: or	(xiy+8), xwa
+or (xiy+8), xwa
+
+; CHECK: xor	(xhl+2), xde
+xor (xhl+2), xde
+
+; Memory-register compare
+; CHECK: cp	(xhl), xwa
+cp (xhl), xwa
+
+; CHECK: cp	(xsp+4), 100
+cp (xsp+4), 100
+
+; Memory-immediate arithmetic
+; CHECK: add	(xhl), 1
+add (xhl), 1
+
+; CHECK: sub	(xsp+8), 10
+sub (xsp+8), 10
+
+; Load effective address
+; CHECK: lda	xwa, (xsp+64)
+lda xwa, (xsp+64)
+
+; CHECK: lda	xde, (xhl)
+lda xde, (xhl)
+
+; Negative displacement
+; CHECK: ld	xwa, (xsp-4)
+ld xwa, (xsp-4)
+
+; CHECK: ld	(xsp-8), xde
+ld (xsp-8), xde
