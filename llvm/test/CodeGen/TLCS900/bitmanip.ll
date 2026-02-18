@@ -2,35 +2,86 @@
 
 ; Test bit manipulation patterns
 
-define i32 @set_bit(i32 %a) {
-; CHECK-LABEL: set_bit:
-; CHECK:       or xde, 8
+; SET: or with power-of-2 → set instruction
+define i32 @set_bit3(i32 %a) {
+; CHECK-LABEL: set_bit3:
+; CHECK:       set 3, xde
 ; CHECK:       ret
   %r = or i32 %a, 8
   ret i32 %r
 }
 
-define i32 @clear_bit(i32 %a) {
-; CHECK-LABEL: clear_bit:
-; CHECK:       and xde, -9
+define i32 @set_bit0(i32 %a) {
+; CHECK-LABEL: set_bit0:
+; CHECK:       set 0, xde
+; CHECK:       ret
+  %r = or i32 %a, 1
+  ret i32 %r
+}
+
+define i32 @set_bit31(i32 %a) {
+; CHECK-LABEL: set_bit31:
+; CHECK:       set 31, xde
+; CHECK:       ret
+  %r = or i32 %a, -2147483648
+  ret i32 %r
+}
+
+; RES: and with ~power-of-2 → res instruction
+define i32 @clear_bit3(i32 %a) {
+; CHECK-LABEL: clear_bit3:
+; CHECK:       res 3, xde
 ; CHECK:       ret
   %r = and i32 %a, -9
   ret i32 %r
 }
 
-define i32 @toggle_bit(i32 %a) {
-; CHECK-LABEL: toggle_bit:
-; CHECK:       xor xde, 16
+define i32 @clear_bit0(i32 %a) {
+; CHECK-LABEL: clear_bit0:
+; CHECK:       res 0, xde
+; CHECK:       ret
+  %r = and i32 %a, -2
+  ret i32 %r
+}
+
+; CHG: xor with power-of-2 → chg instruction
+define i32 @toggle_bit4(i32 %a) {
+; CHECK-LABEL: toggle_bit4:
+; CHECK:       chg 4, xde
 ; CHECK:       ret
   %r = xor i32 %a, 16
   ret i32 %r
 }
 
-define i1 @test_bit(i32 %a) {
-; CHECK-LABEL: test_bit:
-; CHECK:       and
+define i32 @toggle_bit7(i32 %a) {
+; CHECK-LABEL: toggle_bit7:
+; CHECK:       chg 7, xde
 ; CHECK:       ret
-  %masked = and i32 %a, 4
-  %r = icmp ne i32 %masked, 0
-  ret i1 %r
+  %r = xor i32 %a, 128
+  ret i32 %r
+}
+
+; Non-power-of-2: should use generic OR/AND/XOR
+define i32 @or_nonpow2(i32 %a) {
+; CHECK-LABEL: or_nonpow2:
+; CHECK:       or xde, 5
+; CHECK:       ret
+  %r = or i32 %a, 5
+  ret i32 %r
+}
+
+define i32 @and_nonpow2(i32 %a) {
+; CHECK-LABEL: and_nonpow2:
+; CHECK:       and xde, -6
+; CHECK:       ret
+  %r = and i32 %a, -6
+  ret i32 %r
+}
+
+define i32 @xor_nonpow2(i32 %a) {
+; CHECK-LABEL: xor_nonpow2:
+; CHECK:       xor xde, 3
+; CHECK:       ret
+  %r = xor i32 %a, 3
+  ret i32 %r
 }

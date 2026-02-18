@@ -108,9 +108,9 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   // zextloadi16 → LD16rm + EXTZ32, sextloadi16 → LD16rm + EXTS32,
   // zextloadi8 → LD8rm + AND 255, sextloadi8 → LD8rm + shift pair
 
-  // Sign/zero extend — i16 handled by EXTS instruction
+  // Sign extend in register — i16 via EXTS, i8 via shift pair
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Legal);
-  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8,  Expand);
+  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8,  Legal);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,  Expand);
 
   // Frame/stack pointer

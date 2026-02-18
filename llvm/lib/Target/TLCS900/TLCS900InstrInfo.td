@@ -354,6 +354,9 @@ def : Pat<(not GPR:$rs), (CPL32 GPR:$rs)>;
 // Pattern for EXTS: sign extend from i16 to i32
 def : Pat<(sext_inreg GPR:$rs, i16), (EXTS32 GPR:$rs)>;
 
+// Pattern for sign extend i8 to i32 (shift pair)
+def : Pat<(sext_inreg GPR:$rs, i8), (SRA32ri (SLA32ri GPR:$rs, 24), 24)>;
+
 // Pattern for EXTZ: zero extend low 16 bits (AND with 0xFFFF)
 def : Pat<(and GPR:$rs, 65535), (EXTZ32 GPR:$rs)>;
 
@@ -776,6 +779,42 @@ def LDD : TLCS900Inst<(outs), (ins), "ldd", "", []>,
 let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
 def LDDR : TLCS900Inst<(outs), (ins), "lddr", "", []>,
            Sched<[WriteSTW]>;
+
+//===----------------------------------------------------------------------===//
+// Bit manipulation isel patterns
+//===----------------------------------------------------------------------===//
+
+// Predicate: immediate is a power of 2 (exactly one bit set)
+def IsPow2_32 : PatLeaf<(i32 imm), [{
+  return N->getAPIntValue().isPowerOf2();
+}]>;
+
+// Predicate: immediate has exactly one zero bit (~imm is power of 2)
+def IsNotPow2_32 : PatLeaf<(i32 imm), [{
+  return (~N->getAPIntValue()).isPowerOf2();
+}]>;
+
+// Transform: extract bit number from a power-of-2 constant
+def Log2_32 : SDNodeXForm<imm, [{
+  return CurDAG->getTargetConstant(
+    N->getAPIntValue().exactLogBase2(), SDLoc(N), MVT::i32);
+}]>;
+
+// Transform: extract bit number from a ~power-of-2 constant (one zero bit)
+def Log2Not_32 : SDNodeXForm<imm, [{
+  return CurDAG->getTargetConstant(
+    (~N->getAPIntValue()).exactLogBase2(), SDLoc(N), MVT::i32);
+}]>;
+
+// SET: x | (1 << n) → set bit n
+def : Pat<(or GPR:$rs, IsPow2_32:$mask), (SET32 (Log2_32 $mask), GPR:$rs)>;
+
+// RES: x & ~(1 << n) → reset bit n
+def : Pat<(and GPR:$rs, IsNotPow2_32:$mask),
+          (RES32 (Log2Not_32 $mask), GPR:$rs)>;
+
+// CHG: x ^ (1 << n) → toggle bit n
+def : Pat<(xor GPR:$rs, IsPow2_32:$mask), (CHG32 (Log2_32 $mask), GPR:$rs)>;
 
 //===----------------------------------------------------------------------===//
 // Compare/Search Block Instructions
