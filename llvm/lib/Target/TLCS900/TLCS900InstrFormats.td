@@ -178,13 +178,13 @@ class PrefixRotateInst<bits<8> opc, dag outs, dag ins, string opcodestr,
   let Size = 3;
 }
 
-// PrefixBitInst: reg_prefix + (opcode|bit) (SET, RES, CHG, BIT, TSET)
+// PrefixBitInst: reg_prefix + opcode + bit_number (SET, RES, CHG, BIT, TSET)
 class PrefixBitInst<bits<8> opc, dag outs, dag ins, string opcodestr,
                     string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatPrefixBit.Value;
   let Opcode = opc;
-  let Size = 2;
+  let Size = 3; // prefix + opcode + bit_number byte
 }
 
 // PrefixIncDecInst: reg_prefix + (opcode|count) (INC, DEC)

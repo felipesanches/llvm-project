@@ -115,51 +115,55 @@ def GPR_lo16 : RegisterOperand<GPR> {
 //===----------------------------------------------------------------------===//
 
 // LD rd, #imm32 — Load 32-bit immediate into register
+// Encoding: 0x40+r, imm32 (5 bytes)
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
-def LD32ri : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$imm),
-                         "ld", "$rd, $imm",
-                         [(set GPR:$rd, (imm):$imm)]>,
+def LD32ri : SingleByteRegImmInst<0x40, 5, (outs GPR:$rd), (ins i32imm:$imm),
+                                  "ld", "$rd, $imm",
+                                  [(set GPR:$rd, (imm):$imm)]>,
              Sched<[WriteIALU]>;
 
 // LD rd, rs — Copy register to register (no side effects, pure move)
+// Encoding: E8+src, 0x88+dst (2 bytes) — LD C, R form
 let isAsCheapAsAMove = 1, hasSideEffects = 0 in
-def LD32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs),
-                         "ld", "$rd, $rs",
-                         []>,
+def LD32rr : PrefixRegRegInst<0x88, (outs GPR:$rd), (ins GPR:$rs),
+                              "ld", "$rd, $rs", []>,
              Sched<[WriteIALU]>;
 
 // LD rd, (base+disp) — Load 32-bit from memory
-def LD32rm : TLCS900Inst<(outs GPR:$rd), (ins MEMri:$addr),
+// Encoding: mem_prefix + opcode(0x20+rd) — size varies by addressing mode
+def LD32rm : MemLoadInst<0x20, 4, (outs GPR:$rd), (ins MEMri:$addr),
                          "ld", "$rd, $addr",
                          [(set GPR:$rd, (load addr:$addr))]>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 // LD (base+disp), rs — Store 32-bit to memory
-def LD32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                         "ld", "$addr, $rs",
-                         [(store GPR:$rs, addr:$addr)]>,
+// Encoding: dst_mem_prefix + opcode(0x40+rs) — size varies by addressing mode
+def LD32mr : MemStoreInst<0x40, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                          "ld", "$addr, $rs",
+                          [(store GPR:$rs, addr:$addr)]>,
              Sched<[WriteSTW, ReadMemBase]>;
 
 // LD (base+disp), #imm — Store immediate to memory
-def LD32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$val),
-                         "ld", "$addr, $val",
-                         [(store (i32 imm:$val), addr:$addr)]>,
+// Encoding: dst_mem_prefix + opcode + imm32 — size varies by addressing mode
+def LD32mi : MemStoreInst<0x08, 8, (outs), (ins MEMri:$addr, i32imm:$val),
+                          "ld", "$addr, $val",
+                          [(store (i32 imm:$val), addr:$addr)]>,
              Sched<[WriteSTW, ReadMemBase]>;
 
 // LD rd:lo16, (base+disp) — Load 16-bit from memory into low word of GPR
 // Note: upper 16 bits of the 32-bit register are UNCHANGED by hardware.
 // This is used internally; zextloadi16/sextloadi16 patterns add explicit
 // EXTZ/EXTS to clear/sign-extend the upper bits.
-let mayLoad = 1 in
-def LD16rm : TLCS900Inst<(outs GPR_lo16:$rd), (ins MEMri:$addr),
-                          "ld", "$rd, $addr", []>,
+let mayLoad = 1, OpSize = OpSize16.Value in
+def LD16rm : MemLoadInst<0x20, 4, (outs GPR_lo16:$rd), (ins MEMri:$addr),
+                         "ld", "$rd, $addr", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 // LD rd:lo8, (base+disp) — Load 8-bit from memory into low byte of GPR
 // Note: other bytes of the register are UNCHANGED by hardware.
-let mayLoad = 1 in
-def LD8rm : TLCS900Inst<(outs GPR_lo8:$rd), (ins MEMri:$addr),
-                         "ld", "$rd, $addr", []>,
+let mayLoad = 1, OpSize = OpSize8.Value in
+def LD8rm : MemLoadInst<0x20, 3, (outs GPR_lo8:$rd), (ins MEMri:$addr),
+                        "ld", "$rd, $addr", []>,
             Sched<[WriteLDW, ReadMemBase]>;
 
 // (Extending load patterns are after the instruction definitions below.)
@@ -167,12 +171,14 @@ def LD8rm : TLCS900Inst<(outs GPR_lo8:$rd), (ins MEMri:$addr),
 // LD (base+disp), rs:lo16 — Truncating store: writes low 16 bits to memory
 // Pattern is separate (below) because the RegisterOperand GPR_lo16 doesn't
 // match bare GPR in inline patterns.
-def LD16mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR_lo16:$rs),
+let OpSize = OpSize16.Value in
+def LD16mr : MemStoreInst<0x40, 4, (outs), (ins MEMri:$addr, GPR_lo16:$rs),
                           "ld", "$addr, $rs", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 
 // LD (base+disp), rs:lo8 — Truncating store: writes low 8 bits to memory
-def LD8mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR_lo8:$rs),
+let OpSize = OpSize8.Value in
+def LD8mr : MemStoreInst<0x40, 3, (outs), (ins MEMri:$addr, GPR_lo8:$rs),
                          "ld", "$addr, $rs", []>,
             Sched<[WriteSTW, ReadMemBase]>;
 
@@ -189,49 +195,57 @@ def : Pat<(i32 tblockaddress:$addr), (LD32ri tblockaddress:$addr)>;
 let Constraints = "$rd = $rs1", Defs = [SR] in {
 
 // ADD rd, rs — rd = rd + rs (affects S, Z, H, V, N, C)
+// Encoding: E8+src, 0x80+dst (2 bytes)
 let isCommutable = 1 in
-def ADD32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "add", "$rd, $rs2",
-                          [(set GPR:$rd, (add GPR:$rs1, GPR:$rs2))]>,
+def ADD32rr : PrefixRegRegInst<0x80, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "add", "$rd, $rs2",
+                               [(set GPR:$rd, (add GPR:$rs1, GPR:$rs2))]>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // ADD rd, #imm — rd = rd + imm
-def ADD32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "add", "$rd, $imm",
-                          [(set GPR:$rd, (add GPR:$rs1, (imm):$imm))]>,
+// Encoding: E8+dst, 0xC8, imm32 (6 bytes)
+def ADD32ri : PrefixRegImmInst<0xC8, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                               "add", "$rd, $imm",
+                               [(set GPR:$rd, (add GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
 // SUB rd, rs — rd = rd - rs (affects S, Z, H, V, N, C)
-def SUB32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "sub", "$rd, $rs2",
-                          [(set GPR:$rd, (sub GPR:$rs1, GPR:$rs2))]>,
+// Encoding: E8+src, 0xA0+dst (2 bytes)
+def SUB32rr : PrefixRegRegInst<0xA0, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "sub", "$rd, $rs2",
+                               [(set GPR:$rd, (sub GPR:$rs1, GPR:$rs2))]>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // SUB rd, #imm — rd = rd - imm
-def SUB32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "sub", "$rd, $imm",
-                          [(set GPR:$rd, (sub GPR:$rs1, (imm):$imm))]>,
+// Encoding: E8+dst, 0xCA, imm32 (6 bytes)
+def SUB32ri : PrefixRegImmInst<0xCA, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                               "sub", "$rd, $imm",
+                               [(set GPR:$rd, (sub GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
 // ADC rd, rs — rd = rd + rs + carry (also reads carry from SR)
+// Encoding: E8+src, 0x90+dst (2 bytes)
 let Uses = [SR] in {
-def ADC32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "adc", "$rd, $rs2", []>,
+def ADC32rr : PrefixRegRegInst<0x90, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "adc", "$rd, $rs2", []>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // ADC rd, #imm — rd = rd + imm + carry
-def ADC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "adc", "$rd, $imm", []>,
+// Encoding: E8+dst, 0xC9, imm32 (6 bytes)
+def ADC32ri : PrefixRegImmInst<0xC9, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                               "adc", "$rd, $imm", []>,
               Sched<[WriteIALU, ReadIALU]>;
 
 // SBC rd, rs — rd = rd - rs - carry (also reads carry from SR)
-def SBC32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "sbc", "$rd, $rs2", []>,
+// Encoding: E8+src, 0xB0+dst (2 bytes)
+def SBC32rr : PrefixRegRegInst<0xB0, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "sbc", "$rd, $rs2", []>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // SBC rd, #imm — rd = rd - imm - carry
-def SBC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "sbc", "$rd, $imm", []>,
+// Encoding: E8+dst, 0xCB, imm32 (6 bytes)
+def SBC32ri : PrefixRegImmInst<0xCB, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                               "sbc", "$rd, $imm", []>,
               Sched<[WriteIALU, ReadIALU]>;
 } // Uses = [SR]
 
@@ -240,42 +254,48 @@ def SBC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
 //===----------------------------------------------------------------------===//
 
 // AND rd, rs (affects S, Z, H=1, V=parity, N=0, C=0)
+// Encoding: E8+src, 0xC0+dst (2 bytes)
 let isCommutable = 1 in
-def AND32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "and", "$rd, $rs2",
-                          [(set GPR:$rd, (and GPR:$rs1, GPR:$rs2))]>,
+def AND32rr : PrefixRegRegInst<0xC0, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "and", "$rd, $rs2",
+                               [(set GPR:$rd, (and GPR:$rs1, GPR:$rs2))]>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // AND rd, #imm
-def AND32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "and", "$rd, $imm",
-                          [(set GPR:$rd, (and GPR:$rs1, (imm):$imm))]>,
+// Encoding: E8+dst, 0xCC, imm32 (6 bytes)
+def AND32ri : PrefixRegImmInst<0xCC, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                               "and", "$rd, $imm",
+                               [(set GPR:$rd, (and GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
 // OR rd, rs (affects S, Z, H=0, V=parity, N=0, C=0)
+// Encoding: E8+src, 0xE0+dst (2 bytes)
 let isCommutable = 1 in
-def OR32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                         "or", "$rd, $rs2",
-                         [(set GPR:$rd, (or GPR:$rs1, GPR:$rs2))]>,
+def OR32rr : PrefixRegRegInst<0xE0, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                              "or", "$rd, $rs2",
+                              [(set GPR:$rd, (or GPR:$rs1, GPR:$rs2))]>,
              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // OR rd, #imm
-def OR32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                         "or", "$rd, $imm",
-                         [(set GPR:$rd, (or GPR:$rs1, (imm):$imm))]>,
+// Encoding: E8+dst, 0xCE, imm32 (6 bytes)
+def OR32ri : PrefixRegImmInst<0xCE, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                              "or", "$rd, $imm",
+                              [(set GPR:$rd, (or GPR:$rs1, (imm):$imm))]>,
              Sched<[WriteIALU, ReadIALU]>;
 
 // XOR rd, rs (affects S, Z, H=0, V=parity, N=0, C=0)
+// Encoding: E8+src, 0xD0+dst (2 bytes)
 let isCommutable = 1 in
-def XOR32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "xor", "$rd, $rs2",
-                          [(set GPR:$rd, (xor GPR:$rs1, GPR:$rs2))]>,
+def XOR32rr : PrefixRegRegInst<0xD0, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "xor", "$rd, $rs2",
+                               [(set GPR:$rd, (xor GPR:$rs1, GPR:$rs2))]>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // XOR rd, #imm
-def XOR32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "xor", "$rd, $imm",
-                          [(set GPR:$rd, (xor GPR:$rs1, (imm):$imm))]>,
+// Encoding: E8+dst, 0xCD, imm32 (6 bytes)
+def XOR32ri : PrefixRegImmInst<0xCD, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                               "xor", "$rd, $imm",
+                               [(set GPR:$rd, (xor GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
 //===----------------------------------------------------------------------===//
@@ -283,36 +303,42 @@ def XOR32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
 //===----------------------------------------------------------------------===//
 
 // SLA rd, rs — Shift Left Arithmetic (affects S, Z, H=0, V, N=0, C)
-def SLA32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "sla", "$rd, $rs2",
-                          [(set GPR:$rd, (shl GPR:$rs1, GPR:$rs2))]>,
+// Encoding: E8+rd, 0xFC (SLA A,R form — shift amount in A register)
+def SLA32rr : PrefixRegRegInst<0xFC, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "sla", "$rd, $rs2",
+                               [(set GPR:$rd, (shl GPR:$rs1, GPR:$rs2))]>,
               Sched<[WriteShift, ReadIALU, ReadShift]>;
 
 // SLA rd, #imm
-def SLA32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "sla", "$rd, $imm", []>,
+// Encoding: E8+rd, 0xEC, amt (3 bytes)
+def SLA32ri : PrefixShiftInst<0xEC, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                              "sla", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
 // SRA rd, rs — Shift Right Arithmetic (affects S, Z, H=0, V, N=0, C)
-def SRA32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "sra", "$rd, $rs2",
-                          [(set GPR:$rd, (sra GPR:$rs1, GPR:$rs2))]>,
+// Encoding: E8+rd, 0xFD (SRA A,R form)
+def SRA32rr : PrefixRegRegInst<0xFD, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "sra", "$rd, $rs2",
+                               [(set GPR:$rd, (sra GPR:$rs1, GPR:$rs2))]>,
               Sched<[WriteShift, ReadIALU, ReadShift]>;
 
 // SRA rd, #imm
-def SRA32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "sra", "$rd, $imm", []>,
+// Encoding: E8+rd, 0xED, amt (3 bytes)
+def SRA32ri : PrefixShiftInst<0xED, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                              "sra", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
 // SRL rd, rs — Shift Right Logical (affects S, Z, H=0, V, N=0, C)
-def SRL32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                          "srl", "$rd, $rs2",
-                          [(set GPR:$rd, (srl GPR:$rs1, GPR:$rs2))]>,
+// Encoding: E8+rd, 0xFF (SRL A,R form)
+def SRL32rr : PrefixRegRegInst<0xFF, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "srl", "$rd, $rs2",
+                               [(set GPR:$rd, (srl GPR:$rs1, GPR:$rs2))]>,
               Sched<[WriteShift, ReadIALU, ReadShift]>;
 
 // SRL rd, #imm
-def SRL32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "srl", "$rd, $imm", []>,
+// Encoding: E8+rd, 0xEF, amt (3 bytes)
+def SRL32ri : PrefixShiftInst<0xEF, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                              "srl", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
 } // Constraints = "$rd = $rs1", Defs = [SR]
@@ -324,46 +350,53 @@ def SRL32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
 let Constraints = "$rd = $rs1", Defs = [SR] in {
 
 // NEG rd — Negate: rd = 0 - rd (affects all flags)
-def NEG32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                         "neg", "$rd", []>,
-             Sched<[WriteIALU, ReadIALU]>;
+// Encoding: E8+rd, 0x07 (2 bytes)
+def NEG32 : PrefixUnaryInst<0x07, (outs GPR:$rd), (ins GPR:$rs1),
+                            "neg", "$rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
 
 // CPL rd — Complement (bitwise NOT): rd = ~rd (affects H=1, N=1)
-def CPL32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                         "cpl", "$rd", []>,
-             Sched<[WriteIALU, ReadIALU]>;
+// Encoding: E8+rd, 0x06 (2 bytes)
+def CPL32 : PrefixUnaryInst<0x06, (outs GPR:$rd), (ins GPR:$rs1),
+                            "cpl", "$rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
 
 // INC #n, rd — Increment by n (n = 1..8)
+// Encoding: E8+rd, 0x60+(n-1) (2 bytes)
 // Affects S, Z, H, V but NOT C (carry is preserved on hardware, but we
 // model SR as a single register so we must declare it as clobbered).
-def INC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
-                         "inc", "$n, $rd", []>,
-             Sched<[WriteIALU, ReadIALU]>;
+def INC32 : PrefixIncDecInst<0x60, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
+                             "inc", "$n, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
 
 // DEC #n, rd — Decrement by n (n = 1..8)
+// Encoding: E8+rd, 0x68+(n-1) (2 bytes)
 // Same flag behavior as INC.
-def DEC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
-                         "dec", "$n, $rd", []>,
-             Sched<[WriteIALU, ReadIALU]>;
+def DEC32 : PrefixIncDecInst<0x68, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
+                             "dec", "$n, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
 
 // EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits (affects S, Z)
-def EXTS32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                          "exts", "$rd", []>,
-              Sched<[WriteIALU, ReadIALU]>;
+// Encoding: E8+rd, 0x13 (2 bytes)
+def EXTS32 : PrefixUnaryInst<0x13, (outs GPR:$rd), (ins GPR:$rs1),
+                             "exts", "$rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
 
 // EXTZ rd — Zero extend: low 16 bits zero-extended to 32 bits (affects S, Z)
-def EXTZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                          "extz", "$rd", []>,
-              Sched<[WriteIALU, ReadIALU]>;
+// Encoding: E8+rd, 0x12 (2 bytes)
+def EXTZ32 : PrefixUnaryInst<0x12, (outs GPR:$rd), (ins GPR:$rs1),
+                             "extz", "$rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
 
 } // Constraints = "$rd = $rs1", Defs = [SR]
 
 // DAA rd — Decimal Adjust after Addition (BCD) (affects all flags)
 // Reads N and H flags from prior arithmetic to determine BCD correction.
+// Encoding: E8+rd, 0x10 (2 bytes)
 let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR] in
-def DAA32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                         "daa", "$rd", []>,
-             Sched<[WriteIALU, ReadIALU]>;
+def DAA32 : PrefixUnaryInst<0x10, (outs GPR:$rd), (ins GPR:$rs1),
+                            "daa", "$rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
 
 // Patterns for NEG and CPL
 def : Pat<(sub 0, GPR:$rs), (NEG32 GPR:$rs)>;
@@ -432,15 +465,17 @@ def : Pat<(add GPR:$rs, -8), (DEC32 GPR:$rs, 8)>;
 let Defs = [SR], isCompare = 1 in {
 
 // CP rd, rs — Compare registers (rd - rs, set flags, discard result)
-def CP32rr : TLCS900Inst<(outs), (ins GPR:$rs1, GPR:$rs2),
-                         "cp", "$rs1, $rs2",
-                         [(tlcs900_cmp GPR:$rs1, GPR:$rs2)]>,
+// Encoding: E8+rs2, 0xF0+rs1 (2 bytes)
+def CP32rr : PrefixRegRegInst<0xF0, (outs), (ins GPR:$rs1, GPR:$rs2),
+                              "cp", "$rs1, $rs2",
+                              [(tlcs900_cmp GPR:$rs1, GPR:$rs2)]>,
              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
 
 // CP rd, #imm — Compare register with immediate
-def CP32ri : TLCS900Inst<(outs), (ins GPR:$rs1, i32imm:$imm),
-                         "cp", "$rs1, $imm",
-                         [(tlcs900_cmp GPR:$rs1, (imm):$imm)]>,
+// Encoding: E8+rs1, 0xCF, imm32 (6 bytes)
+def CP32ri : PrefixRegImmInst<0xCF, 6, (outs), (ins GPR:$rs1, i32imm:$imm),
+                              "cp", "$rs1, $imm",
+                              [(tlcs900_cmp GPR:$rs1, (imm):$imm)]>,
              Sched<[WriteIALU, ReadIALU]>;
 
 } // Defs = [SR]
@@ -450,42 +485,48 @@ def CP32ri : TLCS900Inst<(outs), (ins GPR:$rs1, i32imm:$imm),
 //===----------------------------------------------------------------------===//
 
 // JP target — Unconditional branch (absolute address)
+// Encoding: 0x1C, addr24 (4 bytes)
 let isBranch = 1, isTerminator = 1, isBarrier = 1 in
-def JP : TLCS900Inst<(outs), (ins brtarget:$target),
-                     "jp", "$target",
-                     [(br bb:$target)]>,
+def JP : Branch24Inst<0x1C, (outs), (ins brtarget:$target),
+                      "jp", "$target",
+                      [(br bb:$target)]>,
          Sched<[WriteJmp]>;
 
-// JP cc, target — Conditional branch (absolute address)
+// JP cc, target — Conditional branch (emits as JRL cc, d16)
+// Encoding: 0x70+cc, d16 (3 bytes)
 let isBranch = 1, isTerminator = 1, Uses = [SR] in
-def JPcc : TLCS900Inst<(outs), (ins cc:$cc, brtarget:$target),
-                       "jp", "$cc, $target",
-                       [(tlcs900_brcond (i32 imm:$cc), bb:$target)]>,
+def JPcc : BranchCond24Inst<0x70, (outs), (ins cc:$cc, brtarget:$target),
+                            "jp", "$cc, $target",
+                            [(tlcs900_brcond (i32 imm:$cc), bb:$target)]>,
            Sched<[WriteJmp]>;
 
 // JR target — Relative jump (8-bit signed offset, shorter encoding)
+// Encoding: 0x68 (JR T), d8 (2 bytes) — T=always=8, so 0x60+8=0x68
 // No isel patterns; used by linker relaxation JP→JR when target is near.
 let isBranch = 1, isTerminator = 1, isBarrier = 1 in
-def JR : TLCS900Inst<(outs), (ins brtarget:$target),
-                     "jr", "$target", []>,
+def JR : BranchRel8Inst<0x68, (outs), (ins brtarget:$target),
+                        "jr", "$target", []>,
          Sched<[WriteJmp]>;
 
 // JR cc, target — Conditional relative jump (8-bit signed offset)
+// Encoding: 0x60+cc, d8 (2 bytes)
 let isBranch = 1, isTerminator = 1, Uses = [SR] in
-def JRcc : TLCS900Inst<(outs), (ins cc:$cc, brtarget:$target),
-                       "jr", "$cc, $target", []>,
+def JRcc : BranchRel8Inst<0x60, (outs), (ins cc:$cc, brtarget:$target),
+                          "jr", "$cc, $target", []>,
            Sched<[WriteJmp]>;
 
 // JRL target — Relative jump (16-bit signed offset)
+// Encoding: 0x78 (JRL T), d16 (3 bytes) — T=always=8, so 0x70+8=0x78
 let isBranch = 1, isTerminator = 1, isBarrier = 1 in
-def JRL : TLCS900Inst<(outs), (ins brtarget:$target),
-                      "jrl", "$target", []>,
+def JRL : BranchRel16Inst<0x78, (outs), (ins brtarget:$target),
+                          "jrl", "$target", []>,
           Sched<[WriteJmp]>;
 
 // JRL cc, target — Conditional relative jump (16-bit signed offset)
+// Encoding: 0x70+cc, d16 (3 bytes)
 let isBranch = 1, isTerminator = 1, Uses = [SR] in
-def JRLcc : TLCS900Inst<(outs), (ins cc:$cc, brtarget:$target),
-                        "jrl", "$cc, $target", []>,
+def JRLcc : BranchRel16Inst<0x70, (outs), (ins cc:$cc, brtarget:$target),
+                            "jrl", "$cc, $target", []>,
             Sched<[WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
@@ -495,22 +536,25 @@ def JRLcc : TLCS900Inst<(outs), (ins cc:$cc, brtarget:$target),
 let isCall = 1 in {
 
 // CALL target — Direct function call
-def CALL : TLCS900Inst<(outs), (ins i32imm:$target),
-                       "call", "$target",
-                       [(tlcs900_call tglobaladdr:$target)]>,
+// Encoding: 0x1D, addr24 (4 bytes)
+def CALL : Call24Inst<0x1D, (outs), (ins i32imm:$target),
+                      "call", "$target",
+                      [(tlcs900_call tglobaladdr:$target)]>,
            Sched<[WriteJmp]>;
 
 // CALL (rs) — Indirect function call through register
-def CALL_r : TLCS900Inst<(outs), (ins GPR:$target),
-                          "call", "(${target})",
-                          [(tlcs900_call GPR:$target)]>,
-              Sched<[WriteJmp]>;
+// Encoding: mem_prefix(0xB0+rs), 0x1F (2 bytes)
+def CALL_r : CallIndirectInst<0x1F, (outs), (ins GPR:$target),
+                              "call", "(${target})",
+                              [(tlcs900_call GPR:$target)]>,
+             Sched<[WriteJmp]>;
 
 // CALR target — Relative call (16-bit signed offset, shorter encoding)
+// Encoding: 0x1E, d16 (3 bytes)
 // No isel patterns; used by linker relaxation CALL→CALR when target is near.
-def CALR : TLCS900Inst<(outs), (ins i32imm:$target),
-                        "calr", "$target", []>,
-            Sched<[WriteJmp]>;
+def CALR : CallRel16Inst<0x1E, (outs), (ins i32imm:$target),
+                         "calr", "$target", []>,
+           Sched<[WriteJmp]>;
 
 } // isCall = 1
 
@@ -521,10 +565,11 @@ def : Pat<(tlcs900_call texternalsym:$target), (CALL texternalsym:$target)>;
 //===----------------------------------------------------------------------===//
 
 // RET — Return from subroutine
+// Encoding: 0x0E (1 byte)
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
-def RET : TLCS900Inst<(outs), (ins),
-                      "ret", "",
-                      [(tlcs900_ret)]>,
+def RET : SingleByteInst<0x0E, (outs), (ins),
+                         "ret", "",
+                         [(tlcs900_ret)]>,
           Sched<[WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
@@ -535,15 +580,17 @@ def RET : TLCS900Inst<(outs), (ins),
 let Defs = [XSP], Uses = [XSP], hasSideEffects = 0 in {
 
 // PUSH rs — Push 32-bit register to stack (pre-decrement SP, store)
+// Encoding: 0x48+r (1 byte)
 let mayStore = 1 in
-def PUSH32 : TLCS900Inst<(outs), (ins GPR:$rs),
-                         "push", "$rs", []>,
+def PUSH32 : SingleByteRegInst<0x48, (outs), (ins GPR:$rs),
+                               "push", "$rs", []>,
              Sched<[WritePush]>;
 
 // POP rd — Pop 32-bit register from stack (load, post-increment SP)
+// Encoding: 0x58+r (1 byte)
 let mayLoad = 1 in
-def POP32 : TLCS900Inst<(outs GPR:$rd), (ins),
-                        "pop", "$rd", []>,
+def POP32 : SingleByteRegInst<0x58, (outs GPR:$rd), (ins),
+                              "pop", "$rd", []>,
             Sched<[WritePop]>;
 
 } // Defs = [XSP], Uses = [XSP], hasSideEffects
@@ -589,34 +636,46 @@ def SCC32 : TLCS900Inst<(outs GPR:$rd), (ins cc:$cc),
 //===----------------------------------------------------------------------===//
 
 // NOP — No operation (safe to remove)
+// Encoding: 0x00 (1 byte)
 let hasSideEffects = 0 in
-def NOP : TLCS900Inst<(outs), (ins), "nop", "", []>,
+def NOP : SingleByteInst<0x00, (outs), (ins), "nop", "", []>,
           Sched<[WriteNop]>;
 
 // HALT — Halt CPU until interrupt
-def HALT : TLCS900Inst<(outs), (ins), "halt", "", []>,
+// Encoding: 0x06 (1 byte)
+def HALT : SingleByteInst<0x06, (outs), (ins), "halt", "", []>,
            Sched<[WriteNop]>;
 
 // DI — Disable interrupts
-def DI : TLCS900Inst<(outs), (ins), "di", "", []>,
+// Encoding: 0x07 (1 byte)
+def DI : SingleByteInst<0x07, (outs), (ins), "di", "", []>,
          Sched<[WriteNop]>;
 
 // EI — Enable interrupts (with level)
-def EI : TLCS900Inst<(outs), (ins i32imm:$level), "ei", "$level", []>,
+// Encoding: 0x08+level (1 byte, level encoded in bits 0-2)
+// Using SingleByteImm8 as a close approximation; encoder handles specially.
+def EI : SingleByteImm8Inst<0x08, (outs), (ins i32imm:$level),
+                            "ei", "$level", []>,
          Sched<[WriteNop]>;
 
 // SWI — Software interrupt (with vector number)
-def SWI : TLCS900Inst<(outs), (ins i32imm:$num), "swi", "$num", []>,
+// Encoding: 0xF8+num (1 byte, num in bits 0-2)
+// Using SingleByteImm8 as approximation; encoder emits 0xF8+num as 1 byte.
+def SWI : SingleByteImm8Inst<0xF8, (outs), (ins i32imm:$num),
+                             "swi", "$num", []>,
           Sched<[WriteJmp]>;
 
 // RETI — Return from interrupt
+// Encoding: 0x07 0xFE (2 bytes — TBD, placeholder)
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
-def RETI : TLCS900Inst<(outs), (ins), "reti", "", []>,
+def RETI : SingleByteInst<0x0B, (outs), (ins), "reti", "", []>,
            Sched<[WriteJmp]>;
 
 // RETD — Return and deallocate stack space
+// Encoding: 0x0F, d16 (3 bytes)
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
-def RETD : TLCS900Inst<(outs), (ins i32imm:$imm), "retd", "$imm", []>,
+def RETD : SingleByteImm8Inst<0x0F, (outs), (ins i32imm:$imm),
+                              "retd", "$imm", []>,
            Sched<[WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
@@ -627,24 +686,28 @@ def RETD : TLCS900Inst<(outs), (ins i32imm:$imm), "retd", "$imm", []>,
 let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR], hasSideEffects = 0 in {
 
 // RLC rd — Rotate left through carry (1 bit)
-def RLC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                          "rlc", "$rd", []>,
-             Sched<[WriteShift, ReadIALU]>;
+// Encoding: E8+rd, 0xE8, 0x01 (3 bytes)
+def RLC32 : PrefixRotateInst<0xE8, (outs GPR:$rd), (ins GPR:$rs1),
+                             "rlc", "$rd", []>,
+            Sched<[WriteShift, ReadIALU]>;
 
 // RRC rd — Rotate right through carry (1 bit)
-def RRC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                          "rrc", "$rd", []>,
-             Sched<[WriteShift, ReadIALU]>;
+// Encoding: E8+rd, 0xE9, 0x01 (3 bytes)
+def RRC32 : PrefixRotateInst<0xE9, (outs GPR:$rd), (ins GPR:$rs1),
+                             "rrc", "$rd", []>,
+            Sched<[WriteShift, ReadIALU]>;
 
 // RL rd — Rotate left (9-bit rotation through carry)
-def RL32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                         "rl", "$rd", []>,
-            Sched<[WriteShift, ReadIALU]>;
+// Encoding: E8+rd, 0xEA, 0x01 (3 bytes)
+def RL32 : PrefixRotateInst<0xEA, (outs GPR:$rd), (ins GPR:$rs1),
+                            "rl", "$rd", []>,
+           Sched<[WriteShift, ReadIALU]>;
 
 // RR rd — Rotate right (9-bit rotation through carry)
-def RR32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                         "rr", "$rd", []>,
-            Sched<[WriteShift, ReadIALU]>;
+// Encoding: E8+rd, 0xEB, 0x01 (3 bytes)
+def RR32 : PrefixRotateInst<0xEB, (outs GPR:$rd), (ins GPR:$rs1),
+                            "rr", "$rd", []>,
+           Sched<[WriteShift, ReadIALU]>;
 
 } // Constraints, Defs, Uses
 
@@ -653,33 +716,38 @@ def RR32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
 //===----------------------------------------------------------------------===//
 
 // BIT #bit, rd — Test bit (set Z flag; effect captured by Defs)
+// Encoding: E8+rs, 0x33, bit_num (3 bytes)
 let Defs = [SR], hasSideEffects = 0 in
-def BIT32 : TLCS900Inst<(outs), (ins i32imm:$bit, GPR:$rs),
-                         "bit", "$bit, $rs", []>,
+def BIT32 : PrefixBitInst<0x33, (outs), (ins i32imm:$bit, GPR:$rs),
+                          "bit", "$bit, $rs", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // SET #bit, rd — Set bit (pure computation on register)
+// Encoding: E8+rd, 0x31, bit_num (3 bytes)
 let Constraints = "$rd = $rs1", hasSideEffects = 0 in
-def SET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
-                         "set", "$bit, $rd", []>,
+def SET32 : PrefixBitInst<0x31, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                          "set", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // RES #bit, rd — Reset (clear) bit (pure computation on register)
+// Encoding: E8+rd, 0x30, bit_num (3 bytes)
 let Constraints = "$rd = $rs1", hasSideEffects = 0 in
-def RES32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
-                         "res", "$bit, $rd", []>,
+def RES32 : PrefixBitInst<0x30, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                          "res", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // CHG #bit, rd — Change (toggle) bit (pure computation on register)
+// Encoding: E8+rd, 0x32, bit_num (3 bytes)
 let Constraints = "$rd = $rs1", hasSideEffects = 0 in
-def CHG32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
-                         "chg", "$bit, $rd", []>,
+def CHG32 : PrefixBitInst<0x32, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                          "chg", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // TSET #bit, rd — Test and set bit (set Z flag, then set the bit)
+// Encoding: E8+rd, 0x34, bit_num (3 bytes)
 let Constraints = "$rd = $rs1", Defs = [SR], hasSideEffects = 0 in
-def TSET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
-                          "tset", "$bit, $rd", []>,
+def TSET32 : PrefixBitInst<0x34, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                           "tset", "$bit, $rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
 //===----------------------------------------------------------------------===//
@@ -687,10 +755,11 @@ def TSET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
 //===----------------------------------------------------------------------===//
 
 // EX rd, rs — Exchange contents of two registers (no side effects)
+// Encoding: E8+rs, 0xB8+rd (2 bytes) — using LD R,C form variant
 let Constraints = "$rd_out = $rd_in, $rs_out = $rs_in", hasSideEffects = 0 in
-def EX32 : TLCS900Inst<(outs GPR:$rd_out, GPR:$rs_out),
-                        (ins GPR:$rd_in, GPR:$rs_in),
-                        "ex", "$rd_out, $rs_out", []>,
+def EX32 : PrefixRegRegInst<0xB8, (outs GPR:$rd_out, GPR:$rs_out),
+                            (ins GPR:$rd_in, GPR:$rs_in),
+                            "ex", "$rd_out, $rs_out", []>,
            Sched<[WriteIALU]>;
 
 //===----------------------------------------------------------------------===//
@@ -698,9 +767,10 @@ def EX32 : TLCS900Inst<(outs GPR:$rd_out, GPR:$rs_out),
 //===----------------------------------------------------------------------===//
 
 // LDA rd, (base+disp) — Load effective address into register (pure computation)
+// Encoding: mem_prefix + 0x20+rd (uses MemLoad format with LDA opcode)
 let hasSideEffects = 0, isReMaterializable = 1 in
-def LDA32 : TLCS900Inst<(outs GPR:$rd), (ins MEMri:$addr),
-                         "lda", "$rd, $addr", []>,
+def LDA32 : MemLoadInst<0x20, 4, (outs GPR:$rd), (ins MEMri:$addr),
+                        "lda", "$rd, $addr", []>,
             Sched<[WriteIALU]>;
 
 //===----------------------------------------------------------------------===//
@@ -708,9 +778,10 @@ def LDA32 : TLCS900Inst<(outs GPR:$rd), (ins MEMri:$addr),
 //===----------------------------------------------------------------------===//
 
 // DJNZ rd, target — Decrement and jump if not zero (modifies flags)
+// Encoding: E8+rd, 0x1C, d8 (3 bytes)
 let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR] in
-def DJNZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
-                          "djnz", "$rd, $target", []>,
+def DJNZ32 : PrefixDJNZInst<0x1C, (outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
+                             "djnz", "$rd, $target", []>,
              Sched<[WriteIALU, WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
@@ -721,28 +792,28 @@ def DJNZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
 let Defs = [SR], mayLoad = 1, mayStore = 1 in {
 
 // ADD (mem), rs — Add register to memory location (read-modify-write)
-def ADD32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                           "add", "$addr, $rs", []>,
+def ADD32mr : MemALUInst<0x80, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                         "add", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // SUB (mem), rs — Subtract register from memory location (read-modify-write)
-def SUB32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                           "sub", "$addr, $rs", []>,
+def SUB32mr : MemALUInst<0xA0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                         "sub", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // AND (mem), rs — AND register with memory location (read-modify-write)
-def AND32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                           "and", "$addr, $rs", []>,
+def AND32mr : MemALUInst<0xC0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                         "and", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // OR (mem), rs — OR register with memory location (read-modify-write)
-def OR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                          "or", "$addr, $rs", []>,
+def OR32mr : MemALUInst<0xE0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                        "or", "$addr, $rs", []>,
              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // XOR (mem), rs — XOR register with memory location (read-modify-write)
-def XOR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                           "xor", "$addr, $rs", []>,
+def XOR32mr : MemALUInst<0xD0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                         "xor", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 } // Defs = [SR], mayLoad, mayStore
@@ -751,15 +822,15 @@ def XOR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
 let Defs = [SR], isCompare = 1 in {
 
 // CP (mem), rs — Compare memory with register (folds load into compare)
-def CP32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                          "cp", "$addr, $rs",
-                          [(tlcs900_cmp (load addr:$addr), GPR:$rs)]>,
+def CP32mr : MemALUInst<0xF0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                        "cp", "$addr, $rs",
+                        [(tlcs900_cmp (load addr:$addr), GPR:$rs)]>,
              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
 
 // CP (mem), #imm — Compare memory with immediate (folds load into compare)
-def CP32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
-                          "cp", "$addr, $imm",
-                          [(tlcs900_cmp (i32 (load addr:$addr)), (i32 (imm):$imm))]>,
+def CP32mi : MemALUInst<0xCF, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
+                        "cp", "$addr, $imm",
+                        [(tlcs900_cmp (i32 (load addr:$addr)), (i32 (imm):$imm))]>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 } // Defs = [SR]
@@ -768,13 +839,13 @@ def CP32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
 let Defs = [SR], mayLoad = 1, mayStore = 1 in {
 
 // ADD (mem), #imm — Add immediate to memory location (read-modify-write)
-def ADD32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
-                           "add", "$addr, $imm", []>,
+def ADD32mi : MemALUInst<0xC8, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
+                         "add", "$addr, $imm", []>,
               Sched<[WriteSTW, ReadMemBase]>;
 
 // SUB (mem), #imm — Subtract immediate from memory location (read-modify-write)
-def SUB32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
-                           "sub", "$addr, $imm", []>,
+def SUB32mi : MemALUInst<0xCA, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
+                         "sub", "$addr, $imm", []>,
               Sched<[WriteSTW, ReadMemBase]>;
 
 } // Defs = [SR], mayLoad, mayStore
@@ -795,23 +866,27 @@ def SUB32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
 let Constraints = "$rd = $rs1", Defs = [SR] in {
 
 // MUL rr, rs — Unsigned multiply: result in next-wider register
-def MUL32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                           "mul", "$rd, $rs2", []>,
+// Encoding: E8+dst, 0x08, src_prefix (3 bytes)
+def MUL32rr : PrefixMulDivInst<0x08, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "mul", "$rd, $rs2", []>,
               Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
 // MULS rr, rs — Signed multiply
-def MULS32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                            "muls", "$rd, $rs2", []>,
+// Encoding: E8+dst, 0x09, src_prefix (3 bytes)
+def MULS32rr : PrefixMulDivInst<0x09, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                                "muls", "$rd, $rs2", []>,
                Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
 // DIV rr, rs — Unsigned divide
-def DIV32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                           "div", "$rd, $rs2", []>,
+// Encoding: E8+dst, 0x0A, src_prefix (3 bytes)
+def DIV32rr : PrefixMulDivInst<0x0A, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                               "div", "$rd, $rs2", []>,
               Sched<[WriteIDiv, ReadIALU, ReadIALU]>;
 
 // DIVS rr, rs — Signed divide
-def DIVS32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                            "divs", "$rd, $rs2", []>,
+// Encoding: E8+dst, 0x0B, src_prefix (3 bytes)
+def DIVS32rr : PrefixMulDivInst<0x0B, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                                "divs", "$rd, $rs2", []>,
                Sched<[WriteIDiv, ReadIALU, ReadIALU]>;
 
 } // Constraints, Defs = [SR]
@@ -822,22 +897,22 @@ def DIVS32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 
 // LDI — Load and increment: (XDE) ← (XHL), XDE++, XHL++, XBC--
 let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
-def LDI : TLCS900Inst<(outs), (ins), "ldi", "", []>,
+def LDI : BlockTransferInst<0x10, (outs), (ins), "ldi", "", []>,
           Sched<[WriteSTW]>;
 
 // LDIR — Load, increment, repeat: LDI until XBC == 0
 let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
-def LDIR : TLCS900Inst<(outs), (ins), "ldir", "", []>,
+def LDIR : BlockTransferInst<0x11, (outs), (ins), "ldir", "", []>,
            Sched<[WriteSTW]>;
 
 // LDD — Load and decrement: (XDE) ← (XHL), XDE--, XHL--, XBC--
 let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
-def LDD : TLCS900Inst<(outs), (ins), "ldd", "", []>,
+def LDD : BlockTransferInst<0x12, (outs), (ins), "ldd", "", []>,
           Sched<[WriteSTW]>;
 
 // LDDR — Load, decrement, repeat: LDD until XBC == 0
 let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
-def LDDR : TLCS900Inst<(outs), (ins), "lddr", "", []>,
+def LDDR : BlockTransferInst<0x13, (outs), (ins), "lddr", "", []>,
            Sched<[WriteSTW]>;
 
 //===----------------------------------------------------------------------===//
@@ -882,20 +957,20 @@ def : Pat<(xor GPR:$rs, IsPow2_32:$mask), (CHG32 (Log2_32 $mask), GPR:$rs)>;
 
 // CPI — Compare and increment: compare A with (XHL), XHL++, XBC--
 let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
-def CPI : TLCS900Inst<(outs), (ins), "cpi", "", []>,
+def CPI : BlockTransferInst<0x14, (outs), (ins), "cpi", "", []>,
           Sched<[WriteIALU]>;
 
 // CPIR — Compare, increment, repeat: CPI until match or XBC == 0
 let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
-def CPIR : TLCS900Inst<(outs), (ins), "cpir", "", []>,
+def CPIR : BlockTransferInst<0x15, (outs), (ins), "cpir", "", []>,
            Sched<[WriteIALU]>;
 
 // CPD — Compare and decrement: compare A with (XHL), XHL--, XBC--
 let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
-def CPD : TLCS900Inst<(outs), (ins), "cpd", "", []>,
+def CPD : BlockTransferInst<0x16, (outs), (ins), "cpd", "", []>,
           Sched<[WriteIALU]>;
 
 // CPDR — Compare, decrement, repeat: CPD until match or XBC == 0
 let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
-def CPDR : TLCS900Inst<(outs), (ins), "cpdr", "", []>,
+def CPDR : BlockTransferInst<0x17, (outs), (ins), "cpdr", "", []>,
            Sched<[WriteIALU]>;
