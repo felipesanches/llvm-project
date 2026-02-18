@@ -36,16 +36,16 @@ using namespace llvm;
 
 static unsigned mapISDCCtoTLCS900CC(ISD::CondCode CC) {
   switch (CC) {
-  case ISD::SETEQ:  return TLCS900CC::COND_Z;
-  case ISD::SETNE:  return TLCS900CC::COND_NZ;
-  case ISD::SETLT:  return TLCS900CC::COND_LT;
-  case ISD::SETLE:  return TLCS900CC::COND_LE;
-  case ISD::SETGT:  return TLCS900CC::COND_GT;
-  case ISD::SETGE:  return TLCS900CC::COND_GE;
-  case ISD::SETULT: return TLCS900CC::COND_ULT;
-  case ISD::SETULE: return TLCS900CC::COND_ULE;
-  case ISD::SETUGT: return TLCS900CC::COND_UGT;
-  case ISD::SETUGE: return TLCS900CC::COND_UGE;
+  case ISD::SETEQ:  return TLCS900CC::COND_Z;    // 6
+  case ISD::SETNE:  return TLCS900CC::COND_NZ;   // 14
+  case ISD::SETLT:  return TLCS900CC::COND_LT;   // 1
+  case ISD::SETLE:  return TLCS900CC::COND_LE;   // 2
+  case ISD::SETGT:  return TLCS900CC::COND_GT;   // 10
+  case ISD::SETGE:  return TLCS900CC::COND_GE;   // 9
+  case ISD::SETULT: return TLCS900CC::COND_C;    // 7 (carry = unsigned <)
+  case ISD::SETULE: return TLCS900CC::COND_ULE;  // 3
+  case ISD::SETUGT: return TLCS900CC::COND_UGT;  // 11
+  case ISD::SETUGE: return TLCS900CC::COND_NC;   // 15 (no carry = unsigned >=)
   default: llvm_unreachable("Unsupported ISD condition code");
   }
 }

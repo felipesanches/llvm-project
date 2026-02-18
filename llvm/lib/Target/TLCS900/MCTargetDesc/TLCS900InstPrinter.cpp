@@ -81,8 +81,8 @@ void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
 void TLCS900InstPrinter::printCondCode(const MCInst *MI, unsigned OpNo,
                                         raw_ostream &O) {
   static const char *const CondNames[] = {
-    "f", "lt", "le", "ult", "ule", "pe", "mi", "z",
-    "t", "ge", "gt", "uge", "ugt", "po", "pl", "nz"
+    "f", "lt", "le", "ule", "ov", "mi", "z", "c",
+    "t", "ge", "gt", "ugt", "nov", "pl", "nz", "nc"
   };
   unsigned CC = MI->getOperand(OpNo).getImm();
   assert(CC < 16 && "Invalid condition code");

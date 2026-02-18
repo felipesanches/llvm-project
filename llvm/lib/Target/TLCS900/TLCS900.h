@@ -23,25 +23,25 @@ namespace llvm {
 
   void initializeTLCS900DAGToDAGISelLegacyPass(PassRegistry &);
 
-  // TLCS900 condition codes (matching hardware encoding).
+  // TLCS900 condition codes (matching hardware encoding from MAME/Toshiba docs).
   namespace TLCS900CC {
   enum CondCode {
     COND_F   = 0,   // False (never)
     COND_LT  = 1,   // Less than (signed)
     COND_LE  = 2,   // Less than or equal (signed)
-    COND_ULT = 3,   // Unsigned less than (carry)
-    COND_ULE = 4,   // Unsigned less than or equal
-    COND_PE  = 5,   // Parity even (overflow)
-    COND_MI  = 6,   // Minus (negative)
-    COND_Z   = 7,   // Zero (equal)
+    COND_ULE = 3,   // Unsigned less than or equal
+    COND_OV  = 4,   // Overflow
+    COND_MI  = 5,   // Minus (negative)
+    COND_Z   = 6,   // Zero (equal)
+    COND_C   = 7,   // Carry (unsigned less than)
     COND_T   = 8,   // True (always)
     COND_GE  = 9,   // Greater than or equal (signed)
     COND_GT  = 10,  // Greater than (signed)
-    COND_UGE = 11,  // Unsigned greater than or equal
-    COND_UGT = 12,  // Unsigned greater than
-    COND_PO  = 13,  // Parity odd (no overflow)
-    COND_PL  = 14,  // Plus (positive or zero)
-    COND_NZ  = 15,  // Not zero (not equal)
+    COND_UGT = 11,  // Unsigned greater than
+    COND_NOV = 12,  // No overflow
+    COND_PL  = 13,  // Plus (positive or zero)
+    COND_NZ  = 14,  // Not zero (not equal)
+    COND_NC  = 15,  // No carry (unsigned greater than or equal)
   };
   } // namespace TLCS900CC
 
