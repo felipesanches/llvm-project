@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "MCTargetDesc/TLCS900FixupKinds.h"
 #include "MCTargetDesc/TLCS900MCTargetDesc.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCELFObjectWriter.h"
@@ -46,6 +47,16 @@ unsigned TLCS900ELFObjectWriter::getRelocType(MCContext &Ctx,
     return IsPCRel ? ELF::R_TLCS900_PC16 : ELF::R_TLCS900_LO16;
   case FK_Data_1:
     return ELF::R_TLCS900_NONE;
+  case TLCS900::fixup_tlcs900_24:
+    return ELF::R_TLCS900_32;
+  case TLCS900::fixup_tlcs900_rel8:
+    return ELF::R_TLCS900_PC16;
+  case TLCS900::fixup_tlcs900_rel16:
+    return ELF::R_TLCS900_PC16;
+  case TLCS900::fixup_tlcs900_disp8:
+    return ELF::R_TLCS900_NONE;
+  case TLCS900::fixup_tlcs900_disp16:
+    return ELF::R_TLCS900_LO16;
   }
 }
 
