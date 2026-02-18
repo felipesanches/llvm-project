@@ -251,20 +251,14 @@ SDValue TLCS900TargetLowering::LowerSETCC(SDValue Op,
 MachineBasicBlock *
 TLCS900TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                     MachineBasicBlock *BB) const {
-  assert(MI.getOpcode() == TLCS900::Select32 &&
+  assert((MI.getOpcode() == TLCS900::Select32 ||
+          MI.getOpcode() == TLCS900::SCC32) &&
          "Unexpected instr type to insert");
 
   const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
 
-  // To "insert" a SELECT_CC instruction, we actually have to insert the
-  // diamond control-flow pattern. The incoming instruction knows the
-  // destination vreg to set, the condition code register to branch on,
-  // the true/false values to select between, and a branch opcode to use.
-
-  const BasicBlock *LLVM_BB = BB->getBasicBlock();
-  MachineFunction::iterator I = ++BB->getIterator();
-
+  // Both Select32 and SCC32 are expanded into a diamond control-flow pattern:
   //  ThisMBB:
   //   ...
   //   jp CC, SinkMBB
@@ -274,6 +268,9 @@ TLCS900TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   //   fallthrough to SinkMBB
   //  SinkMBB:
   //   %result = phi [ %trueVal, ThisMBB ], [ %falseVal, FalseMBB ]
+
+  const BasicBlock *LLVM_BB = BB->getBasicBlock();
+  MachineFunction::iterator I = ++BB->getIterator();
 
   MachineBasicBlock *ThisMBB = BB;
   MachineFunction *F = BB->getParent();
@@ -291,8 +288,35 @@ TLCS900TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   BB->addSuccessor(SinkMBB);
   FalseMBB->addSuccessor(SinkMBB);
 
+  Register DstReg = MI.getOperand(0).getReg();
+  Register TrueReg, FalseReg;
+  unsigned CC;
+
+  if (MI.getOpcode() == TLCS900::SCC32) {
+    // SCC32: operands are (rd, cc)
+    // Materialize 1 (true) and 0 (false) into virtual registers.
+    MachineRegisterInfo &MRI = F->getRegInfo();
+    const TargetRegisterClass *RC = MRI.getRegClass(DstReg);
+
+    TrueReg = MRI.createVirtualRegister(RC);
+    FalseReg = MRI.createVirtualRegister(RC);
+
+    // ThisMBB: ld trueReg, 1
+    BuildMI(BB, DL, TII.get(TLCS900::LD32ri), TrueReg).addImm(1);
+
+    // FalseMBB: ld falseReg, 0
+    BuildMI(*FalseMBB, FalseMBB->end(), DL, TII.get(TLCS900::LD32ri), FalseReg)
+        .addImm(0);
+
+    CC = MI.getOperand(1).getImm();
+  } else {
+    // Select32: operands are (rd, trueVal, falseVal, cc)
+    TrueReg = MI.getOperand(1).getReg();
+    FalseReg = MI.getOperand(2).getReg();
+    CC = MI.getOperand(3).getImm();
+  }
+
   // Insert conditional branch: if CC is true, jump to SinkMBB (use trueVal)
-  unsigned CC = MI.getOperand(3).getImm();
   BuildMI(BB, DL, TII.get(TLCS900::JPcc))
       .addImm(CC)
       .addMBB(SinkMBB);
@@ -300,11 +324,10 @@ TLCS900TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   // FalseMBB just falls through to SinkMBB (no instruction needed)
 
   // SinkMBB: insert PHI
-  BuildMI(*SinkMBB, SinkMBB->begin(), DL, TII.get(TLCS900::PHI),
-          MI.getOperand(0).getReg())
-      .addReg(MI.getOperand(1).getReg()) // trueVal
+  BuildMI(*SinkMBB, SinkMBB->begin(), DL, TII.get(TLCS900::PHI), DstReg)
+      .addReg(TrueReg)
       .addMBB(ThisMBB)
-      .addReg(MI.getOperand(2).getReg()) // falseVal
+      .addReg(FalseReg)
       .addMBB(FalseMBB);
 
   MI.eraseFromParent();

@@ -1,11 +1,14 @@
 ; RUN: llc -mtriple=tlcs900 < %s | FileCheck %s
 
-; Test SETCC lowering to CP + SCC (branchless boolean)
+; Test SETCC lowering to CP + branch-based boolean materialization
+; SCC32 pseudo is expanded to: ld 1 / jp cc / ld 0 / PHI
 
 define i32 @eq(i32 %a, i32 %b) {
 ; CHECK-LABEL: eq:
 ; CHECK: cp
-; CHECK: scc z
+; CHECK: ld {{.*}}, 1
+; CHECK: jp z,
+; CHECK: ld {{.*}}, 0
   %cmp = icmp eq i32 %a, %b
   %r = zext i1 %cmp to i32
   ret i32 %r
@@ -14,7 +17,9 @@ define i32 @eq(i32 %a, i32 %b) {
 define i32 @ne(i32 %a, i32 %b) {
 ; CHECK-LABEL: ne:
 ; CHECK: cp
-; CHECK: scc nz
+; CHECK: ld {{.*}}, 1
+; CHECK: jp nz,
+; CHECK: ld {{.*}}, 0
   %cmp = icmp ne i32 %a, %b
   %r = zext i1 %cmp to i32
   ret i32 %r
@@ -23,7 +28,9 @@ define i32 @ne(i32 %a, i32 %b) {
 define i32 @slt(i32 %a, i32 %b) {
 ; CHECK-LABEL: slt:
 ; CHECK: cp
-; CHECK: scc lt
+; CHECK: ld {{.*}}, 1
+; CHECK: jp lt,
+; CHECK: ld {{.*}}, 0
   %cmp = icmp slt i32 %a, %b
   %r = zext i1 %cmp to i32
   ret i32 %r
@@ -32,7 +39,9 @@ define i32 @slt(i32 %a, i32 %b) {
 define i32 @sge(i32 %a, i32 %b) {
 ; CHECK-LABEL: sge:
 ; CHECK: cp
-; CHECK: scc ge
+; CHECK: ld {{.*}}, 1
+; CHECK: jp ge,
+; CHECK: ld {{.*}}, 0
   %cmp = icmp sge i32 %a, %b
   %r = zext i1 %cmp to i32
   ret i32 %r
@@ -41,7 +50,9 @@ define i32 @sge(i32 %a, i32 %b) {
 define i32 @ult(i32 %a, i32 %b) {
 ; CHECK-LABEL: ult:
 ; CHECK: cp
-; CHECK: scc c
+; CHECK: ld {{.*}}, 1
+; CHECK: jp c,
+; CHECK: ld {{.*}}, 0
   %cmp = icmp ult i32 %a, %b
   %r = zext i1 %cmp to i32
   ret i32 %r
@@ -50,7 +61,9 @@ define i32 @ult(i32 %a, i32 %b) {
 define i32 @uge(i32 %a, i32 %b) {
 ; CHECK-LABEL: uge:
 ; CHECK: cp
-; CHECK: scc nc
+; CHECK: ld {{.*}}, 1
+; CHECK: jp nc,
+; CHECK: ld {{.*}}, 0
   %cmp = icmp uge i32 %a, %b
   %r = zext i1 %cmp to i32
   ret i32 %r
@@ -60,7 +73,9 @@ define i32 @uge(i32 %a, i32 %b) {
 define i32 @setcc_add(i32 %a, i32 %b, i32 %c) {
 ; CHECK-LABEL: setcc_add:
 ; CHECK: cp
-; CHECK: scc
+; CHECK: ld {{.*}}, 1
+; CHECK: jp
+; CHECK: ld {{.*}}, 0
 ; CHECK: add
   %cmp = icmp eq i32 %a, %b
   %ext = zext i1 %cmp to i32

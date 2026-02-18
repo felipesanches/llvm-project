@@ -630,7 +630,7 @@ def Select32 : Pseudo<(outs GPR:$rd),
 
 // SCC cc, rd — Set register to 1 if condition true, 0 otherwise
 // Used by SETCC lowering: CMP → SCC produces branchless boolean result.
-let Uses = [SR], hasSideEffects = 0 in
+let Uses = [SR], hasSideEffects = 0, usesCustomInserter = 1 in
 def SCC32 : TLCS900Inst<(outs GPR:$rd), (ins cc:$cc),
                          "scc", "$cc, $rd",
                          [(set GPR:$rd, (tlcs900_scc (i32 imm:$cc)))]>,
