@@ -436,7 +436,7 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     case CCValAssign::ZExt:
       Arg = DAG.getNode(ISD::ZERO_EXTEND, DL, VA.getLocVT(), Arg);
       break;
-    case CCValAssign::AnyExt:
+    case CCValAssign::AExt:
       Arg = DAG.getNode(ISD::ANY_EXTEND, DL, VA.getLocVT(), Arg);
       break;
     }
