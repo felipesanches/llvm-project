@@ -11,11 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "TLCS900AsmBackend.h"
+#include "TLCS900MCTargetDesc.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCFixupKindInfo.h"
+#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCValue.h"
+#include "llvm/MC/TargetRegistry.h"
 
 using namespace llvm;
 
