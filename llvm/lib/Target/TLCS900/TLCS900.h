@@ -19,6 +19,7 @@
 
 namespace llvm {
   class FunctionPass;
+  class PassRegistry;
 
   // Declare functions to create passes here!
 
