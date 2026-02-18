@@ -122,39 +122,6 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeRegPrefix(MCInst &MI, ui
   case 0x13: // EXTS
     return decodePrefixUnary(MI, Size, TLCS900::EXTS32, Reg);
 
-  // MUL/MULS/DIV/DIVS: prefix(dst) + opcode + prefix(src) — 3 bytes
-  case 0x08:
-  case 0x09:
-  case 0x0A:
-  case 0x0B: {
-    if (Bytes.size() < 3)
-      return MCDisassembler::Fail;
-    unsigned SrcReg = decodeGPR(Bytes[2] & 0x7);
-    unsigned Opc;
-    switch (SecondByte) {
-    case 0x08:
-      Opc = TLCS900::MUL32rr;
-      break;
-    case 0x09:
-      Opc = TLCS900::MULS32rr;
-      break;
-    case 0x0A:
-      Opc = TLCS900::DIV32rr;
-      break;
-    case 0x0B:
-      Opc = TLCS900::DIVS32rr;
-      break;
-    default:
-      llvm_unreachable("handled above");
-    }
-    MI.setOpcode(Opc);
-    MI.addOperand(MCOperand::createReg(Reg));
-    MI.addOperand(MCOperand::createReg(Reg));
-    MI.addOperand(MCOperand::createReg(SrcReg));
-    Size = 3;
-    return MCDisassembler::Success;
-  }
-
   // DJNZ: prefix(rd) + 0x1C + d8 — 3 bytes
   case 0x1C: {
     if (Bytes.size() < 3)

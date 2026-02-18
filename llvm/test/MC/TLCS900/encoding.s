@@ -185,24 +185,6 @@ bit 5, xhl
 ; CHECK: tset 1, xwa     ; encoding: [0xe8,0x34,0x01]
 tset 1, xwa
 
-; === Multiply/Divide instructions (PrefixMulDiv: dst_prefix + opc + src_prefix) ===
-
-; MUL rd, rs: E8+dst, 0x08, E8+src
-; CHECK: mul xwa, xbc    ; encoding: [0xe8,0x08,0xe9]
-mul xwa, xbc
-
-; MULS rd, rs: E8+dst, 0x09, E8+src
-; CHECK: muls xde, xhl   ; encoding: [0xea,0x09,0xeb]
-muls xde, xhl
-
-; DIV rd, rs: E8+dst, 0x0A, E8+src
-; CHECK: div xbc, xwa    ; encoding: [0xe9,0x0a,0xe8]
-div xbc, xwa
-
-; DIVS rd, rs: E8+dst, 0x0B, E8+src
-; CHECK: divs xhl, xde   ; encoding: [0xeb,0x0b,0xea]
-divs xhl, xde
-
 ; === Memory load instructions (MemLoad) ===
 
 ; LD rd, (Xrr): A0+base, 0x20+dst

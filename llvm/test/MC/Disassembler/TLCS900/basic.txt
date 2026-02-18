@@ -205,20 +205,6 @@
 # CHECK: tset 1, xwa
 0xe8 0x34 0x01
 
-# === Multiply/Divide ===
-
-# CHECK: mul xwa, xbc
-0xe8 0x08 0xe9
-
-# CHECK: muls xde, xhl
-0xea 0x09 0xeb
-
-# CHECK: div xbc, xwa
-0xe9 0x0a 0xe8
-
-# CHECK: divs xhl, xde
-0xeb 0x0b 0xea
-
 # === Memory load ===
 
 # CHECK: ld xwa, (xsp)

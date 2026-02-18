@@ -169,19 +169,6 @@ chg 15, xhl
 ; CHECK: tset	4, xwa
 tset 4, xwa
 
-; Test multiply/divide
-; CHECK: mul	xwa, xbc
-mul xwa, xbc
-
-; CHECK: muls	xde, xhl
-muls xde, xhl
-
-; CHECK: div	xwa, xbc
-div xwa, xbc
-
-; CHECK: divs	xde, xhl
-divs xde, xhl
-
 ; Test block transfer
 ; CHECK: ldi
 ldi

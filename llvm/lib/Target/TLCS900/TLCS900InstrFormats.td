@@ -30,22 +30,21 @@ def InstFormatPrefixShift   : InstFormat<8>;
 def InstFormatPrefixRotate  : InstFormat<9>;
 def InstFormatPrefixBit     : InstFormat<10>;
 def InstFormatPrefixIncDec  : InstFormat<11>;
-def InstFormatPrefixMulDiv  : InstFormat<12>;
-def InstFormatMemLoad       : InstFormat<13>;
-def InstFormatMemStore      : InstFormat<14>;
-def InstFormatMemALU        : InstFormat<15>;
-def InstFormatBranch24      : InstFormat<16>;
-def InstFormatBranchCond24  : InstFormat<17>;
-def InstFormatBranchRel8    : InstFormat<18>;
-def InstFormatBranchRel16   : InstFormat<19>;
-def InstFormatCall24        : InstFormat<20>;
-def InstFormatCallRel16     : InstFormat<21>;
-def InstFormatCallIndirect  : InstFormat<22>;
-def InstFormatPrefixDJNZ    : InstFormat<23>;
-def InstFormatPrefixLDImm   : InstFormat<24>;
-def InstFormatPrefixPush    : InstFormat<25>;
-def InstFormatPrefixPop     : InstFormat<26>;
-def InstFormatBlockTransfer : InstFormat<27>;
+def InstFormatMemLoad       : InstFormat<12>;
+def InstFormatMemStore      : InstFormat<13>;
+def InstFormatMemALU        : InstFormat<14>;
+def InstFormatBranch24      : InstFormat<15>;
+def InstFormatBranchCond24  : InstFormat<16>;
+def InstFormatBranchRel8    : InstFormat<17>;
+def InstFormatBranchRel16   : InstFormat<18>;
+def InstFormatCall24        : InstFormat<19>;
+def InstFormatCallRel16     : InstFormat<20>;
+def InstFormatCallIndirect  : InstFormat<21>;
+def InstFormatPrefixDJNZ    : InstFormat<22>;
+def InstFormatPrefixLDImm   : InstFormat<23>;
+def InstFormatPrefixPush    : InstFormat<24>;
+def InstFormatPrefixPop     : InstFormat<25>;
+def InstFormatBlockTransfer : InstFormat<26>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -194,15 +193,6 @@ class PrefixIncDecInst<bits<8> opc, dag outs, dag ins, string opcodestr,
   let InstFormat = InstFormatPrefixIncDec.Value;
   let Opcode = opc;
   let Size = 2;
-}
-
-// PrefixMulDivInst: dst_prefix + opcode + src_prefix (MUL rr, DIV rr)
-class PrefixMulDivInst<bits<8> opc, dag outs, dag ins, string opcodestr,
-                       string argstr, list<dag> pattern>
-    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
-  let InstFormat = InstFormatPrefixMulDiv.Value;
-  let Opcode = opc;
-  let Size = 3;
 }
 
 //===----------------------------------------------------------------------===//

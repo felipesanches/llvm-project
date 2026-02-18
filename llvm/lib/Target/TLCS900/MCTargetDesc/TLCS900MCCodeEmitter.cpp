@@ -317,17 +317,6 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
-  case TLCS900II::PrefixMulDiv: {
-    // dst_prefix(rd) + opcode + src_prefix(rs).
-    // op 0 = dst, op 1 = src1 (tied), op 2 = src2.
-    unsigned DstEnc = getRegEncoding(MI.getOperand(0));
-    unsigned SrcEnc = getRegEncoding(MI.getOperand(2));
-    CB.push_back(PrefixBase + DstEnc);
-    CB.push_back(Opcode);
-    CB.push_back(PrefixBase + SrcEnc);
-    break;
-  }
-
   case TLCS900II::MemLoad: {
     // mem_prefix [+disp] + (opcode + dst_reg).
     // LD32rm: op 0 = dst, op 1 = base, op 2 = disp.

@@ -856,45 +856,14 @@ def SUB32mi : MemALUInst<0xCA, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
 } // Defs = [SR], mayLoad, mayStore
 
 //===----------------------------------------------------------------------===//
-// Multiply / Divide Instructions (hardware, 16-bit operands)
+// Multiply / Divide — i32 uses libcalls
 //===----------------------------------------------------------------------===//
-// TLCS-900 hardware MUL: 16-bit × 16-bit → 32-bit result
-// MUL WA, #imm16 → result in XWA
-// MULS WA, #imm16 → signed result in XWA
-// DIV WA, #imm16 → XWA / imm16, quotient in WA, remainder in upper 16
-// DIVS WA, #imm16 → signed divide
-
-// These use GR16 sub-registers of GPR. For now, defined without isel patterns
-// since we only support i32 types. These will be useful once i16 support is added
-// or for inline assembly.
-
-let Constraints = "$rd = $rs1", Defs = [SR] in {
-
-// MUL rr, rs — Unsigned multiply: result in next-wider register
-// Encoding: E8+dst, 0x08, src_prefix (3 bytes)
-def MUL32rr : PrefixMulDivInst<0x08, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                               "mul", "$rd, $rs2", []>,
-              Sched<[WriteIMul, ReadIALU, ReadIALU]>;
-
-// MULS rr, rs — Signed multiply
-// Encoding: E8+dst, 0x09, src_prefix (3 bytes)
-def MULS32rr : PrefixMulDivInst<0x09, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                                "muls", "$rd, $rs2", []>,
-               Sched<[WriteIMul, ReadIALU, ReadIALU]>;
-
-// DIV rr, rs — Unsigned divide
-// Encoding: E8+dst, 0x0A, src_prefix (3 bytes)
-def DIV32rr : PrefixMulDivInst<0x0A, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                               "div", "$rd, $rs2", []>,
-              Sched<[WriteIDiv, ReadIALU, ReadIALU]>;
-
-// DIVS rr, rs — Signed divide
-// Encoding: E8+dst, 0x0B, src_prefix (3 bytes)
-def DIVS32rr : PrefixMulDivInst<0x0B, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                                "divs", "$rd, $rs2", []>,
-               Sched<[WriteIDiv, ReadIALU, ReadIALU]>;
-
-} // Constraints, Defs = [SR]
+// The TLCS-900/H hardware only provides 16×16→32 MUL/MULS and 32÷16→16+16r
+// DIV/DIVS, using the 16-bit register prefix (0xD8-0xDF). Under the 32-bit
+// prefix (0xE8-0xEF) opcodes 0x08-0x0B are undefined (op_DB in MAME tables).
+// Since this backend only supports i32, MUL/DIV are Expanded to libcalls in
+// ISelLowering.cpp. Hardware MUL/DIV will be added when 16-bit register
+// classes are introduced.
 
 //===----------------------------------------------------------------------===//
 // Block Transfer Instructions (no isel patterns — for inline asm / builtins)
