@@ -71,6 +71,23 @@ void TLCS900AsmPrinter::emitInstruction(const MachineInstr *MI) {
     EmitToStreamer(*OutStreamer, SWIInst);
     return;
   }
+  case TLCS900::TAIL_CALL: {
+    // Expand tail call to JP (absolute jump to target).
+    MCInst JPInst;
+    JPInst.setOpcode(TLCS900::JP);
+    JPInst.addOperand(LowerOperand(MI->getOperand(0)));
+    EmitToStreamer(*OutStreamer, JPInst);
+    return;
+  }
+  case TLCS900::TAIL_CALL_r: {
+    // Expand indirect tail call to JP (rs) (jump through register).
+    // Uses the same encoding as JP indirect: mem_prefix + 0x1C
+    MCInst JPInst;
+    JPInst.setOpcode(TLCS900::JP_r);
+    JPInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
+    EmitToStreamer(*OutStreamer, JPInst);
+    return;
+  }
   default:
     break;
   }

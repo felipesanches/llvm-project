@@ -257,6 +257,14 @@
 # CHECK: call (xhl)
 0xb3 0x1f
 
+# === JP indirect ===
+
+# CHECK: jp (xwa)
+0xb0 0x1c
+
+# CHECK: jp (xhl)
+0xb3 0x1c
+
 # === CALL / CALR with immediate ===
 
 # CHECK: call 0

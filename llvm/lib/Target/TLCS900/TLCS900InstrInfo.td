@@ -24,6 +24,11 @@ def tlcs900_call : SDNode<"TLCS900ISD::Call", SDT_TLCS900Call,
                           [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue,
                            SDNPVariadic]>;
 
+// Tail call (jump instead of call+ret)
+def tlcs900_tail_call : SDNode<"TLCS900ISD::TailCall", SDT_TLCS900Call,
+                               [SDNPHasChain, SDNPOptInGlue,
+                                SDNPVariadic]>;
+
 // Compare (sets flags, produces glue)
 def SDT_TLCS900Cmp : SDTypeProfile<0, 2, [SDTCisSameAs<0, 1>,
                                            SDTCisInt<0>]>;
@@ -508,6 +513,14 @@ def JP : Branch24Inst<0x1C, (outs), (ins brtarget:$target),
                       [(br bb:$target)]>,
          Sched<[WriteJmp]>;
 
+// JP (rs) — Indirect jump through register
+// Encoding: B0+rs, 0x1C (2 bytes)
+let isBranch = 1, isTerminator = 1, isBarrier = 1, isIndirectBranch = 1 in
+def JP_r : CallIndirectInst<0x1C, (outs), (ins GPR:$target),
+                            "jp", "(${target})",
+                            [(brind GPR:$target)]>,
+           Sched<[WriteJmp]>;
+
 // JP cc, target — Conditional branch (emits as JRL cc, d16)
 // Encoding: 0x70+cc, d16 (3 bytes)
 let isBranch = 1, isTerminator = 1, Uses = [SR] in
@@ -575,6 +588,21 @@ def CALR : CallRel16Inst<0x1E, (outs), (ins i32imm:$target),
 } // isCall = 1
 
 def : Pat<(tlcs900_call texternalsym:$target), (CALL texternalsym:$target)>;
+
+// Tail call pseudo-instructions — expanded to JP in AsmPrinter
+// after prologue/epilogue insertion has restored the frame.
+let isCall = 1, isReturn = 1, isBarrier = 1, isTerminator = 1 in {
+
+def TAIL_CALL : Pseudo<(outs), (ins i32imm:$target),
+                        [(tlcs900_tail_call tglobaladdr:$target)]>;
+
+def TAIL_CALL_r : Pseudo<(outs), (ins GPR:$target),
+                          [(tlcs900_tail_call GPR:$target)]>;
+
+} // isCall, isReturn, isBarrier, isTerminator
+
+def : Pat<(tlcs900_tail_call texternalsym:$target),
+          (TAIL_CALL texternalsym:$target)>;
 
 //===----------------------------------------------------------------------===//
 // Return

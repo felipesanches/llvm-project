@@ -642,13 +642,19 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
     return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, 2);
   }
 
-  // === CALL indirect: 0xB0+reg, 0x1F — 2 bytes ===
+  // === CALL/JP indirect: 0xB0+reg, opcode — 2 bytes ===
   if (FirstByte >= 0xB0 && FirstByte <= 0xB7) {
     if (Bytes.size() < 2)
       return MCDisassembler::Fail;
+    unsigned Reg = decodeGPR(FirstByte & 0x7);
     if (Bytes[1] == 0x1F) {
-      unsigned Reg = decodeGPR(FirstByte & 0x7);
       MI.setOpcode(TLCS900::CALL_r);
+      MI.addOperand(MCOperand::createReg(Reg));
+      Size = 2;
+      return MCDisassembler::Success;
+    }
+    if (Bytes[1] == 0x1C) {
+      MI.setOpcode(TLCS900::JP_r);
       MI.addOperand(MCOperand::createReg(Reg));
       Size = 2;
       return MCDisassembler::Success;

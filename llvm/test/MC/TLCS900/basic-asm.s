@@ -206,3 +206,10 @@ lda xde, (xsp+16)
 ; Test SWI
 ; CHECK: swi	0
 swi 0
+
+; Test indirect jump
+; CHECK: jp	(xwa)
+jp (xwa)
+
+; CHECK: jp	(xhl)
+jp (xhl)

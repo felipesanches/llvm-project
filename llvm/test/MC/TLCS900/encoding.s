@@ -287,6 +287,14 @@ call (xwa)
 ; CHECK: call (xhl)       ; encoding: [0xb3,0x1f]
 call (xhl)
 
+; === Jump indirect (CallIndirect: B0+reg, 0x1C) ===
+
+; CHECK: jp (xwa)         ; encoding: [0xb0,0x1c]
+jp (xwa)
+
+; CHECK: jp (xhl)         ; encoding: [0xb3,0x1c]
+jp (xhl)
+
 ; === DAA instruction (PrefixUnary: E8+r, 0x10) ===
 
 ; CHECK: daa xwa          ; encoding: [0xe8,0x10]

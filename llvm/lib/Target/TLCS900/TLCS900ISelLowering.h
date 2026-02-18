@@ -25,6 +25,7 @@ enum NodeType {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   Ret,        // Return from function
   Call,       // Function call
+  TailCall,   // Tail call (jump instead of call+ret)
   CMP,        // Compare (sets flags)
   BRCOND,     // Conditional branch (reads flags)
   SELECT_CC,  // Conditional select (reads flags)

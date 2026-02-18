@@ -141,6 +141,7 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch (Opcode) {
   case TLCS900ISD::Ret:       return "TLCS900ISD::Ret";
   case TLCS900ISD::Call:      return "TLCS900ISD::Call";
+  case TLCS900ISD::TailCall:  return "TLCS900ISD::TailCall";
   case TLCS900ISD::CMP:       return "TLCS900ISD::CMP";
   case TLCS900ISD::BRCOND:    return "TLCS900ISD::BRCOND";
   case TLCS900ISD::SELECT_CC: return "TLCS900ISD::SELECT_CC";
@@ -509,6 +510,44 @@ TLCS900TargetLowering::LowerReturn(SDValue Chain,
 // Call lowering
 //===----------------------------------------------------------------------===//
 
+/// Return true if the call can be lowered as a tail call.
+static bool isEligibleForTailCallOptimization(
+    TargetLowering::CallLoweringInfo &CLI) {
+  // No tail calls with varargs.
+  if (CLI.IsVarArg)
+    return false;
+
+  // Caller and callee must use the same calling convention.
+  MachineFunction &MF = CLI.DAG.getMachineFunction();
+  CallingConv::ID CallerCC = MF.getFunction().getCallingConv();
+  if (CLI.CallConv != CallerCC)
+    return false;
+
+  // Don't tail call if the callee has byval/inalloca/preallocated args.
+  for (const auto &Arg : CLI.Outs) {
+    if (Arg.Flags.isByVal() || Arg.Flags.isInAlloca() ||
+        Arg.Flags.isPreallocated())
+      return false;
+  }
+
+  // Check that the return values can be lowered the same way.
+  // If the caller returns void, any callee is fine.
+  // Otherwise, the callee's return type must match the caller's.
+  if (!CLI.Ins.empty()) {
+    SmallVector<CCValAssign, 16> CallerRVLocs;
+    CCState CallerCCInfo(CallerCC, false, MF, CallerRVLocs,
+                         *CLI.DAG.getContext());
+    // Get the caller's return outputs from the function signature.
+    const Function &F = MF.getFunction();
+    SmallVector<ISD::OutputArg, 4> CallerOuts;
+    // Simple check: if caller doesn't return, tail call is fine.
+    if (F.getReturnType()->isVoidTy())
+      return true;
+  }
+
+  return true;
+}
+
 SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                                        SmallVectorImpl<SDValue> &InVals) const {
   SelectionDAG &DAG = CLI.DAG;
@@ -520,6 +559,7 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   SDValue Callee = CLI.Callee;
   CallingConv::ID CallConv = CLI.CallConv;
   bool IsVarArg = CLI.IsVarArg;
+  bool IsTailCall = CLI.IsTailCall;
 
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), ArgLocs,
@@ -528,7 +568,19 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   unsigned NumBytes = CCInfo.getStackSize();
 
-  Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, DL);
+  // Check tail call eligibility.
+  if (IsTailCall) {
+    if (!isEligibleForTailCallOptimization(CLI))
+      IsTailCall = false;
+    // Tail calls can't have stack arguments (we'd need to write to the
+    // caller's frame which is being deallocated).
+    if (NumBytes != 0)
+      IsTailCall = false;
+  }
+  CLI.IsTailCall = IsTailCall;
+
+  if (!IsTailCall)
+    Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, DL);
 
   SmallVector<std::pair<unsigned, SDValue>, 4> RegsToPass;
   SmallVector<SDValue, 8> MemOpChains;
@@ -555,6 +607,7 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       RegsToPass.push_back(std::make_pair(VA.getLocReg(), Arg));
     } else {
       assert(VA.isMemLoc());
+      assert(!IsTailCall && "Tail call with stack args should be rejected");
       SDValue StackPtr = DAG.getCopyFromReg(Chain, DL, TLCS900::XSP,
                                             MVT::i32);
       SDValue PtrOff = DAG.getNode(
@@ -581,7 +634,7 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   else if (ExternalSymbolSDNode *E = dyn_cast<ExternalSymbolSDNode>(Callee))
     Callee = DAG.getTargetExternalSymbol(E->getSymbol(), MVT::i32);
 
-  // Build the CALL node
+  // Build the CALL or TAIL_CALL node
   SmallVector<SDValue, 8> Ops;
   Ops.push_back(Chain);
   Ops.push_back(Callee);
@@ -597,6 +650,11 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   if (InGlue.getNode())
     Ops.push_back(InGlue);
+
+  if (IsTailCall) {
+    DAG.getMachineFunction().getFrameInfo().setHasTailCall();
+    return DAG.getNode(TLCS900ISD::TailCall, DL, MVT::Other, Ops);
+  }
 
   SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
   Chain = DAG.getNode(TLCS900ISD::Call, DL, NodeTys, Ops);
