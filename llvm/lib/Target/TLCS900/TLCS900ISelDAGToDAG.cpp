@@ -84,6 +84,16 @@ void TLCS900DAGToDAGISel::Select(SDNode *Node) {
   SDLoc DL(Node);
 
   switch(Opcode) {
+  case ISD::FrameIndex: {
+    // Materialize frame index address into a register using LDA.
+    // This handles cases like passing &local_var to a function call.
+    int FI = cast<FrameIndexSDNode>(Node)->getIndex();
+    SDValue TFI = CurDAG->getTargetFrameIndex(FI, MVT::i32);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    ReplaceNode(Node,
+                CurDAG->getMachineNode(TLCS900::LDA32, DL, MVT::i32, TFI, Zero));
+    return;
+  }
   default: break;
   }
 
