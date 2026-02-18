@@ -36,6 +36,7 @@
 #include "Targets/Sparc.h"
 #include "Targets/SystemZ.h"
 #include "Targets/TCE.h"
+#include "Targets/TLCS900.h"
 #include "Targets/VE.h"
 #include "Targets/WebAssembly.h"
 #include "Targets/X86.h"
@@ -533,6 +534,9 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
 
   case llvm::Triple::tcele:
     return std::make_unique<TCELETargetInfo>(Triple, Opts);
+
+  case llvm::Triple::tlcs900:
+    return std::make_unique<TLCS900TargetInfo>(Triple, Opts);
 
   case llvm::Triple::x86:
     if (Triple.isOSDarwin())
