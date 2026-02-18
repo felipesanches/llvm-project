@@ -31,6 +31,8 @@ public:
 
   void Select(SDNode *Node) override;
 
+  bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset);
+
 #include "TLCS900GenDAGISel.inc"
 
 private:

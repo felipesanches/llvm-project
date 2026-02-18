@@ -53,3 +53,32 @@ void TLCS900InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   assert(Op.isExpr() && "unknown operand kind in printOperand");
   Op.getExpr()->print(O, &MAI, true);
 }
+
+void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
+                                          raw_ostream &O) {
+  const MCOperand &Base = MI->getOperand(OpNo);
+  const MCOperand &Disp = MI->getOperand(OpNo + 1);
+
+  O << "(";
+  if (Base.isReg())
+    O << StringRef(getRegisterName(Base.getReg())).lower();
+
+  int64_t DispVal = Disp.getImm();
+  if (DispVal > 0)
+    O << "+" << DispVal;
+  else if (DispVal < 0)
+    O << DispVal;
+
+  O << ")";
+}
+
+void TLCS900InstPrinter::printCondCode(const MCInst *MI, unsigned OpNo,
+                                        raw_ostream &O) {
+  static const char *const CondNames[] = {
+    "f", "lt", "le", "ult", "ule", "pe", "mi", "z",
+    "t", "ge", "gt", "uge", "ugt", "po", "pl", "nz"
+  };
+  unsigned CC = MI->getOperand(OpNo).getImm();
+  assert(CC < 16 && "Invalid condition code");
+  O << CondNames[CC];
+}

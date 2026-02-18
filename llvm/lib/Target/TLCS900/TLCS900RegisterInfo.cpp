@@ -1,9 +1,8 @@
 //===-- TLCS900RegisterInfo.cpp - TLCS900 Register Information ----------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -13,6 +12,9 @@
 
 #include "TLCS900RegisterInfo.h"
 #include "TLCS900Subtarget.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/Support/Debug.h"
 
 #define GET_REGINFO_TARGET_DESC
@@ -44,7 +46,8 @@ TLCS900RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
 BitVector TLCS900RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
 
-  markSuperRegs(Reserved, TLCS900::XSP); // sp
+  markSuperRegs(Reserved, TLCS900::XSP); // Stack pointer
+  Reserved.set(TLCS900::SR);             // Status register (flags)
 
   return Reserved;
 }
@@ -53,7 +56,19 @@ bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                               int SPAdj,
                                               unsigned FIOperandNum,
                                               RegScavenger *RS) const {
-  llvm_unreachable("Unsupported eliminateFrameIndex");
+  MachineInstr &MI = *II;
+  MachineFunction &MF = *MI.getParent()->getParent();
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+
+  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+  int Offset = MFI.getObjectOffset(FrameIndex) + MFI.getStackSize();
+  Offset += MI.getOperand(FIOperandNum + 1).getImm();
+  Offset += SPAdj;
+
+  MI.getOperand(FIOperandNum).ChangeToRegister(TLCS900::XSP, false);
+  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+
+  return false;
 }
 
 bool
@@ -81,4 +96,3 @@ TLCS900RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const
 Register TLCS900RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return TLCS900::XSP;
 }
-

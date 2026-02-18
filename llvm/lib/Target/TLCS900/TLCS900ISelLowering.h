@@ -22,11 +22,12 @@
 namespace llvm {
 namespace TLCS900ISD {
 enum NodeType {
-  // Start the numbering from where ISD NodeType finishes.
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
-
-  // Return
-  Ret,
+  Ret,        // Return from function
+  Call,       // Function call
+  CMP,        // Compare (sets flags)
+  BRCOND,     // Conditional branch (reads flags)
+  SELECT_CC,  // Conditional select (reads flags)
 };
 }
 
@@ -44,8 +45,11 @@ public:
                           SmallVectorImpl<SDValue> &Results,
                           SelectionDAG &DAG) const override;
 
+  MachineBasicBlock *
+  EmitInstrWithCustomInserter(MachineInstr &MI,
+                              MachineBasicBlock *BB) const override;
+
 protected:
-  // Subtarget Info
   const TLCS900Subtarget &Subtarget;
 
 private:
@@ -70,8 +74,9 @@ private:
 
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
 };
 }
 

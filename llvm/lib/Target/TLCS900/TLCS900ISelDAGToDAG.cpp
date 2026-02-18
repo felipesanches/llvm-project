@@ -40,6 +40,36 @@ bool TLCS900DAGToDAGISel::runOnMachineFunction(MachineFunction &MF) {
   return SelectionDAGISel::runOnMachineFunction(MF);
 }
 
+bool TLCS900DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
+                                     SDValue &Offset) {
+  SDLoc DL(Addr);
+
+  // Match frame index
+  if (auto *FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
+    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);
+    Offset = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    return true;
+  }
+
+  // Match base + constant offset
+  if (Addr.getOpcode() == ISD::ADD) {
+    if (auto *CN = dyn_cast<ConstantSDNode>(Addr.getOperand(1))) {
+      SDValue PossibleBase = Addr.getOperand(0);
+      if (auto *FIN = dyn_cast<FrameIndexSDNode>(PossibleBase))
+        Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);
+      else
+        Base = PossibleBase;
+      Offset = CurDAG->getTargetConstant(CN->getSExtValue(), DL, MVT::i32);
+      return true;
+    }
+  }
+
+  // Default: treat entire address as base, offset = 0
+  Base = Addr;
+  Offset = CurDAG->getTargetConstant(0, DL, MVT::i32);
+  return true;
+}
+
 void TLCS900DAGToDAGISel::Select(SDNode *Node) {
   // If we have a custom node, we already have selected!
   if (Node->isMachineOpcode()) {

@@ -76,6 +76,9 @@ def XIZ : TLCS900Reg<"xiz", 6, [IZ, HIZ]>;
 def XSP : TLCS900Reg<"xsp", 7, [SP, HSP]>;
 }
 
+// Status Register (flags) — not allocatable, used implicitly by compare/branch
+def SR : TLCS900Reg<"sr", 8>;
+
 // The order of registers represents the preferred allocation sequence.
 // Registers are listed in the order caller-save, callee-save, specials.
 

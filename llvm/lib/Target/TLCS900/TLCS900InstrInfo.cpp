@@ -47,3 +47,42 @@ void TLCS900InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
 
   llvm_unreachable("Impossible reg-to-reg copy");
 }
+
+void TLCS900InstrInfo::storeRegToStackSlot(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
+    bool isKill, int FrameIndex, const TargetRegisterClass *RC,
+    const TargetRegisterInfo *TRI, Register VReg,
+    MachineInstr::MIFlag Flags) const {
+  DebugLoc DL;
+  if (MI != MBB.end())
+    DL = MI->getDebugLoc();
+
+  if (TLCS900::GPRRegClass.hasSubClassEq(RC)) {
+    BuildMI(MBB, MI, DL, get(TLCS900::LD32mr))
+        .addFrameIndex(FrameIndex)
+        .addImm(0)
+        .addReg(SrcReg, getKillRegState(isKill))
+        .setMIFlags(Flags);
+  } else {
+    llvm_unreachable("Cannot store this register to stack slot");
+  }
+}
+
+void TLCS900InstrInfo::loadRegFromStackSlot(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register DestReg,
+    int FrameIndex, const TargetRegisterClass *RC,
+    const TargetRegisterInfo *TRI, Register VReg,
+    MachineInstr::MIFlag Flags) const {
+  DebugLoc DL;
+  if (MI != MBB.end())
+    DL = MI->getDebugLoc();
+
+  if (TLCS900::GPRRegClass.hasSubClassEq(RC)) {
+    BuildMI(MBB, MI, DL, get(TLCS900::LD32rm), DestReg)
+        .addFrameIndex(FrameIndex)
+        .addImm(0)
+        .setMIFlags(Flags);
+  } else {
+    llvm_unreachable("Cannot load this register from stack slot");
+  }
+}
