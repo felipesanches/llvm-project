@@ -697,16 +697,18 @@ def XOR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                            "xor", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
-// CP (mem), rs — Compare memory with register
+// CP (mem), rs — Compare memory with register (folds load into compare)
 let Defs = [SR] in
 def CP32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
-                          "cp", "$addr, $rs", []>,
+                          "cp", "$addr, $rs",
+                          [(tlcs900_cmp (load addr:$addr), GPR:$rs)]>,
              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
 
-// CP (mem), #imm — Compare memory with immediate
+// CP (mem), #imm — Compare memory with immediate (folds load into compare)
 let Defs = [SR] in
 def CP32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
-                          "cp", "$addr, $imm", []>,
+                          "cp", "$addr, $imm",
+                          [(tlcs900_cmp (load addr:$addr), (imm):$imm)]>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 // ADD (mem), #imm — Add immediate to memory location
