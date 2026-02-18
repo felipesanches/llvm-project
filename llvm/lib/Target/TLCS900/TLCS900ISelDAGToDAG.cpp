@@ -64,6 +64,19 @@ bool TLCS900DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
     }
   }
 
+  // Match OR as ADD when the low bits of the base are known zero.
+  // This handles frame index alignment patterns: (or FI, offset).
+  if (Addr.getOpcode() == ISD::OR) {
+    if (auto *CN = dyn_cast<ConstantSDNode>(Addr.getOperand(1))) {
+      SDValue PossibleBase = Addr.getOperand(0);
+      if (auto *FIN = dyn_cast<FrameIndexSDNode>(PossibleBase)) {
+        Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);
+        Offset = CurDAG->getTargetConstant(CN->getSExtValue(), DL, MVT::i32);
+        return true;
+      }
+    }
+  }
+
   // Default: treat entire address as base, offset = 0
   Base = Addr;
   Offset = CurDAG->getTargetConstant(0, DL, MVT::i32);

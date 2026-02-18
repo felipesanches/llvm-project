@@ -589,3 +589,37 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   return Chain;
 }
+
+//===----------------------------------------------------------------------===//
+// Inline Assembly Support
+//===----------------------------------------------------------------------===//
+
+TLCS900TargetLowering::ConstraintType
+TLCS900TargetLowering::getConstraintType(StringRef Constraint) const {
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+    case 'r': // General-purpose register
+      return C_RegisterClass;
+    default:
+      break;
+    }
+  }
+  return TargetLowering::getConstraintType(Constraint);
+}
+
+std::pair<unsigned, const TargetRegisterClass *>
+TLCS900TargetLowering::getRegForInlineAsmConstraint(
+    const TargetRegisterInfo *TRI, StringRef Constraint, MVT VT) const {
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+    case 'r':
+      return std::make_pair(0U, &TLCS900::GPRRegClass);
+    default:
+      break;
+    }
+  }
+
+  // Use the default implementation in TargetLowering to convert the register
+  // constraint into an actual register (handles {xwa}, {xbc}, etc.).
+  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+}

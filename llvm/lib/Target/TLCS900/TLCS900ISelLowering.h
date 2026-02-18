@@ -90,6 +90,13 @@ private:
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
+
+public:
+  // Inline assembly support
+  ConstraintType getConstraintType(StringRef Constraint) const override;
+  std::pair<unsigned, const TargetRegisterClass *>
+  getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+                               StringRef Constraint, MVT VT) const override;
 };
 }
 
