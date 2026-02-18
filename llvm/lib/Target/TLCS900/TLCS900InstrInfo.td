@@ -354,19 +354,44 @@ def CP32ri : TLCS900Inst<(outs), (ins GPR:$rs1, i32imm:$imm),
 // Branch Instructions
 //===----------------------------------------------------------------------===//
 
-// JP target — Unconditional branch
+// JP target — Unconditional branch (absolute address)
 let isBranch = 1, isTerminator = 1, isBarrier = 1 in
 def JP : TLCS900Inst<(outs), (ins brtarget:$target),
                      "jp", "$target",
                      [(br bb:$target)]>,
          Sched<[WriteJmp]>;
 
-// JP cc, target — Conditional branch
+// JP cc, target — Conditional branch (absolute address)
 let isBranch = 1, isTerminator = 1, Uses = [SR] in
 def JPcc : TLCS900Inst<(outs), (ins cc:$cc, brtarget:$target),
                        "jp", "$cc, $target",
                        [(tlcs900_brcond (i32 imm:$cc), bb:$target)]>,
            Sched<[WriteJmp]>;
+
+// JR target — Relative jump (8-bit signed offset, shorter encoding)
+// No isel patterns; used by linker relaxation JP→JR when target is near.
+let isBranch = 1, isTerminator = 1, isBarrier = 1 in
+def JR : TLCS900Inst<(outs), (ins brtarget:$target),
+                     "jr", "$target", []>,
+         Sched<[WriteJmp]>;
+
+// JR cc, target — Conditional relative jump (8-bit signed offset)
+let isBranch = 1, isTerminator = 1, Uses = [SR] in
+def JRcc : TLCS900Inst<(outs), (ins cc:$cc, brtarget:$target),
+                       "jr", "$cc, $target", []>,
+           Sched<[WriteJmp]>;
+
+// JRL target — Relative jump (16-bit signed offset)
+let isBranch = 1, isTerminator = 1, isBarrier = 1 in
+def JRL : TLCS900Inst<(outs), (ins brtarget:$target),
+                      "jrl", "$target", []>,
+          Sched<[WriteJmp]>;
+
+// JRL cc, target — Conditional relative jump (16-bit signed offset)
+let isBranch = 1, isTerminator = 1, Uses = [SR] in
+def JRLcc : TLCS900Inst<(outs), (ins cc:$cc, brtarget:$target),
+                        "jrl", "$cc, $target", []>,
+            Sched<[WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
 // Call Instructions
@@ -385,6 +410,12 @@ def CALL_r : TLCS900Inst<(outs), (ins GPR:$target),
                           "call", "($target)",
                           [(tlcs900_call GPR:$target)]>,
               Sched<[WriteJmp]>;
+
+// CALR target — Relative call (16-bit signed offset, shorter encoding)
+// No isel patterns; used by linker relaxation CALL→CALR when target is near.
+def CALR : TLCS900Inst<(outs), (ins i32imm:$target),
+                        "calr", "$target", []>,
+            Sched<[WriteJmp]>;
 
 } // isCall = 1
 
@@ -431,6 +462,10 @@ def ADJCALLSTACKDOWN : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
 def ADJCALLSTACKUP   : Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                               [(callseq_end timm:$amt1, timm:$amt2)]>;
 } // Defs = [XSP], Uses = [XSP]
+
+// TRAP — maps to SWI 0 for __builtin_trap() / unreachable
+let isBarrier = 1, isTerminator = 1 in
+def TRAP : Pseudo<(outs), (ins), [(trap)]>;
 
 // SELECT_CC pseudo — Expanded to branch diamond by custom inserter.
 // Operands: trueVal, falseVal, condition code. Reads flags from SR.

@@ -61,6 +61,20 @@ void TLCS900AsmPrinter::emitInstruction(const MachineInstr *MI) {
     return;
   }
 
+  // Handle pseudo-instructions that need manual expansion.
+  switch (MI->getOpcode()) {
+  case TLCS900::TRAP: {
+    // Expand TRAP to SWI 0 (software interrupt vector 0).
+    MCInst SWIInst;
+    SWIInst.setOpcode(TLCS900::SWI);
+    SWIInst.addOperand(MCOperand::createImm(0));
+    EmitToStreamer(*OutStreamer, SWIInst);
+    return;
+  }
+  default:
+    break;
+  }
+
   MCInst TmpInst;
   LowerInstruction(MI, TmpInst);
   EmitToStreamer(*OutStreamer, TmpInst);
