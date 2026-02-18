@@ -524,21 +524,22 @@ def RET : TLCS900Inst<(outs), (ins),
 // Stack Instructions
 //===----------------------------------------------------------------------===//
 
-let Defs = [XSP], Uses = [XSP] in {
+// Stack effects fully captured by Defs/Uses=[XSP] and mayLoad/mayStore.
+let Defs = [XSP], Uses = [XSP], hasSideEffects = 0 in {
 
-// PUSH rs — Push 32-bit register to stack
+// PUSH rs — Push 32-bit register to stack (pre-decrement SP, store)
 let mayStore = 1 in
 def PUSH32 : TLCS900Inst<(outs), (ins GPR:$rs),
                          "push", "$rs", []>,
              Sched<[WritePush]>;
 
-// POP rd — Pop 32-bit register from stack
+// POP rd — Pop 32-bit register from stack (load, post-increment SP)
 let mayLoad = 1 in
 def POP32 : TLCS900Inst<(outs GPR:$rd), (ins),
                         "pop", "$rd", []>,
             Sched<[WritePop]>;
 
-} // Defs = [XSP], Uses = [XSP]
+} // Defs = [XSP], Uses = [XSP], hasSideEffects
 
 //===----------------------------------------------------------------------===//
 // Pseudo Instructions
@@ -690,7 +691,7 @@ def EX32 : TLCS900Inst<(outs GPR:$rd_out, GPR:$rs_out),
 //===----------------------------------------------------------------------===//
 
 // LDA rd, (base+disp) — Load effective address into register (pure computation)
-let hasSideEffects = 0 in
+let hasSideEffects = 0, isReMaterializable = 1 in
 def LDA32 : TLCS900Inst<(outs GPR:$rd), (ins MEMri:$addr),
                          "lda", "$rd, $addr", []>,
             Sched<[WriteIALU]>;
