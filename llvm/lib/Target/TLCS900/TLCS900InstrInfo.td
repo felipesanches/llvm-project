@@ -165,15 +165,15 @@ def LD8rm : TLCS900Inst<(outs GPR_lo8:$rd), (ins MEMri:$addr),
 // (Extending load patterns are after the instruction definitions below.)
 
 // LD (base+disp), rs:lo16 — Truncating store: writes low 16 bits to memory
+// Pattern is separate (below) because the RegisterOperand GPR_lo16 doesn't
+// match bare GPR in inline patterns.
 def LD16mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR_lo16:$rs),
-                          "ld", "$addr, $rs",
-                          [(truncstorei16 GPR:$rs, addr:$addr)]>,
+                          "ld", "$addr, $rs", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 
 // LD (base+disp), rs:lo8 — Truncating store: writes low 8 bits to memory
 def LD8mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR_lo8:$rs),
-                         "ld", "$addr, $rs",
-                         [(truncstorei8 GPR:$rs, addr:$addr)]>,
+                         "ld", "$addr, $rs", []>,
             Sched<[WriteSTW, ReadMemBase]>;
 
 // Patterns for global address and external symbol materialization
@@ -378,6 +378,11 @@ def : Pat<(sext_inreg GPR:$rs, i8), (SRA32ri (SLA32ri GPR:$rs, 24), 24)>;
 // Pattern for EXTZ: zero extend low 16 bits (AND with 0xFFFF)
 def : Pat<(and GPR:$rs, 65535), (EXTZ32 GPR:$rs)>;
 
+// Patterns for truncating stores (separate Pat because RegisterOperand
+// GPR_lo16/GPR_lo8 can't be used directly in inline instruction patterns)
+def : Pat<(truncstorei16 GPR:$rs, addr:$addr), (LD16mr addr:$addr, GPR:$rs)>;
+def : Pat<(truncstorei8  GPR:$rs, addr:$addr), (LD8mr  addr:$addr, GPR:$rs)>;
+
 // Patterns for 16-bit extending loads
 def : Pat<(i32 (zextloadi16 addr:$addr)), (EXTZ32 (LD16rm addr:$addr))>;
 def : Pat<(i32 (sextloadi16 addr:$addr)), (EXTS32 (LD16rm addr:$addr))>;
@@ -497,7 +502,7 @@ def CALL : TLCS900Inst<(outs), (ins i32imm:$target),
 
 // CALL (rs) — Indirect function call through register
 def CALL_r : TLCS900Inst<(outs), (ins GPR:$target),
-                          "call", "($target)",
+                          "call", "(${target})",
                           [(tlcs900_call GPR:$target)]>,
               Sched<[WriteJmp]>;
 
@@ -754,7 +759,7 @@ def CP32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
 // CP (mem), #imm — Compare memory with immediate (folds load into compare)
 def CP32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
                           "cp", "$addr, $imm",
-                          [(tlcs900_cmp (load addr:$addr), (imm):$imm)]>,
+                          [(tlcs900_cmp (i32 (load addr:$addr)), (i32 (imm):$imm))]>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 } // Defs = [SR]
