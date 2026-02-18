@@ -90,7 +90,7 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   // Branch / comparison lowering
   setOperationAction(ISD::BR_CC,     MVT::i32, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
-  setOperationAction(ISD::SETCC,     MVT::i32, Expand);
+  setOperationAction(ISD::SETCC,     MVT::i32, Custom);
   setOperationAction(ISD::SELECT,    MVT::i32, Expand);
   setOperationAction(ISD::BRCOND,    MVT::Other, Expand);
   setOperationAction(ISD::BR_JT,     MVT::Other, Expand);
@@ -135,6 +135,7 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case TLCS900ISD::CMP:       return "TLCS900ISD::CMP";
   case TLCS900ISD::BRCOND:    return "TLCS900ISD::BRCOND";
   case TLCS900ISD::SELECT_CC: return "TLCS900ISD::SELECT_CC";
+  case TLCS900ISD::SCC:       return "TLCS900ISD::SCC";
   default:                    return nullptr;
   }
 }
@@ -182,6 +183,7 @@ SDValue TLCS900TargetLowering::LowerOperation(SDValue Op,
   case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
   case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:            return LowerSELECT_CC(Op, DAG);
+  case ISD::SETCC:                return LowerSETCC(Op, DAG);
   case ISD::FRAMEADDR:            return LowerFRAMEADDR(Op, DAG);
   }
 }
@@ -227,6 +229,19 @@ SDValue TLCS900TargetLowering::LowerSELECT_CC(SDValue Op,
   SDValue Cmp = DAG.getNode(TLCS900ISD::CMP, DL, MVT::Glue, LHS, RHS);
   return DAG.getNode(TLCS900ISD::SELECT_CC, DL, Op.getValueType(),
                      TrueVal, FalseVal,
+                     DAG.getConstant(TLCS900CC, DL, MVT::i32), Cmp);
+}
+
+SDValue TLCS900TargetLowering::LowerSETCC(SDValue Op,
+                                           SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
+
+  unsigned TLCS900CC = mapISDCCtoTLCS900CC(CC);
+  SDValue Cmp = DAG.getNode(TLCS900ISD::CMP, DL, MVT::Glue, LHS, RHS);
+  return DAG.getNode(TLCS900ISD::SCC, DL, MVT::i32,
                      DAG.getConstant(TLCS900CC, DL, MVT::i32), Cmp);
 }
 

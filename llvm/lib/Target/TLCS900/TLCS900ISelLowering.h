@@ -28,6 +28,7 @@ enum NodeType {
   CMP,        // Compare (sets flags)
   BRCOND,     // Conditional branch (reads flags)
   SELECT_CC,  // Conditional select (reads flags)
+  SCC,        // Set condition code (reads flags, produces 0/1)
 };
 }
 
@@ -87,6 +88,7 @@ private:
   SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
 };
 }

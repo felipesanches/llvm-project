@@ -41,6 +41,12 @@ def SDT_TLCS900SelectCC : SDTypeProfile<1, 3, [SDTCisSameAs<0, 1>,
 def tlcs900_select_cc : SDNode<"TLCS900ISD::SELECT_CC", SDT_TLCS900SelectCC,
                                [SDNPInGlue]>;
 
+// Set condition code (reads flags via glue, produces 0 or 1)
+def SDT_TLCS900SCC : SDTypeProfile<1, 1, [SDTCisVT<0, i32>,
+                                           SDTCisVT<1, i32>]>;
+def tlcs900_scc : SDNode<"TLCS900ISD::SCC", SDT_TLCS900SCC,
+                          [SDNPInGlue]>;
+
 // Call sequence markers
 def SDT_CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
                                        SDTCisVT<1, i32>]>;
@@ -563,9 +569,11 @@ def Select32 : Pseudo<(outs GPR:$rd),
 //===----------------------------------------------------------------------===//
 
 // SCC cc, rd — Set register to 1 if condition true, 0 otherwise
+// Used by SETCC lowering: CMP → SCC produces branchless boolean result.
 let Uses = [SR], hasSideEffects = 0 in
 def SCC32 : TLCS900Inst<(outs GPR:$rd), (ins cc:$cc),
-                         "scc", "$cc, $rd", []>,
+                         "scc", "$cc, $rd",
+                         [(set GPR:$rd, (tlcs900_scc (i32 imm:$cc)))]>,
             Sched<[WriteIALU]>;
 
 //===----------------------------------------------------------------------===//
