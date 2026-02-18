@@ -105,7 +105,8 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8,  Expand);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,  Expand);
 
-  // Dynamic stack allocation
+  // Frame/stack pointer
+  setOperationAction(ISD::FRAMEADDR,          MVT::i32, Custom);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
 
   // Varargs
@@ -139,6 +140,7 @@ SDValue TLCS900TargetLowering::LowerOperation(SDValue Op,
   case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
   case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:            return LowerSELECT_CC(Op, DAG);
+  case ISD::FRAMEADDR:            return LowerFRAMEADDR(Op, DAG);
   }
 }
 
@@ -275,6 +277,25 @@ TLCS900TargetLowering::LowerExternalSymbol(SDValue Op,
   SDLoc DL(Op);
   auto *N = cast<ExternalSymbolSDNode>(Op);
   return DAG.getTargetExternalSymbol(N->getSymbol(), MVT::i32);
+}
+
+//===----------------------------------------------------------------------===//
+// Frame address
+//===----------------------------------------------------------------------===//
+
+SDValue
+TLCS900TargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
+  MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
+  MFI.setFrameAddressIsTaken(true);
+
+  unsigned Depth = Op.getConstantOperandVal(0);
+  SDLoc DL(Op);
+
+  if (Depth != 0)
+    return SDValue(); // Only support depth 0 for now.
+
+  // Return the current stack pointer (no frame pointer on TLCS-900).
+  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, TLCS900::XSP, MVT::i32);
 }
 
 //===----------------------------------------------------------------------===//
