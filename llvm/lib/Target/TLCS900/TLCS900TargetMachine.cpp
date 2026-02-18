@@ -134,4 +134,6 @@ bool TLCS900PassConfig::addInstSelector() {
 // machine code is emitted. return true if -print-machineinstrs should
 // print out the code after the passes.
 void TLCS900PassConfig::addPreEmitPass() {
+  addPass(createTLCS900DJNZOptPass());
+  addPass(createTLCS900BranchShorteningPass());
 }

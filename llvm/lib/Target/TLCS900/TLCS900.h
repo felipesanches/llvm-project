@@ -23,6 +23,9 @@ namespace llvm {
 
   void initializeTLCS900DAGToDAGISelLegacyPass(PassRegistry &);
 
+  FunctionPass *createTLCS900BranchShorteningPass();
+  FunctionPass *createTLCS900DJNZOptPass();
+
   // TLCS900 condition codes (matching hardware encoding from MAME/Toshiba docs).
   namespace TLCS900CC {
   enum CondCode {
