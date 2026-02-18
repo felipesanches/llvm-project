@@ -666,8 +666,8 @@ def LDA32 : TLCS900Inst<(outs GPR:$rd), (ins MEMri:$addr),
 // Loop Instruction
 //===----------------------------------------------------------------------===//
 
-// DJNZ rd, target — Decrement and jump if not zero
-let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1 in
+// DJNZ rd, target — Decrement and jump if not zero (modifies flags)
+let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR] in
 def DJNZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
                           "djnz", "$rd, $target", []>,
              Sched<[WriteIALU, WriteJmp]>;
