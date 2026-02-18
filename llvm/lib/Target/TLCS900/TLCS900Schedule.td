@@ -22,6 +22,7 @@ def WriteLDW    : SchedWrite;    // Load word
 def WriteSTW    : SchedWrite;    // Store word
 def WritePush   : SchedWrite;    // Push to stack
 def WritePop    : SchedWrite;    // Pop from stack
+def WriteNop    : SchedWrite;    // NOP / system instructions
 
 /// Define scheduler resources associated with use operands.
 def ReadIALU    : SchedRead;

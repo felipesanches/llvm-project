@@ -409,3 +409,214 @@ def Select32 : Pseudo<(outs GPR:$rd),
                       [(set GPR:$rd,
                         (tlcs900_select_cc GPR:$trueVal, GPR:$falseVal,
                                            (i32 imm:$cc)))]>;
+
+//===----------------------------------------------------------------------===//
+// System Instructions
+//===----------------------------------------------------------------------===//
+
+// NOP — No operation
+def NOP : TLCS900Inst<(outs), (ins), "nop", "", []>,
+          Sched<[WriteNop]>;
+
+// HALT — Halt CPU until interrupt
+def HALT : TLCS900Inst<(outs), (ins), "halt", "", []>,
+           Sched<[WriteNop]>;
+
+// DI — Disable interrupts
+def DI : TLCS900Inst<(outs), (ins), "di", "", []>,
+         Sched<[WriteNop]>;
+
+// EI — Enable interrupts (with level)
+def EI : TLCS900Inst<(outs), (ins i32imm:$level), "ei", "$level", []>,
+         Sched<[WriteNop]>;
+
+// SWI — Software interrupt (with vector number)
+def SWI : TLCS900Inst<(outs), (ins i32imm:$num), "swi", "$num", []>,
+          Sched<[WriteJmp]>;
+
+// RETI — Return from interrupt
+let isReturn = 1, isBarrier = 1, isTerminator = 1 in
+def RETI : TLCS900Inst<(outs), (ins), "reti", "", []>,
+           Sched<[WriteJmp]>;
+
+// RETD — Return and deallocate stack space
+let isReturn = 1, isBarrier = 1, isTerminator = 1 in
+def RETD : TLCS900Inst<(outs), (ins i32imm:$imm), "retd", "$imm", []>,
+           Sched<[WriteJmp]>;
+
+//===----------------------------------------------------------------------===//
+// Rotate Instructions (single-operand, in-place)
+//===----------------------------------------------------------------------===//
+
+let Constraints = "$rd = $rs1", Defs = [SR] in {
+
+// RLC rd — Rotate left through carry (1 bit)
+def RLC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                          "rlc", "$rd", []>,
+             Sched<[WriteShift, ReadIALU]>;
+
+// RRC rd — Rotate right through carry (1 bit)
+def RRC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                          "rrc", "$rd", []>,
+             Sched<[WriteShift, ReadIALU]>;
+
+// RL rd — Rotate left (9-bit rotation through carry)
+def RL32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                         "rl", "$rd", []>,
+            Sched<[WriteShift, ReadIALU]>;
+
+// RR rd — Rotate right (9-bit rotation through carry)
+def RR32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                         "rr", "$rd", []>,
+            Sched<[WriteShift, ReadIALU]>;
+
+} // Constraints, Defs
+
+//===----------------------------------------------------------------------===//
+// Bit Manipulation Instructions
+//===----------------------------------------------------------------------===//
+
+// BIT #bit, rd — Test bit (set Z flag)
+let Defs = [SR] in
+def BIT32 : TLCS900Inst<(outs), (ins i32imm:$bit, GPR:$rs),
+                         "bit", "$bit, $rs", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+// SET #bit, rd — Set bit
+let Constraints = "$rd = $rs1" in
+def SET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                         "set", "$bit, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+// RES #bit, rd — Reset (clear) bit
+let Constraints = "$rd = $rs1" in
+def RES32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                         "res", "$bit, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+// CHG #bit, rd — Change (toggle) bit
+let Constraints = "$rd = $rs1" in
+def CHG32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                         "chg", "$bit, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+// TSET #bit, rd — Test and set bit (set Z flag, then set the bit)
+let Constraints = "$rd = $rs1", Defs = [SR] in
+def TSET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
+                          "tset", "$bit, $rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+//===----------------------------------------------------------------------===//
+// Exchange Instructions
+//===----------------------------------------------------------------------===//
+
+// EX rd, rs — Exchange contents of two registers
+let Constraints = "$rd_out = $rd_in, $rs_out = $rs_in" in
+def EX32 : TLCS900Inst<(outs GPR:$rd_out, GPR:$rs_out),
+                        (ins GPR:$rd_in, GPR:$rs_in),
+                        "ex", "$rd_out, $rs_out", []>,
+           Sched<[WriteIALU]>;
+
+//===----------------------------------------------------------------------===//
+// Load Effective Address
+//===----------------------------------------------------------------------===//
+
+// LDA rd, (base+disp) — Load effective address into register
+def LDA32 : TLCS900Inst<(outs GPR:$rd), (ins MEMri:$addr),
+                         "lda", "$rd, $addr", []>,
+            Sched<[WriteIALU]>;
+
+//===----------------------------------------------------------------------===//
+// Loop Instruction
+//===----------------------------------------------------------------------===//
+
+// DJNZ rd, target — Decrement and jump if not zero
+let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1 in
+def DJNZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
+                          "djnz", "$rd, $target", []>,
+             Sched<[WriteIALU, WriteJmp]>;
+
+//===----------------------------------------------------------------------===//
+// Multiply / Divide Instructions (hardware, 16-bit operands)
+//===----------------------------------------------------------------------===//
+// TLCS-900 hardware MUL: 16-bit × 16-bit → 32-bit result
+// MUL WA, #imm16 → result in XWA
+// MULS WA, #imm16 → signed result in XWA
+// DIV WA, #imm16 → XWA / imm16, quotient in WA, remainder in upper 16
+// DIVS WA, #imm16 → signed divide
+
+// These use GR16 sub-registers of GPR. For now, defined without isel patterns
+// since we only support i32 types. These will be useful once i16 support is added
+// or for inline assembly.
+
+let Constraints = "$rd = $rs1" in {
+
+// MUL rr, rs — Unsigned multiply: result in next-wider register
+def MUL32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                           "mul", "$rd, $rs2", []>,
+              Sched<[WriteIMul, ReadIALU, ReadIALU]>;
+
+// MULS rr, rs — Signed multiply
+def MULS32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                            "muls", "$rd, $rs2", []>,
+               Sched<[WriteIMul, ReadIALU, ReadIALU]>;
+
+// DIV rr, rs — Unsigned divide
+def DIV32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                           "div", "$rd, $rs2", []>,
+              Sched<[WriteIDiv, ReadIALU, ReadIALU]>;
+
+// DIVS rr, rs — Signed divide
+def DIVS32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                            "divs", "$rd, $rs2", []>,
+               Sched<[WriteIDiv, ReadIALU, ReadIALU]>;
+
+} // Constraints
+
+//===----------------------------------------------------------------------===//
+// Block Transfer Instructions (no isel patterns — for inline asm / builtins)
+//===----------------------------------------------------------------------===//
+
+// LDI — Load and increment: (XDE) ← (XHL), XDE++, XHL++, XBC--
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+def LDI : TLCS900Inst<(outs), (ins), "ldi", "", []>,
+          Sched<[WriteSTW]>;
+
+// LDIR — Load, increment, repeat: LDI until XBC == 0
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+def LDIR : TLCS900Inst<(outs), (ins), "ldir", "", []>,
+           Sched<[WriteSTW]>;
+
+// LDD — Load and decrement: (XDE) ← (XHL), XDE--, XHL--, XBC--
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+def LDD : TLCS900Inst<(outs), (ins), "ldd", "", []>,
+          Sched<[WriteSTW]>;
+
+// LDDR — Load, decrement, repeat: LDD until XBC == 0
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+def LDDR : TLCS900Inst<(outs), (ins), "lddr", "", []>,
+           Sched<[WriteSTW]>;
+
+//===----------------------------------------------------------------------===//
+// Compare/Search Block Instructions
+//===----------------------------------------------------------------------===//
+
+// CPI — Compare and increment: compare A with (XHL), XHL++, XBC--
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+def CPI : TLCS900Inst<(outs), (ins), "cpi", "", []>,
+          Sched<[WriteIALU]>;
+
+// CPIR — Compare, increment, repeat: CPI until match or XBC == 0
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+def CPIR : TLCS900Inst<(outs), (ins), "cpir", "", []>,
+           Sched<[WriteIALU]>;
+
+// CPD — Compare and decrement: compare A with (XHL), XHL--, XBC--
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+def CPD : TLCS900Inst<(outs), (ins), "cpd", "", []>,
+          Sched<[WriteIALU]>;
+
+// CPDR — Compare, decrement, repeat: CPD until match or XBC == 0
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+def CPDR : TLCS900Inst<(outs), (ins), "cpdr", "", []>,
+           Sched<[WriteIALU]>;
