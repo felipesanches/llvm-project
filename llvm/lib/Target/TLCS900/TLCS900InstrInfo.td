@@ -196,8 +196,7 @@ def SLA32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 
 // SLA rd, #imm
 def SLA32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "sla", "$rd, $imm",
-                          [(set GPR:$rd, (shl GPR:$rs1, (imm):$imm))]>,
+                          "sla", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
 // SRA rd, rs — Shift Right Arithmetic
@@ -208,8 +207,7 @@ def SRA32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 
 // SRA rd, #imm
 def SRA32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "sra", "$rd, $imm",
-                          [(set GPR:$rd, (sra GPR:$rs1, (imm):$imm))]>,
+                          "sra", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
 // SRL rd, rs — Shift Right Logical
@@ -220,8 +218,7 @@ def SRL32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 
 // SRL rd, #imm
 def SRL32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                          "srl", "$rd, $imm",
-                          [(set GPR:$rd, (srl GPR:$rs1, (imm):$imm))]>,
+                          "srl", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
 } // Constraints = "$rd = $rs1"
