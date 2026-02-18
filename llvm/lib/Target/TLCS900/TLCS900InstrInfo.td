@@ -175,11 +175,12 @@ def : Pat<(i32 tblockaddress:$addr), (LD32ri tblockaddress:$addr)>;
 
 //===----------------------------------------------------------------------===//
 // Arithmetic Instructions (two-address: rd = rd op rs)
+// All arithmetic instructions modify the Status Register (flags).
 //===----------------------------------------------------------------------===//
 
-let Constraints = "$rd = $rs1" in {
+let Constraints = "$rd = $rs1", Defs = [SR] in {
 
-// ADD rd, rs — rd = rd + rs
+// ADD rd, rs — rd = rd + rs (affects S, Z, H, V, N, C)
 def ADD32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "add", "$rd, $rs2",
                           [(set GPR:$rd, (add GPR:$rs1, GPR:$rs2))]>,
@@ -191,7 +192,7 @@ def ADD32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           [(set GPR:$rd, (add GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
-// SUB rd, rs — rd = rd - rs
+// SUB rd, rs — rd = rd - rs (affects S, Z, H, V, N, C)
 def SUB32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "sub", "$rd, $rs2",
                           [(set GPR:$rd, (sub GPR:$rs1, GPR:$rs2))]>,
@@ -203,8 +204,8 @@ def SUB32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           [(set GPR:$rd, (sub GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
-// ADC rd, rs — rd = rd + rs + carry
-let Defs = [SR], Uses = [SR] in {
+// ADC rd, rs — rd = rd + rs + carry (also reads carry from SR)
+let Uses = [SR] in {
 def ADC32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "adc", "$rd, $rs2", []>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
@@ -214,7 +215,7 @@ def ADC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           "adc", "$rd, $imm", []>,
               Sched<[WriteIALU, ReadIALU]>;
 
-// SBC rd, rs — rd = rd - rs - carry
+// SBC rd, rs — rd = rd - rs - carry (also reads carry from SR)
 def SBC32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "sbc", "$rd, $rs2", []>,
               Sched<[WriteIALU, ReadIALU, ReadIALU]>;
@@ -223,13 +224,13 @@ def SBC32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 def SBC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           "sbc", "$rd, $imm", []>,
               Sched<[WriteIALU, ReadIALU]>;
-} // Defs = [SR], Uses = [SR]
+} // Uses = [SR]
 
 //===----------------------------------------------------------------------===//
-// Logic Instructions (two-address)
+// Logic Instructions (two-address, all modify SR flags)
 //===----------------------------------------------------------------------===//
 
-// AND rd, rs
+// AND rd, rs (affects S, Z, H=1, V=parity, N=0, C=0)
 def AND32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "and", "$rd, $rs2",
                           [(set GPR:$rd, (and GPR:$rs1, GPR:$rs2))]>,
@@ -241,7 +242,7 @@ def AND32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           [(set GPR:$rd, (and GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
-// OR rd, rs
+// OR rd, rs (affects S, Z, H=0, V=parity, N=0, C=0)
 def OR32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                          "or", "$rd, $rs2",
                          [(set GPR:$rd, (or GPR:$rs1, GPR:$rs2))]>,
@@ -253,7 +254,7 @@ def OR32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                          [(set GPR:$rd, (or GPR:$rs1, (imm):$imm))]>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// XOR rd, rs
+// XOR rd, rs (affects S, Z, H=0, V=parity, N=0, C=0)
 def XOR32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "xor", "$rd, $rs2",
                           [(set GPR:$rd, (xor GPR:$rs1, GPR:$rs2))]>,
@@ -266,10 +267,10 @@ def XOR32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
               Sched<[WriteIALU, ReadIALU]>;
 
 //===----------------------------------------------------------------------===//
-// Shift Instructions (two-address)
+// Shift Instructions (two-address, all modify SR flags)
 //===----------------------------------------------------------------------===//
 
-// SLA rd, rs — Shift Left Arithmetic
+// SLA rd, rs — Shift Left Arithmetic (affects S, Z, H=0, V, N=0, C)
 def SLA32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "sla", "$rd, $rs2",
                           [(set GPR:$rd, (shl GPR:$rs1, GPR:$rs2))]>,
@@ -280,7 +281,7 @@ def SLA32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           "sla", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
-// SRA rd, rs — Shift Right Arithmetic
+// SRA rd, rs — Shift Right Arithmetic (affects S, Z, H=0, V, N=0, C)
 def SRA32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "sra", "$rd, $rs2",
                           [(set GPR:$rd, (sra GPR:$rs1, GPR:$rs2))]>,
@@ -291,7 +292,7 @@ def SRA32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           "sra", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
-// SRL rd, rs — Shift Right Logical
+// SRL rd, rs — Shift Right Logical (affects S, Z, H=0, V, N=0, C)
 def SRL32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                           "srl", "$rd, $rs2",
                           [(set GPR:$rd, (srl GPR:$rs1, GPR:$rs2))]>,
@@ -302,50 +303,53 @@ def SRL32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           "srl", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
-} // Constraints = "$rd = $rs1"
+} // Constraints = "$rd = $rs1", Defs = [SR]
 
 //===----------------------------------------------------------------------===//
-// Unary Instructions (single-operand, in-place)
+// Unary Instructions (single-operand, in-place, all modify SR flags)
 //===----------------------------------------------------------------------===//
 
-let Constraints = "$rd = $rs1" in {
+let Constraints = "$rd = $rs1", Defs = [SR] in {
 
-// NEG rd — Negate: rd = 0 - rd
+// NEG rd — Negate: rd = 0 - rd (affects all flags)
 def NEG32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                          "neg", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// CPL rd — Complement (bitwise NOT): rd = ~rd
+// CPL rd — Complement (bitwise NOT): rd = ~rd (affects H=1, N=1)
 def CPL32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                          "cpl", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// INC #n, rd — Increment by n (n = 1..8, encoded as 3-bit: 0 means 8)
+// INC #n, rd — Increment by n (n = 1..8)
+// Affects S, Z, H, V but NOT C (carry is preserved on hardware, but we
+// model SR as a single register so we must declare it as clobbered).
 def INC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
                          "inc", "$n, $rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// DEC #n, rd — Decrement by n (n = 1..8, encoded as 3-bit: 0 means 8)
+// DEC #n, rd — Decrement by n (n = 1..8)
+// Same flag behavior as INC.
 def DEC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
                          "dec", "$n, $rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits
+// EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits (affects S, Z)
 def EXTS32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                           "exts", "$rd", []>,
               Sched<[WriteIALU, ReadIALU]>;
 
-// EXTZ rd — Zero extend: low 16 bits zero-extended to 32 bits
+// EXTZ rd — Zero extend: low 16 bits zero-extended to 32 bits (affects S, Z)
 def EXTZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                           "extz", "$rd", []>,
               Sched<[WriteIALU, ReadIALU]>;
 
-// DAA rd — Decimal Adjust after Addition (BCD)
+// DAA rd — Decimal Adjust after Addition (BCD) (affects all flags)
 def DAA32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                          "daa", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-} // Constraints = "$rd = $rs1"
+} // Constraints = "$rd = $rs1", Defs = [SR]
 
 // Patterns for NEG and CPL
 def : Pat<(sub 0, GPR:$rs), (NEG32 GPR:$rs)>;
@@ -670,7 +674,10 @@ def DJNZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
 
 //===----------------------------------------------------------------------===//
 // Memory-register arithmetic (CISC: operates directly on memory)
+// All modify SR flags.
 //===----------------------------------------------------------------------===//
+
+let Defs = [SR] in {
 
 // ADD (mem), rs — Add register to memory location
 def ADD32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
@@ -698,14 +705,12 @@ def XOR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // CP (mem), rs — Compare memory with register (folds load into compare)
-let Defs = [SR] in
 def CP32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                           "cp", "$addr, $rs",
                           [(tlcs900_cmp (load addr:$addr), GPR:$rs)]>,
              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
 
 // CP (mem), #imm — Compare memory with immediate (folds load into compare)
-let Defs = [SR] in
 def CP32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
                           "cp", "$addr, $imm",
                           [(tlcs900_cmp (load addr:$addr), (imm):$imm)]>,
@@ -721,6 +726,8 @@ def SUB32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
                            "sub", "$addr, $imm", []>,
               Sched<[WriteSTW, ReadMemBase]>;
 
+} // Defs = [SR]
+
 //===----------------------------------------------------------------------===//
 // Multiply / Divide Instructions (hardware, 16-bit operands)
 //===----------------------------------------------------------------------===//
@@ -734,7 +741,7 @@ def SUB32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
 // since we only support i32 types. These will be useful once i16 support is added
 // or for inline assembly.
 
-let Constraints = "$rd = $rs1" in {
+let Constraints = "$rd = $rs1", Defs = [SR] in {
 
 // MUL rr, rs — Unsigned multiply: result in next-wider register
 def MUL32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
@@ -756,7 +763,7 @@ def DIVS32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
                             "divs", "$rd, $rs2", []>,
                Sched<[WriteIDiv, ReadIALU, ReadIALU]>;
 
-} // Constraints
+} // Constraints, Defs = [SR]
 
 //===----------------------------------------------------------------------===//
 // Block Transfer Instructions (no isel patterns — for inline asm / builtins)
