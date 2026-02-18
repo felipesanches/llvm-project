@@ -23,11 +23,12 @@ else:
 }
 
 ; SUB sets Z flag — cp with 0 for ne is redundant
+; (compiler may invert condition: branch on Z to else instead of NZ to then)
 define i32 @sub_branch_ne(i32 %a, i32 %b) {
 ; CHECK-LABEL: sub_branch_ne:
 ; CHECK:       sub
 ; CHECK-NOT:   cp
-; CHECK:       jr nz,
+; CHECK:       jr z,
 entry:
   %diff = sub i32 %a, %b
   %cmp = icmp ne i32 %diff, 0
@@ -59,12 +60,12 @@ else:
 }
 
 ; Sign test: SUB sets S flag — cp with 0 for slt is NOT eliminated
-; (slt uses overflow flag, not just S)
+; (slt 0 is lowered as le -1, which needs a separate compare)
 define i32 @sub_branch_slt(i32 %a, i32 %b) {
 ; CHECK-LABEL: sub_branch_slt:
 ; CHECK:       sub
 ; CHECK:       cp
-; CHECK:       jr lt,
+; CHECK:       jr le,
 entry:
   %diff = sub i32 %a, %b
   %cmp = icmp slt i32 %diff, 0

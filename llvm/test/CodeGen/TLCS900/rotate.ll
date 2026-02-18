@@ -32,8 +32,8 @@ define i32 @rotr_var(i32 %a, i32 %b) {
 ; Rotate left by constant
 define i32 @rotl_const(i32 %a) {
 ; CHECK-LABEL: rotl_const:
-; CHECK:       sla
 ; CHECK:       srl
+; CHECK:       sla
 ; CHECK:       or
 ; CHECK:       ret
   %r = call i32 @llvm.fshl.i32(i32 %a, i32 %a, i32 8)

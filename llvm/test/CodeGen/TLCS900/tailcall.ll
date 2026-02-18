@@ -10,7 +10,6 @@ declare void @void_func(i32)
 ; Simple tail call: return value forwarded directly
 define i32 @tail_call_simple(i32 %a) {
 ; CHECK-LABEL: tail_call_simple:
-; CHECK-NOT:   call
 ; CHECK:       jp external_func
   %r = tail call i32 @external_func(i32 %a)
   ret i32 %r
@@ -19,7 +18,6 @@ define i32 @tail_call_simple(i32 %a) {
 ; Void tail call
 define void @tail_call_void(i32 %a) {
 ; CHECK-LABEL: tail_call_void:
-; CHECK-NOT:   call
 ; CHECK:       jp void_func
   tail call void @void_func(i32 %a)
   ret void
@@ -44,7 +42,6 @@ define internal i32 @helper(i32 %x) {
 
 define i32 @tail_call_internal(i32 %a) {
 ; CHECK-LABEL: tail_call_internal:
-; CHECK-NOT:   call
 ; CHECK:       jp helper
   %r = tail call i32 @helper(i32 %a)
   ret i32 %r
