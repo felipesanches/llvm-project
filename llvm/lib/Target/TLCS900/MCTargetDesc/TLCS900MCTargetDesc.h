@@ -14,6 +14,31 @@
 #define LLVM_LIB_TARGET_TLCS900_MCTARGETDESC_TLCS900MCTARGETDESC_H
 
 #include "TLCS900BaseInfo.h"
+#include <memory>
+
+namespace llvm {
+class MCAsmBackend;
+class MCCodeEmitter;
+class MCContext;
+class MCInstrInfo;
+class MCObjectTargetWriter;
+class MCRegisterInfo;
+class MCSubtargetInfo;
+class MCTargetOptions;
+class Target;
+
+MCCodeEmitter *createTLCS900MCCodeEmitter(const MCInstrInfo &MCII,
+                                          MCContext &Ctx);
+
+MCAsmBackend *createTLCS900AsmBackend(const Target &T,
+                                      const MCSubtargetInfo &STI,
+                                      const MCRegisterInfo &MRI,
+                                      const MCTargetOptions &Options);
+
+std::unique_ptr<MCObjectTargetWriter>
+createTLCS900ELFObjectWriter(uint8_t OSABI);
+
+} // end namespace llvm
 
 // Defines symbolic names for TLCS900 registers. This defines a mapping from
 // register name to register number.

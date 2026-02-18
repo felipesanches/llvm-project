@@ -1,5 +1,8 @@
 add_llvm_component_library(LLVMTLCS900Desc
+  TLCS900AsmBackend.cpp
+  TLCS900ELFObjectWriter.cpp
   TLCS900MCAsmInfo.cpp
+  TLCS900MCCodeEmitter.cpp
   TLCS900MCTargetDesc.cpp
   TLCS900InstPrinter.cpp
 

@@ -90,5 +90,11 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeTLCS900TargetMC() {
 
     // Register the MCInstPrinter.
     TargetRegistry::RegisterMCInstPrinter(*T, createTLCS900MCInstPrinter);
+
+    // Register the MC code emitter.
+    TargetRegistry::RegisterMCCodeEmitter(*T, createTLCS900MCCodeEmitter);
+
+    // Register the asm backend.
+    TargetRegistry::RegisterMCAsmBackend(*T, createTLCS900AsmBackend);
   }
 }
