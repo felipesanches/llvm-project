@@ -69,14 +69,10 @@ void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
 
   if (Disp.isImm()) {
     int64_t DispVal = Disp.getImm();
-    if (Base.isReg() || Base.isExpr() || Base.isImm()) {
-      if (DispVal > 0)
-        O << "+" << DispVal;
-      else if (DispVal < 0)
-        O << DispVal;
-    } else {
+    if (DispVal > 0)
+      O << "+" << DispVal;
+    else if (DispVal < 0)
       O << DispVal;
-    }
   }
 
   O << ")";
