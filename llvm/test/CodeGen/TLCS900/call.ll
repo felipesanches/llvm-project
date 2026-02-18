@@ -32,3 +32,11 @@ define i32 @call_with_stack_args(i32 %a, i32 %b, i32 %c, i32 %d, i32 %e) {
   %sum4 = add i32 %sum3, %e
   ret i32 %sum4
 }
+
+define i32 @indirect_call(ptr %func, i32 %arg) {
+; CHECK-LABEL: indirect_call:
+; CHECK:       call (
+; CHECK:       ret
+  %result = call i32 %func(i32 %arg)
+  ret i32 %result
+}

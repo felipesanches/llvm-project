@@ -349,6 +349,12 @@ def CALL : TLCS900Inst<(outs), (ins i32imm:$target),
                        [(tlcs900_call tglobaladdr:$target)]>,
            Sched<[WriteJmp]>;
 
+// CALL (rs) — Indirect function call through register
+def CALL_r : TLCS900Inst<(outs), (ins GPR:$target),
+                          "call", "($target)",
+                          [(tlcs900_call GPR:$target)]>,
+              Sched<[WriteJmp]>;
+
 } // isCall = 1
 
 def : Pat<(tlcs900_call texternalsym:$target), (CALL texternalsym:$target)>;
