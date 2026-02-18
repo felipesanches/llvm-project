@@ -101,8 +101,8 @@ def LD32ri : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$imm),
                          [(set GPR:$rd, (imm):$imm)]>,
              Sched<[WriteIALU]>;
 
-// LD rd, rs — Copy register to register
-let isAsCheapAsAMove = 1 in
+// LD rd, rs — Copy register to register (no side effects, pure move)
+let isAsCheapAsAMove = 1, hasSideEffects = 0 in
 def LD32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs),
                          "ld", "$rd, $rs",
                          []>,
@@ -547,7 +547,7 @@ def Select32 : Pseudo<(outs GPR:$rd),
 //===----------------------------------------------------------------------===//
 
 // SCC cc, rd — Set register to 1 if condition true, 0 otherwise
-let Uses = [SR] in
+let Uses = [SR], hasSideEffects = 0 in
 def SCC32 : TLCS900Inst<(outs GPR:$rd), (ins cc:$cc),
                          "scc", "$cc, $rd", []>,
             Sched<[WriteIALU]>;
@@ -556,7 +556,8 @@ def SCC32 : TLCS900Inst<(outs GPR:$rd), (ins cc:$cc),
 // System Instructions
 //===----------------------------------------------------------------------===//
 
-// NOP — No operation
+// NOP — No operation (safe to remove)
+let hasSideEffects = 0 in
 def NOP : TLCS900Inst<(outs), (ins), "nop", "", []>,
           Sched<[WriteNop]>;
 
@@ -652,8 +653,8 @@ def TSET32 : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
 // Exchange Instructions
 //===----------------------------------------------------------------------===//
 
-// EX rd, rs — Exchange contents of two registers
-let Constraints = "$rd_out = $rd_in, $rs_out = $rs_in" in
+// EX rd, rs — Exchange contents of two registers (no side effects)
+let Constraints = "$rd_out = $rd_in, $rs_out = $rs_in", hasSideEffects = 0 in
 def EX32 : TLCS900Inst<(outs GPR:$rd_out, GPR:$rs_out),
                         (ins GPR:$rd_in, GPR:$rs_in),
                         "ex", "$rd_out, $rs_out", []>,
@@ -663,7 +664,8 @@ def EX32 : TLCS900Inst<(outs GPR:$rd_out, GPR:$rs_out),
 // Load Effective Address
 //===----------------------------------------------------------------------===//
 
-// LDA rd, (base+disp) — Load effective address into register
+// LDA rd, (base+disp) — Load effective address into register (pure computation)
+let hasSideEffects = 0 in
 def LDA32 : TLCS900Inst<(outs GPR:$rd), (ins MEMri:$addr),
                          "lda", "$rd, $addr", []>,
             Sched<[WriteIALU]>;
