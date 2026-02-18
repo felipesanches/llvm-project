@@ -90,3 +90,8 @@ def GR16 : RegisterClass<"TLCS900", [i16], 16,
 
 def GPR : RegisterClass<"TLCS900", [i32], 32,
                          (add XWA, XBC, XDE, XHL, XIX, XIY, XIZ, XSP)>;
+
+// GPR registers that have 8-bit sub-registers (for byte operations).
+// XIX/XIY/XIZ/XSP lack 8-bit sub-registers on TLCS-900.
+def GPR_with_sub8 : RegisterClass<"TLCS900", [i32], 32,
+                                   (add XWA, XBC, XDE, XHL)>;

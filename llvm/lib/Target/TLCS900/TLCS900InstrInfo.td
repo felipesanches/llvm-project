@@ -80,7 +80,9 @@ def MEMri : Operand<i32> {
 def addr : ComplexPattern<iPTR, 2, "SelectAddr", [frameindex], []>;
 
 // Register operands that print as sub-register names (for 8/16-bit ops)
-def GPR_lo8 : RegisterOperand<GPR> {
+// GPR_lo8 uses the restricted GPR_with_sub8 class (only XWA/XBC/XDE/XHL
+// have 8-bit sub-registers on TLCS-900).
+def GPR_lo8 : RegisterOperand<GPR_with_sub8> {
   let PrintMethod = "printGPRAsLoByte";
 }
 
