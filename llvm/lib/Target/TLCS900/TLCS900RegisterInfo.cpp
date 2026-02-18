@@ -23,8 +23,8 @@
 using namespace llvm;
 
 TLCS900RegisterInfo::TLCS900RegisterInfo(const TLCS900Subtarget &ST)
-  : TLCS900GenRegisterInfo(TLCS900::XBC, /*DwarfFlavour*/0, /*EHFlavor*/0,
-                         /*PC*/0), Subtarget(ST) {}
+  : TLCS900GenRegisterInfo(/*RA=*/0, /*DwarfFlavour=*/0, /*EHFlavor=*/0,
+                         /*PC=*/0), Subtarget(ST) {}
 
 const MCPhysReg *
 TLCS900RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
@@ -79,6 +79,6 @@ TLCS900RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const
 }
 
 Register TLCS900RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  llvm_unreachable("Unsupported getFrameRegister");
+  return TLCS900::XSP;
 }
 

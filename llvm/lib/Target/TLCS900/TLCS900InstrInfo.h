@@ -27,6 +27,10 @@ class TLCS900InstrInfo : public TLCS900GenInstrInfo {
 public:
   explicit TLCS900InstrInfo(const TLCS900Subtarget &STI);
 
+  void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                   const DebugLoc &DL, MCRegister DstReg, MCRegister SrcReg,
+                   bool KillSrc) const override;
+
 protected:
   const TLCS900Subtarget &Subtarget;
 };

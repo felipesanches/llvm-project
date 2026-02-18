@@ -32,3 +32,16 @@ TLCS900InstrInfo::TLCS900InstrInfo(const TLCS900Subtarget &STI)
       Subtarget(STI)
 {
 }
+
+void TLCS900InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                   MachineBasicBlock::iterator MBBI,
+                                   const DebugLoc &DL, MCRegister DstReg,
+                                   MCRegister SrcReg, bool KillSrc) const {
+  if (TLCS900::GPRRegClass.contains(DstReg, SrcReg)) {
+    BuildMI(MBB, MBBI, DL, get(TLCS900::LD32rr), DstReg)
+        .addReg(SrcReg, getKillRegState(KillSrc));
+    return;
+  }
+
+  llvm_unreachable("Impossible reg-to-reg copy");
+}
