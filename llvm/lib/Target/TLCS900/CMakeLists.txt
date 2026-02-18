@@ -4,8 +4,6 @@ set(LLVM_TARGET_DEFINITIONS TLCS900.td)
 
 tablegen(LLVM TLCS900GenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM TLCS900GenInstrInfo.inc -gen-instr-info)
-tablegen(LLVM TLCS900GenCodeEmitter.inc -gen-emitter)
-tablegen(LLVM TLCS900GenMCCodeEmitter.inc -gen-emitter)
 tablegen(LLVM TLCS900GenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM TLCS900GenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM TLCS900GenCallingConv.inc -gen-callingconv)
