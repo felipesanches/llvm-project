@@ -75,6 +75,7 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case systemz:        return "s390x";
   case tce:            return "tce";
   case tcele:          return "tcele";
+  case tlcs900:        return "tlcs900";
   case thumb:          return "thumb";
   case thumbeb:        return "thumbeb";
   case ve:             return "ve";
@@ -241,6 +242,8 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case ve:          return "ve";
   case csky:        return "csky";
+
+  case tlcs900:     return "tlcs900";
 
   case loongarch32:
   case loongarch64: return "loongarch";
@@ -456,6 +459,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("systemz", systemz)
     .Case("tce", tce)
     .Case("tcele", tcele)
+    .Case("tlcs900", tlcs900)
     .Case("thumb", thumb)
     .Case("thumbeb", thumbeb)
     .Case("x86", x86)
@@ -601,6 +605,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
           .Cases("sparcv9", "sparc64", Triple::sparcv9)
           .Case("tce", Triple::tce)
           .Case("tcele", Triple::tcele)
+          .Case("tlcs900", Triple::tlcs900)
           .Case("xcore", Triple::xcore)
           .Case("nvptx", Triple::nvptx)
           .Case("nvptx64", Triple::nvptx64)
@@ -969,6 +974,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::spir:
   case Triple::tce:
   case Triple::tcele:
+  case Triple::tlcs900:
   case Triple::thumbeb:
   case Triple::ve:
   case Triple::xcore:
@@ -1675,6 +1681,7 @@ unsigned Triple::getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::spirv32:
   case llvm::Triple::tce:
   case llvm::Triple::tcele:
+  case llvm::Triple::tlcs900:
   case llvm::Triple::thumb:
   case llvm::Triple::thumbeb:
   case llvm::Triple::wasm32:
@@ -1785,6 +1792,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::spirv32:
   case Triple::tce:
   case Triple::tcele:
+  case Triple::tlcs900:
   case Triple::thumb:
   case Triple::thumbeb:
   case Triple::wasm32:
@@ -1840,6 +1848,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::sparcel:
   case Triple::tce:
   case Triple::tcele:
+  case Triple::tlcs900:
   case Triple::xcore:
   case Triple::xtensa:
     T.setArch(UnknownArch);
@@ -1940,6 +1949,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::xcore:
   case Triple::ve:
   case Triple::csky:
+  case Triple::tlcs900:
   case Triple::xtensa:
 
   // ARM is intentionally unsupported here, changing the architecture would
@@ -2042,6 +2052,7 @@ bool Triple::isLittleEndian() const {
   case Triple::spirv32:
   case Triple::spirv64:
   case Triple::tcele:
+  case Triple::tlcs900:
   case Triple::thumb:
   case Triple::ve:
   case Triple::wasm32:
