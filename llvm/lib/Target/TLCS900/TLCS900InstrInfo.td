@@ -304,6 +304,11 @@ def : Pat<(sext_inreg GPR:$rs, i16), (EXTS32 GPR:$rs)>;
 // Pattern for EXTZ: zero extend low 16 bits (AND with 0xFFFF)
 def : Pat<(and GPR:$rs, 65535), (EXTZ32 GPR:$rs)>;
 
+// Patterns for shift-by-immediate (more efficient than loading count into reg)
+def : Pat<(shl GPR:$rs, (i32 imm:$amt)), (SLA32ri GPR:$rs, imm:$amt)>;
+def : Pat<(sra GPR:$rs, (i32 imm:$amt)), (SRA32ri GPR:$rs, imm:$amt)>;
+def : Pat<(srl GPR:$rs, (i32 imm:$amt)), (SRL32ri GPR:$rs, imm:$amt)>;
+
 // Patterns for INC: add by small constant (1-8) uses INC instruction
 // INC doesn't affect Carry flag (unlike ADD), useful for loop counters
 def : Pat<(add GPR:$rs, 1), (INC32 GPR:$rs, 1)>;

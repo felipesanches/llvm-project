@@ -25,3 +25,37 @@ define i32 @srl_reg(i32 %a, i32 %b) {
   %c = lshr i32 %a, %b
   ret i32 %c
 }
+
+; Shift-by-immediate tests (should use immediate form, not load+register)
+
+define i32 @shl_imm(i32 %a) {
+; CHECK-LABEL: shl_imm:
+; CHECK:       sla xde, 4
+; CHECK:       ret
+  %c = shl i32 %a, 4
+  ret i32 %c
+}
+
+define i32 @sra_imm(i32 %a) {
+; CHECK-LABEL: sra_imm:
+; CHECK:       sra xde, 8
+; CHECK:       ret
+  %c = ashr i32 %a, 8
+  ret i32 %c
+}
+
+define i32 @srl_imm(i32 %a) {
+; CHECK-LABEL: srl_imm:
+; CHECK:       srl xde, 16
+; CHECK:       ret
+  %c = lshr i32 %a, 16
+  ret i32 %c
+}
+
+define i32 @shl_1(i32 %a) {
+; CHECK-LABEL: shl_1:
+; CHECK:       sla xde, 1
+; CHECK:       ret
+  %c = shl i32 %a, 1
+  ret i32 %c
+}
