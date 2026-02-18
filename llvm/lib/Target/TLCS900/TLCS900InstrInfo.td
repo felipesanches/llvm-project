@@ -295,6 +295,7 @@ def RET : TLCS900Inst<(outs), (ins),
 let Defs = [XSP], Uses = [XSP] in {
 
 // PUSH rs — Push 32-bit register to stack
+let mayStore = 1 in
 def PUSH32 : TLCS900Inst<(outs), (ins GPR:$rs),
                          "push", "$rs", []>,
              Sched<[WritePush]>;
