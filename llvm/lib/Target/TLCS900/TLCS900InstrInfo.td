@@ -139,20 +139,20 @@ def LD8rm : TLCS900Inst<(outs GPR_lo8:$rd), (ins MEMri:$addr),
             Sched<[WriteLDW, ReadMemBase]>;
 
 // Patterns for 16-bit extending loads
-def : Pat<(i32 (zextloadi16 addr:$addr)), (EXTZ32 (LD16rm MEMri:$addr))>;
-def : Pat<(i32 (sextloadi16 addr:$addr)), (EXTS32 (LD16rm MEMri:$addr))>;
-def : Pat<(i32 (extloadi16 addr:$addr)),  (EXTZ32 (LD16rm MEMri:$addr))>;
+def : Pat<(i32 (zextloadi16 addr:$addr)), (EXTZ32 (LD16rm addr:$addr))>;
+def : Pat<(i32 (sextloadi16 addr:$addr)), (EXTS32 (LD16rm addr:$addr))>;
+def : Pat<(i32 (extloadi16 addr:$addr)),  (EXTZ32 (LD16rm addr:$addr))>;
 
 // Patterns for 8-bit extending loads
 // Zero-extend: load byte, then AND with 0xFF
 def : Pat<(i32 (zextloadi8 addr:$addr)),
-          (AND32ri (LD8rm MEMri:$addr), 255)>;
+          (AND32ri (LD8rm addr:$addr), 255)>;
 // Sign-extend: load byte, shift left 24, shift right arithmetic 24
 def : Pat<(i32 (sextloadi8 addr:$addr)),
-          (SRA32ri (SLA32ri (LD8rm MEMri:$addr), 24), 24)>;
+          (SRA32ri (SLA32ri (LD8rm addr:$addr), 24), 24)>;
 // Any-extend: just load (upper bits don't matter)
 def : Pat<(i32 (extloadi8 addr:$addr)),
-          (AND32ri (LD8rm MEMri:$addr), 255)>;
+          (AND32ri (LD8rm addr:$addr), 255)>;
 
 // LD (base+disp), rs:lo16 — Truncating store: writes low 16 bits to memory
 def LD16mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR_lo16:$rs),
