@@ -130,12 +130,14 @@ def LD32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$val),
 // Note: upper 16 bits of the 32-bit register are UNCHANGED by hardware.
 // This is used internally; zextloadi16/sextloadi16 patterns add explicit
 // EXTZ/EXTS to clear/sign-extend the upper bits.
+let mayLoad = 1 in
 def LD16rm : TLCS900Inst<(outs GPR_lo16:$rd), (ins MEMri:$addr),
                           "ld", "$rd, $addr", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 // LD rd:lo8, (base+disp) — Load 8-bit from memory into low byte of GPR
 // Note: other bytes of the register are UNCHANGED by hardware.
+let mayLoad = 1 in
 def LD8rm : TLCS900Inst<(outs GPR_lo8:$rd), (ins MEMri:$addr),
                          "ld", "$rd, $addr", []>,
             Sched<[WriteLDW, ReadMemBase]>;
@@ -677,32 +679,37 @@ def DJNZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
 // All modify SR flags.
 //===----------------------------------------------------------------------===//
 
-let Defs = [SR] in {
+let Defs = [SR], mayLoad = 1, mayStore = 1 in {
 
-// ADD (mem), rs — Add register to memory location
+// ADD (mem), rs — Add register to memory location (read-modify-write)
 def ADD32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                            "add", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
-// SUB (mem), rs — Subtract register from memory location
+// SUB (mem), rs — Subtract register from memory location (read-modify-write)
 def SUB32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                            "sub", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
-// AND (mem), rs — AND register with memory location
+// AND (mem), rs — AND register with memory location (read-modify-write)
 def AND32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                            "and", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
-// OR (mem), rs — OR register with memory location
+// OR (mem), rs — OR register with memory location (read-modify-write)
 def OR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                           "or", "$addr, $rs", []>,
              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
-// XOR (mem), rs — XOR register with memory location
+// XOR (mem), rs — XOR register with memory location (read-modify-write)
 def XOR32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                            "xor", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+
+} // Defs = [SR], mayLoad, mayStore
+
+// CP only reads memory (no write-back), and has patterns so mayLoad is inferred.
+let Defs = [SR] in {
 
 // CP (mem), rs — Compare memory with register (folds load into compare)
 def CP32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
@@ -716,17 +723,22 @@ def CP32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
                           [(tlcs900_cmp (load addr:$addr), (imm):$imm)]>,
              Sched<[WriteLDW, ReadMemBase]>;
 
-// ADD (mem), #imm — Add immediate to memory location
+} // Defs = [SR]
+
+// ADD/SUB memory-immediate: also read-modify-write
+let Defs = [SR], mayLoad = 1, mayStore = 1 in {
+
+// ADD (mem), #imm — Add immediate to memory location (read-modify-write)
 def ADD32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
                            "add", "$addr, $imm", []>,
               Sched<[WriteSTW, ReadMemBase]>;
 
-// SUB (mem), #imm — Subtract immediate from memory location
+// SUB (mem), #imm — Subtract immediate from memory location (read-modify-write)
 def SUB32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$imm),
                            "sub", "$addr, $imm", []>,
               Sched<[WriteSTW, ReadMemBase]>;
 
-} // Defs = [SR]
+} // Defs = [SR], mayLoad, mayStore
 
 //===----------------------------------------------------------------------===//
 // Multiply / Divide Instructions (hardware, 16-bit operands)
