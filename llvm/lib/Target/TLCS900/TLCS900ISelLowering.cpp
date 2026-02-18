@@ -131,6 +131,40 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   }
 }
 
+bool TLCS900TargetLowering::shouldConvertConstantLoadToIntImm(
+    const APInt &Imm, Type *Ty) const {
+  // Always prefer LD rd, #imm over loading from constant pool.
+  // TLCS-900 can load any 32-bit immediate directly.
+  return true;
+}
+
+EVT TLCS900TargetLowering::getSetCCResultType(const DataLayout &DL,
+                                                LLVMContext &Context,
+                                                EVT VT) const {
+  // Comparison results are i32 (we only support i32 for now).
+  return MVT::i32;
+}
+
+bool TLCS900TargetLowering::isLegalAddressingMode(const DataLayout &DL,
+                                                   const AddrMode &AM,
+                                                   Type *Ty, unsigned AS,
+                                                   Instruction *I) const {
+  // TLCS-900 supports: (reg), (reg+disp16), (imm24)
+  // No scaled indexing: reg + scale*idx is not directly supported.
+  if (AM.Scale != 0)
+    return false;
+
+  // Displacement must fit in 16 bits (signed).
+  if (AM.BaseOffs < -32768 || AM.BaseOffs > 32767)
+    return false;
+
+  // Either base register or global address, not both in one operand.
+  if (AM.HasBaseReg && AM.BaseGV)
+    return false;
+
+  return true;
+}
+
 SDValue TLCS900TargetLowering::LowerOperation(SDValue Op,
                                                SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {

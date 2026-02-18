@@ -40,6 +40,16 @@ public:
 
   const char *getTargetNodeName(unsigned Opcode) const override;
 
+  bool isLegalAddressingMode(const DataLayout &DL, const AddrMode &AM,
+                             Type *Ty, unsigned AS,
+                             Instruction *I = nullptr) const override;
+
+  bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
+                                         Type *Ty) const override;
+
+  EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
+                         EVT VT) const override;
+
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
   void ReplaceNodeResults(SDNode *N,
                           SmallVectorImpl<SDValue> &Results,
