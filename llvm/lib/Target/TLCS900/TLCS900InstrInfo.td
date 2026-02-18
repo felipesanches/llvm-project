@@ -140,20 +140,20 @@ include "TLCS900InstrFormats.td"
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ALU_ri<bits<3> funct3, string opcodestr>
-    : RWInstI<funct3, OPC_OP_IMM, (outs GR16:$rd), (ins GR16:$rs1, simm12:$imm12),
+    : RWInstI<funct3, OPC_OP_IMM, (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
               opcodestr, "$rd, $rs1, $imm12">,
       Sched<[WriteIALU, ReadIALU]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class Shift_ri<bit arithshift, bits<3> funct3, string opcodestr>
-    : RWInstIShift<arithshift, funct3, OPC_OP_IMM, (outs GR16:$rd),
-                   (ins GR16:$rs1, uimmlog2wsize:$shamt), opcodestr,
+    : RWInstIShift<arithshift, funct3, OPC_OP_IMM, (outs GPR:$rd),
+                   (ins GPR:$rs1, uimmlog2wsize:$shamt), opcodestr,
                    "$rd, $rs1, $shamt">,
       Sched<[WriteShift, ReadShift]>;
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in
 class ALU_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
-    : RWInstR<funct7, funct3, OPC_OP, (outs GR16:$rd), (ins GR16:$rs1, GR16:$rs2),
+    : RWInstR<funct7, funct3, OPC_OP, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
               opcodestr, "$rd, $rs1, $rs2">;
 
 //===----------------------------------------------------------------------===//
@@ -162,10 +162,10 @@ class ALU_rr<bits<7> funct7, bits<3> funct3, string opcodestr>
 
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
-def LUI : RWInstU<OPC_LUI, (outs GR16:$rd), (ins uimm20_lui:$imm20),
+def LUI : RWInstU<OPC_LUI, (outs GPR:$rd), (ins uimm20_lui:$imm20),
                   "lui", "$rd, $imm20">, Sched<[WriteIALU]>;
 
-def AUIPC : RWInstU<OPC_AUIPC, (outs GR16:$rd), (ins uimm20_auipc:$imm20),
+def AUIPC : RWInstU<OPC_AUIPC, (outs GPR:$rd), (ins uimm20_auipc:$imm20),
                     "auipc", "$rd, $imm20">, Sched<[WriteIALU]>;
 } // hasSideEffects = 0, mayLoad = 0, mayStore = 0
 
@@ -216,8 +216,8 @@ def REMU    : ALU_rr<0b0000001, 0b111, "remu">,
 /* Procedure calling instructions */
 let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 let isCall = 1 in
-def JALR : RWInstI<0b000, OPC_JALR, (outs GR16:$rd),
-                   (ins GR16:$rs1, i32imm:$imm12),
+def JALR : RWInstI<0b000, OPC_JALR, (outs GPR:$rd),
+                   (ins GPR:$rs1, i32imm:$imm12),
                    "jalr", "$rd, ${imm12}(${rs1})">,
            Sched<[WriteJalr, ReadJalr]>;
 }
@@ -230,25 +230,25 @@ let isReturn = 1, isBarrier = 1, isTerminator = 1 in
 def PseudoRET : Pseudo<(outs), (ins), [(tlcs900_ret)]>,
                 PseudoInstExpansion<(JALR DE, BC, 0)>;
 
-def : InstAlias<"mv $rd, $rs",   (ADDI GR16:$rd, GR16:$rs,       0)>;
-def : InstAlias<"not $rd, $rs",  (XORI GR16:$rd, GR16:$rs,      -1)>;
-def : InstAlias<"neg $rd, $rs",  (SUB  GR16:$rd,      DE, GR16:$rs)>;
+def : InstAlias<"mv $rd, $rs",   (ADDI GPR:$rd, GPR:$rs,       0)>;
+def : InstAlias<"not $rd, $rs",  (XORI GPR:$rd, GPR:$rs,      -1)>;
+def : InstAlias<"neg $rd, $rs",  (SUB  GPR:$rd,      DE, GPR:$rs)>;
 
-def : InstAlias<"seqz $rd, $rs", (SLTIU GR16:$rd, GR16:$rs,       1)>;
-def : InstAlias<"snez $rd, $rs", (SLTU  GR16:$rd,      DE, GR16:$rs)>;
-def : InstAlias<"sltz $rd, $rs", (SLT   GR16:$rd, GR16:$rs,      DE)>;
-def : InstAlias<"sgtz $rd, $rs", (SLT   GR16:$rd,      DE, GR16:$rs)>;
+def : InstAlias<"seqz $rd, $rs", (SLTIU GPR:$rd, GPR:$rs,       1)>;
+def : InstAlias<"snez $rd, $rs", (SLTU  GPR:$rd,      DE, GPR:$rs)>;
+def : InstAlias<"sltz $rd, $rs", (SLT   GPR:$rd, GPR:$rs,      DE)>;
+def : InstAlias<"sgtz $rd, $rs", (SLT   GPR:$rd,      DE, GPR:$rs)>;
 
 // sgt/sgtu are recognised by the GNU assembler but the canonical slt/sltu
 // form will always be printed. Therefore, set a zero weight.
-def : InstAlias<"sgt $rd, $rs, $rt", (SLT GR16:$rd, GR16:$rt, GR16:$rs), 0>;
-def : InstAlias<"sgtu $rd, $rs, $rt", (SLTU GR16:$rd, GR16:$rt, GR16:$rs), 0>;
+def : InstAlias<"sgt $rd, $rs, $rt", (SLT GPR:$rd, GPR:$rt, GPR:$rs), 0>;
+def : InstAlias<"sgtu $rd, $rs, $rt", (SLTU GPR:$rd, GPR:$rt, GPR:$rs), 0>;
 
 let EmitPriority = 0 in {
 def : InstAlias<"slt $rd, $rs1, $imm12",
-                (SLTI  GR16:$rd, GR16:$rs1, simm12:$imm12)>;
+                (SLTI  GPR:$rd, GPR:$rs1, simm12:$imm12)>;
 def : InstAlias<"sltu $rd, $rs1, $imm12",
-                (SLTIU  GR16:$rd, GR16:$rs1, simm12:$imm12)>;
+                (SLTIU  GPR:$rd, GPR:$rs1, simm12:$imm12)>;
 }
 
 def : InstAlias<"ret",                   (JALR      DE,      BC, 0), 4>;
@@ -266,12 +266,12 @@ def : MnemonicAlias<"move", "mv">;
 /// Generic pattern classes
 
 class PatGprGpr<SDPatternOperator OpNode, RWInst Inst>
-    : Pat<(OpNode GR16:$rs1, GR16:$rs2), (Inst GR16:$rs1, GR16:$rs2)>;
+    : Pat<(OpNode GPR:$rs1, GPR:$rs2), (Inst GPR:$rs1, GPR:$rs2)>;
 class PatGprSimm12<SDPatternOperator OpNode, RWInstI Inst>
-    : Pat<(OpNode GR16:$rs1, simm12:$imm12), (Inst GR16:$rs1, simm12:$imm12)>;
+    : Pat<(OpNode GPR:$rs1, simm12:$imm12), (Inst GPR:$rs1, simm12:$imm12)>;
 class PatGprUimmLog2WSize<SDPatternOperator OpNode, RWInstIShift Inst>
-    : Pat<(OpNode GR16:$rs1, uimmlog2wsize:$shamt),
-          (Inst GR16:$rs1, uimmlog2wsize:$shamt)>;
+    : Pat<(OpNode GPR:$rs1, uimmlog2wsize:$shamt),
+          (Inst GPR:$rs1, uimmlog2wsize:$shamt)>;
 
 /// Immediates
 
