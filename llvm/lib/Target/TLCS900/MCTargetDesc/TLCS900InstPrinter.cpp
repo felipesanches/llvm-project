@@ -62,12 +62,22 @@ void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
   O << "(";
   if (Base.isReg())
     O << StringRef(getRegisterName(Base.getReg())).lower();
+  else if (Base.isExpr())
+    Base.getExpr()->print(O, &MAI, true);
+  else if (Base.isImm())
+    O << Base.getImm();
 
-  int64_t DispVal = Disp.getImm();
-  if (DispVal > 0)
-    O << "+" << DispVal;
-  else if (DispVal < 0)
-    O << DispVal;
+  if (Disp.isImm()) {
+    int64_t DispVal = Disp.getImm();
+    if (Base.isReg() || Base.isExpr() || Base.isImm()) {
+      if (DispVal > 0)
+        O << "+" << DispVal;
+      else if (DispVal < 0)
+        O << DispVal;
+    } else {
+      O << DispVal;
+    }
+  }
 
   O << ")";
 }
