@@ -13,7 +13,6 @@
 #include "TLCS900InstrInfo.h"
 
 #include "TLCS900TargetMachine.h"
-#include "TLCS900MachineFunction.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/MC/TargetRegistry.h"

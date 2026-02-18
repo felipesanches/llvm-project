@@ -12,7 +12,7 @@
 
 #include "TLCS900InstPrinter.h"
 
-#include "TLCS900InstrInfo.h"
+#include "TLCS900MCTargetDesc.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"

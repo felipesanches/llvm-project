@@ -12,7 +12,6 @@
 
 #include "TLCS900.h"
 #include "TLCS900Subtarget.h"
-#include "TLCS900MachineFunction.h"
 #include "TLCS900RegisterInfo.h"
 #include "TLCS900TargetMachine.h"
 #include "llvm/IR/Attributes.h"
