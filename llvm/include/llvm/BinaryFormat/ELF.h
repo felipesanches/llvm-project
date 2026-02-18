@@ -1060,6 +1060,11 @@ enum {
 #include "ELFRelocs/Xtensa.def"
 };
 
+// ELF Relocation types for TLCS900
+enum {
+#include "ELFRelocs/TLCS900.def"
+};
+
 #undef ELF_RELOC
 
 // Section header.
