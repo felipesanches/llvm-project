@@ -28,8 +28,9 @@ public:
   explicit TLCS900InstrInfo(const TLCS900Subtarget &STI);
 
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
-                   const DebugLoc &DL, MCRegister DstReg, MCRegister SrcReg,
-                   bool KillSrc) const override;
+                   const DebugLoc &DL, Register DstReg, Register SrcReg,
+                   bool KillSrc, bool RenamableDest = false,
+                   bool RenamableSrc = false) const override;
 
 protected:
   const TLCS900Subtarget &Subtarget;
