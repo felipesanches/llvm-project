@@ -6,8 +6,8 @@
 
 define i32 @load_global() {
 ; CHECK-LABEL: load_global:
-; CHECK:       ld {{x[a-z]+}}, g
-; CHECK:       ld xde, ({{x[a-z]+}})
+; Direct memory addressing with global symbol
+; CHECK:       ld xde, (g)
 ; CHECK:       ret
   %v = load i32, ptr @g
   ret i32 %v
@@ -15,8 +15,8 @@ define i32 @load_global() {
 
 define void @store_global(i32 %val) {
 ; CHECK-LABEL: store_global:
-; CHECK:       ld {{x[a-z]+}}, g
-; CHECK:       ld ({{x[a-z]+}}), xde
+; Direct memory store to global symbol
+; CHECK:       ld (g), xde
 ; CHECK:       ret
   store i32 %val, ptr @g
   ret void
@@ -26,9 +26,8 @@ define void @store_global(i32 %val) {
 
 define i32 @load_global_offset() {
 ; CHECK-LABEL: load_global_offset:
-; Load from arr[2] (offset 8)
-; CHECK:       ld {{x[a-z]+}}, arr
-; CHECK:       ld xde, ({{x[a-z]+}}
+; Load from arr[2] (offset 8) using direct addressing
+; CHECK:       ld xde, (arr+8)
 ; CHECK:       ret
   %ptr = getelementptr [4 x i32], ptr @arr, i32 0, i32 2
   %v = load i32, ptr %ptr

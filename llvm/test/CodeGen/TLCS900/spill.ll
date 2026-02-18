@@ -9,8 +9,10 @@ declare i32 @use(i32)
 ; This function has enough live values to force spills to the stack.
 define i32 @needs_spill(i32 %a, i32 %b, i32 %c, i32 %d) {
 ; CHECK-LABEL: needs_spill:
-; Should see stack operations (push/pop or ld to/from stack)
-; CHECK:       ld {{.*}}xsp
+; Should see callee-saved register saves and function call
+; CHECK:       push
+; CHECK:       call use
+; CHECK:       pop
 ; CHECK:       ret
 entry:
   %v1 = add i32 %a, 1

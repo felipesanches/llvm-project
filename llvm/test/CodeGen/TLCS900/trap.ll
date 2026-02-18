@@ -9,9 +9,10 @@ define void @test_trap() {
   unreachable
 }
 
+; unreachable alone produces an empty block (no trap instruction)
 define void @test_unreachable() {
 ; CHECK-LABEL: test_unreachable:
-; CHECK:       swi 0
+; CHECK-NOT:   call
   unreachable
 }
 

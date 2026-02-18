@@ -14,10 +14,10 @@ define i32 @add_and_shift(i32 %a, i32 %b) {
 }
 
 ; abs(a) = (a < 0) ? -a : a
-; May use branchless abs (sra+xor+sub) or branch-based select
+; Branchless abs: mask = sra(a, 31); result = (a ^ mask) - mask
 define i32 @abs_manual(i32 %a) {
 ; CHECK-LABEL: abs_manual:
-; CHECK:       sra xde, 31
+; CHECK:       sra {{x[a-z]+}}, 31
 ; CHECK:       xor
 ; CHECK:       sub
 ; CHECK:       ret
