@@ -79,6 +79,12 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SRL_PARTS, MVT::i32, Expand);
   setOperationAction(ISD::SRA_PARTS, MVT::i32, Expand);
 
+  // Multi-precision arithmetic: ADC/SBC use carry flag for i64 add/sub
+  setOperationAction(ISD::ADDC, MVT::i32, Legal);
+  setOperationAction(ISD::ADDE, MVT::i32, Legal);
+  setOperationAction(ISD::SUBC, MVT::i32, Legal);
+  setOperationAction(ISD::SUBE, MVT::i32, Legal);
+
   // Expand bit operations
   setOperationAction(ISD::ROTL,  MVT::i32, Expand);
   setOperationAction(ISD::ROTR,  MVT::i32, Expand);

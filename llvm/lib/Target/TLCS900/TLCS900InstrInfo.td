@@ -348,6 +348,17 @@ def SRL32ri : PrefixShiftInst<0xEF, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
 
 } // Constraints = "$rd = $rs1", Defs = [SR]
 
+// Carry-flag arithmetic patterns for multi-precision (i64) add/sub.
+// ADDC/SUBC produce carry output (SR); ADDE/SUBE consume carry input (SR).
+def : Pat<(addc GPR:$rs1, GPR:$rs2), (ADD32rr GPR:$rs1, GPR:$rs2)>;
+def : Pat<(addc GPR:$rs1, (imm):$imm), (ADD32ri GPR:$rs1, (imm):$imm)>;
+def : Pat<(adde GPR:$rs1, GPR:$rs2), (ADC32rr GPR:$rs1, GPR:$rs2)>;
+def : Pat<(adde GPR:$rs1, (imm):$imm), (ADC32ri GPR:$rs1, (imm):$imm)>;
+def : Pat<(subc GPR:$rs1, GPR:$rs2), (SUB32rr GPR:$rs1, GPR:$rs2)>;
+def : Pat<(subc GPR:$rs1, (imm):$imm), (SUB32ri GPR:$rs1, (imm):$imm)>;
+def : Pat<(sube GPR:$rs1, GPR:$rs2), (SBC32rr GPR:$rs1, GPR:$rs2)>;
+def : Pat<(sube GPR:$rs1, (imm):$imm), (SBC32ri GPR:$rs1, (imm):$imm)>;
+
 //===----------------------------------------------------------------------===//
 // Unary Instructions (single-operand, in-place, all modify SR flags)
 //===----------------------------------------------------------------------===//
@@ -854,6 +865,26 @@ def SUB32mi : MemALUInst<0xCA, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
               Sched<[WriteSTW, ReadMemBase]>;
 
 } // Defs = [SR], mayLoad, mayStore
+
+// Memory-ALU isel patterns: fold load+op+store into CISC read-modify-write.
+// Matches (store (op (load addr), val), addr) → OP32mr addr, val.
+// Commutative ops (add, and, or, xor) auto-match both operand orderings.
+def : Pat<(store (add (load addr:$a), GPR:$v), addr:$a),
+          (ADD32mr addr:$a, GPR:$v)>;
+def : Pat<(store (sub (load addr:$a), GPR:$v), addr:$a),
+          (SUB32mr addr:$a, GPR:$v)>;
+def : Pat<(store (and (load addr:$a), GPR:$v), addr:$a),
+          (AND32mr addr:$a, GPR:$v)>;
+def : Pat<(store (or (load addr:$a), GPR:$v), addr:$a),
+          (OR32mr addr:$a, GPR:$v)>;
+def : Pat<(store (xor (load addr:$a), GPR:$v), addr:$a),
+          (XOR32mr addr:$a, GPR:$v)>;
+
+// Memory-immediate patterns for ADD and SUB.
+def : Pat<(store (add (load addr:$a), (i32 imm:$v)), addr:$a),
+          (ADD32mi addr:$a, imm:$v)>;
+def : Pat<(store (sub (load addr:$a), (i32 imm:$v)), addr:$a),
+          (SUB32mi addr:$a, imm:$v)>;
 
 //===----------------------------------------------------------------------===//
 // Multiply / Divide — i32 uses libcalls
