@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TLCS900AsmBackend.h"
+#include "TLCS900FixupKinds.h"
 #include "TLCS900MCTargetDesc.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
@@ -43,7 +44,7 @@ void TLCS900AsmBackend::applyFixup(const MCAssembler &Asm,
   assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
 
   // For each byte of the fragment that the fixup touches, mask in the bits
-  // from the fixup value.
+  // from the fixup value (little-endian).
   for (unsigned i = 0; i < NumBytes; ++i) {
     Data[Offset + i] |= static_cast<uint8_t>((Value >> (i * 8)) & 0xff);
   }
@@ -51,9 +52,21 @@ void TLCS900AsmBackend::applyFixup(const MCAssembler &Asm,
 
 const MCFixupKindInfo &
 TLCS900AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
-  // Use the default fixup kinds (FK_Data_1, FK_Data_2, FK_Data_4, etc.)
-  // No target-specific fixups defined yet.
-  return MCAsmBackend::getFixupKindInfo(Kind);
+  static const MCFixupKindInfo Infos[TLCS900::NumTargetFixupKinds] = {
+      // name                offset  size  flags
+      {"fixup_tlcs900_24", 0, 24, 0},
+      {"fixup_tlcs900_rel8", 0, 8, MCFixupKindInfo::FKF_IsPCRel},
+      {"fixup_tlcs900_rel16", 0, 16, MCFixupKindInfo::FKF_IsPCRel},
+      {"fixup_tlcs900_disp8", 0, 8, 0},
+      {"fixup_tlcs900_disp16", 0, 16, 0},
+  };
+
+  if (Kind < FirstTargetFixupKind)
+    return MCAsmBackend::getFixupKindInfo(Kind);
+
+  assert(unsigned(Kind - FirstTargetFixupKind) < TLCS900::NumTargetFixupKinds &&
+         "Invalid kind!");
+  return Infos[Kind - FirstTargetFixupKind];
 }
 
 bool TLCS900AsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
