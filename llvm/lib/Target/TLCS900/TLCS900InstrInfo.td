@@ -267,14 +267,14 @@ def CPL32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                          "cpl", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// INC #1, rd — Increment by 1
-def INC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                         "inc", "1, $rd", []>,
+// INC #n, rd — Increment by n (n = 1..8, encoded as 3-bit: 0 means 8)
+def INC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
+                         "inc", "$n, $rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// DEC #1, rd — Decrement by 1
-def DEC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
-                         "dec", "1, $rd", []>,
+// DEC #n, rd — Decrement by n (n = 1..8, encoded as 3-bit: 0 means 8)
+def DEC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
+                         "dec", "$n, $rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
 // EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits
@@ -303,6 +303,27 @@ def : Pat<(sext_inreg GPR:$rs, i16), (EXTS32 GPR:$rs)>;
 
 // Pattern for EXTZ: zero extend low 16 bits (AND with 0xFFFF)
 def : Pat<(and GPR:$rs, 65535), (EXTZ32 GPR:$rs)>;
+
+// Patterns for INC: add by small constant (1-8) uses INC instruction
+// INC doesn't affect Carry flag (unlike ADD), useful for loop counters
+def : Pat<(add GPR:$rs, 1), (INC32 GPR:$rs, 1)>;
+def : Pat<(add GPR:$rs, 2), (INC32 GPR:$rs, 2)>;
+def : Pat<(add GPR:$rs, 3), (INC32 GPR:$rs, 3)>;
+def : Pat<(add GPR:$rs, 4), (INC32 GPR:$rs, 4)>;
+def : Pat<(add GPR:$rs, 5), (INC32 GPR:$rs, 5)>;
+def : Pat<(add GPR:$rs, 6), (INC32 GPR:$rs, 6)>;
+def : Pat<(add GPR:$rs, 7), (INC32 GPR:$rs, 7)>;
+def : Pat<(add GPR:$rs, 8), (INC32 GPR:$rs, 8)>;
+
+// Patterns for DEC: subtract small constant (1-8) uses DEC instruction
+def : Pat<(add GPR:$rs, -1), (DEC32 GPR:$rs, 1)>;
+def : Pat<(add GPR:$rs, -2), (DEC32 GPR:$rs, 2)>;
+def : Pat<(add GPR:$rs, -3), (DEC32 GPR:$rs, 3)>;
+def : Pat<(add GPR:$rs, -4), (DEC32 GPR:$rs, 4)>;
+def : Pat<(add GPR:$rs, -5), (DEC32 GPR:$rs, 5)>;
+def : Pat<(add GPR:$rs, -6), (DEC32 GPR:$rs, 6)>;
+def : Pat<(add GPR:$rs, -7), (DEC32 GPR:$rs, 7)>;
+def : Pat<(add GPR:$rs, -8), (DEC32 GPR:$rs, 8)>;
 
 //===----------------------------------------------------------------------===//
 // Compare Instructions (set flags in SR)

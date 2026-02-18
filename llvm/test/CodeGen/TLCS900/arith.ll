@@ -33,3 +33,45 @@ define i32 @sub_imm(i32 %a) {
   %c = sub i32 %a, 50
   ret i32 %c
 }
+
+; INC/DEC patterns for small constants (1-8)
+
+define i32 @inc_1(i32 %a) {
+; CHECK-LABEL: inc_1:
+; CHECK:       inc 1, xde
+; CHECK:       ret
+  %c = add i32 %a, 1
+  ret i32 %c
+}
+
+define i32 @inc_4(i32 %a) {
+; CHECK-LABEL: inc_4:
+; CHECK:       inc 4, xde
+; CHECK:       ret
+  %c = add i32 %a, 4
+  ret i32 %c
+}
+
+define i32 @inc_8(i32 %a) {
+; CHECK-LABEL: inc_8:
+; CHECK:       inc 8, xde
+; CHECK:       ret
+  %c = add i32 %a, 8
+  ret i32 %c
+}
+
+define i32 @dec_1(i32 %a) {
+; CHECK-LABEL: dec_1:
+; CHECK:       dec 1, xde
+; CHECK:       ret
+  %c = sub i32 %a, 1
+  ret i32 %c
+}
+
+define i32 @dec_3(i32 %a) {
+; CHECK-LABEL: dec_3:
+; CHECK:       dec 3, xde
+; CHECK:       ret
+  %c = sub i32 %a, 3
+  ret i32 %c
+}
