@@ -135,5 +135,6 @@ bool TLCS900PassConfig::addInstSelector() {
 // print out the code after the passes.
 void TLCS900PassConfig::addPreEmitPass() {
   addPass(createTLCS900DJNZOptPass());
+  addPass(createTLCS900RedundantCmpElimPass());
   addPass(createTLCS900BranchShorteningPass());
 }
