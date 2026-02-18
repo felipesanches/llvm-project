@@ -39,8 +39,8 @@ include "TLCS900InstrFormats.td"
 // Operand definitions
 //===----------------------------------------------------------------------===//
 
-// 32-bit immediate (any value)
-def imm32 : ImmLeaf<i32, [{ return true; }]>;
+// 32-bit immediate (any value) — use (imm) directly in patterns instead of
+// ImmLeaf to avoid unused variable warnings in generated code.
 
 //===----------------------------------------------------------------------===//
 // Data Transfer Instructions
@@ -50,7 +50,7 @@ def imm32 : ImmLeaf<i32, [{ return true; }]>;
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
 def LD32ri : TLCS900Inst<(outs GPR:$rd), (ins i32imm:$imm),
                          "ld", "$rd, $imm",
-                         [(set GPR:$rd, imm32:$imm)]>,
+                         [(set GPR:$rd, (imm):$imm)]>,
              Sched<[WriteIALU]>;
 
 // LD rd, rs — Copy register to register
@@ -75,7 +75,7 @@ def ADD32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 // ADD rd, #imm — rd = rd + imm
 def ADD32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           "add", "$rd, $imm",
-                          [(set GPR:$rd, (add GPR:$rs1, imm32:$imm))]>,
+                          [(set GPR:$rd, (add GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
 // SUB rd, rs — rd = rd - rs
@@ -87,7 +87,7 @@ def SUB32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
 // SUB rd, #imm — rd = rd - imm
 def SUB32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           "sub", "$rd, $imm",
-                          [(set GPR:$rd, (sub GPR:$rs1, imm32:$imm))]>,
+                          [(set GPR:$rd, (sub GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
 //===----------------------------------------------------------------------===//
