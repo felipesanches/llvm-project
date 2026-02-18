@@ -12,6 +12,7 @@
 
 #include "TLCS900TargetMachine.h"
 #include "TLCS900ISelDAGToDAG.h"
+#include "TLCS900MachineFunction.h"
 #include "TLCS900Subtarget.h"
 #include "TLCS900TargetObjectFile.h"
 #include "TargetInfo/TLCS900TargetInfo.h"
@@ -110,6 +111,12 @@ public:
   bool addInstSelector() override;
   void addPreEmitPass() override;
 };
+}
+
+MachineFunctionInfo *TLCS900TargetMachine::createMachineFunctionInfo(
+    BumpPtrAllocator &Allocator, const Function &F,
+    const TargetSubtargetInfo *STI) const {
+  return TLCS900FunctionInfo::create<TLCS900FunctionInfo>(Allocator, F, STI);
 }
 
 TargetPassConfig *TLCS900TargetMachine::createPassConfig(PassManagerBase &PM) {

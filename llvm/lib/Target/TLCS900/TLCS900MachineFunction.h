@@ -1,9 +1,8 @@
 //=== TLCS900MachineFunctionInfo.h - Private data used for TLCS900 ----*- C++ -*-=//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -18,11 +17,18 @@
 
 namespace llvm {
 
-/// TLCS900FunctionInfo - This class is derived from MachineFunction private
-/// TLCS900 target-specific information for each MachineFunction.
+/// TLCS900FunctionInfo - This class is derived from MachineFunctionInfo and
+/// contains private TLCS900 target-specific information for each MachineFunction.
 class TLCS900FunctionInfo : public MachineFunctionInfo {
+  virtual void anchor();
+
 public:
-  TLCS900FunctionInfo(MachineFunction &MF) {}
+  TLCS900FunctionInfo(const Function &F, const TargetSubtargetInfo *STI) {}
+
+  MachineFunctionInfo *
+  clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
+        const DenseMap<MachineBasicBlock *, MachineBasicBlock *> &Src2DstMBB)
+      const override;
 };
 
 } // end of namespace llvm
