@@ -104,6 +104,10 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setTruncStoreAction(MVT::i32, MVT::i16, Legal);
   setTruncStoreAction(MVT::i32, MVT::i8, Legal);
 
+  // 8/16-bit extending loads are Legal (default) — handled by isel patterns:
+  // zextloadi16 → LD16rm + EXTZ32, sextloadi16 → LD16rm + EXTS32,
+  // zextloadi8 → LD8rm + AND 255, sextloadi8 → LD8rm + shift pair
+
   // Sign/zero extend — i16 handled by EXTS instruction
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Legal);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8,  Expand);
