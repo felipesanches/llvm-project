@@ -24,6 +24,9 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeTLCS900Target() {
   // Register the target.
   //- Little endian Target Machine
   RegisterTargetMachine<TLCS900TargetMachine> X(getTheTLCS900Target());
+
+  auto &PR = *PassRegistry::getPassRegistry();
+  initializeTLCS900DAGToDAGISelLegacyPass(PR);
 }
 
 static std::string computeDataLayout() {
@@ -64,7 +67,7 @@ TLCS900TargetMachine::TLCS900TargetMachine(const Target &T, const Triple &TT,
                                        std::optional<CodeModel::Model> CM,
                                        CodeGenOptLevel OL,
                                        bool JIT)
-    : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options,
+    : CodeGenTargetMachineImpl(T, computeDataLayout(), TT, CPU, FS, Options,
                         getEffectiveRelocModel(CM, RM),
                         getEffectiveCodeModel(CM, CodeModel::Medium), OL),
       TLOF(std::make_unique<TLCS900TargetObjectFile>()) {

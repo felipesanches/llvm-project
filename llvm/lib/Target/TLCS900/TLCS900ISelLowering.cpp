@@ -240,7 +240,8 @@ SDValue TLCS900TargetLowering::LowerFormalArguments(
 bool TLCS900TargetLowering::CanLowerReturn(CallingConv::ID CallConv,
                                 MachineFunction &MF, bool isVarArg,
                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
-                                LLVMContext &Context) const {
+                                LLVMContext &Context,
+                                const Type *RetTy) const {
   SmallVector<CCValAssign, 16> RVLocs;
   CCState CCInfo(CallConv, isVarArg, MF, RVLocs, Context);
   return CCInfo.CheckReturn(Outs, TLCS900_CRetConv);

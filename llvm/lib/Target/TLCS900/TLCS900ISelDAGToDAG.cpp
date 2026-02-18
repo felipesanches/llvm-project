@@ -36,7 +36,7 @@ FunctionPass *llvm::createTLCS900ISelDag(TLCS900TargetMachine &TM,
 }
 
 bool TLCS900DAGToDAGISel::runOnMachineFunction(MachineFunction &MF) {
-  Subtarget = &static_cast<const TLCS900Subtarget &>(MF.getSubtarget());
+  Subtarget = &MF.getSubtarget<TLCS900Subtarget>();
   return SelectionDAGISel::runOnMachineFunction(MF);
 }
 

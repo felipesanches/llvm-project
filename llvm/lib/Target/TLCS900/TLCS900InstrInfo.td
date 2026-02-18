@@ -110,7 +110,7 @@ def simm32     : ImmLeaf<i32, [{return isInt<32>(Imm);}]>;
 def simm32hi20 : ImmLeaf<i32, [{return isShiftedInt<20, 12>(Imm);}]>;
 // A mask value that won't affect significant shift bits.
 def immbottomwsizeset : ImmLeaf<i32, [{
-  return countTrailingOnes<uint64_t>(Imm) >= 5;
+  return llvm::countr_one<uint64_t>(Imm) >= 5;
 }]>;
 
 // Extract least significant 12 bits from an immediate value and sign extend

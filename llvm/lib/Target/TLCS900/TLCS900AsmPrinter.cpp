@@ -40,13 +40,8 @@ public:
 
   void emitInstruction(const MachineInstr *MI) override;
 
-  // This function must be present as it is internally used by the
-  // auto-generated function emitPseudoExpansionLowering to expand pseudo
-  // instruction
-  void EmitToStreamer(MCStreamer &S, const MCInst &Inst);
   // Auto-generated function in TLCS900GenMCPseudoLowering.inc
-  bool emitPseudoExpansionLowering(MCStreamer &OutStreamer,
-                                   const MachineInstr *MI);
+  bool lowerPseudoInstExpansion(const MachineInstr *MI, MCInst &Inst);
 
 private:
   void LowerInstruction(const MachineInstr *MI, MCInst &OutMI) const;
@@ -58,14 +53,13 @@ private:
 // Simple pseudo-instructions have their lowering (with expansion to real
 // instructions) auto-generated.
 #include "TLCS900GenMCPseudoLowering.inc"
-void TLCS900AsmPrinter::EmitToStreamer(MCStreamer &S, const MCInst &Inst) {
-  AsmPrinter::EmitToStreamer(*OutStreamer, Inst);
-}
 
 void TLCS900AsmPrinter::emitInstruction(const MachineInstr *MI) {
   // Do any auto-generated pseudo lowerings.
-  if (emitPseudoExpansionLowering(*OutStreamer, MI))
+  if (MCInst OutInst; lowerPseudoInstExpansion(MI, OutInst)) {
+    EmitToStreamer(*OutStreamer, OutInst);
     return;
+  }
 
   MCInst TmpInst;
   LowerInstruction(MI, TmpInst);

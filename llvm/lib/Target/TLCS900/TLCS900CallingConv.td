@@ -37,4 +37,4 @@ def TLCS900_CRetConv : CallingConv<[
   CCIfType<[i32], CCAssignToStack<4, 4>>
 ]>;
 
-//def TLCS900_CalleeSavedRegs : CalleeSavedRegs<(add X8, X9)>;
+def TLCS900_CalleeSavedRegs : CalleeSavedRegs<(add XIX, XIY, XIZ)>;

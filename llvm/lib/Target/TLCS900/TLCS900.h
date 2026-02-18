@@ -22,6 +22,8 @@ namespace llvm {
 
   // Declare functions to create passes here!
 
+  void initializeTLCS900DAGToDAGISelLegacyPass(PassRegistry &);
+
 } // end namespace llvm;
 
 #endif // end LLVM_LIB_TARGET_TLCS900_TLCS900_H

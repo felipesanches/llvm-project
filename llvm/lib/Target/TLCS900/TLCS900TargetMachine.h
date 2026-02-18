@@ -17,10 +17,10 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/Target/TargetMachine.h"
+#include "llvm/CodeGen/CodeGenTargetMachineImpl.h"
 
 namespace llvm {
-class TLCS900TargetMachine : public LLVMTargetMachine {
+class TLCS900TargetMachine : public CodeGenTargetMachineImpl {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   mutable StringMap<std::unique_ptr<TLCS900Subtarget>> SubtargetMap;
 

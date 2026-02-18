@@ -43,7 +43,7 @@ TLCS900Subtarget &
 TLCS900Subtarget::initializeSubtargetDependencies(const Triple &TT, StringRef CPU,
                                                 StringRef FS,
                                                 const TargetMachine &TM) {
-  std::string CPUName = CPU;
+  std::string CPUName(CPU);
   if (CPUName.empty())
     CPUName = "generic";
 
