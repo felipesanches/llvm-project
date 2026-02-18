@@ -86,3 +86,137 @@ void TLCS900InstrInfo::loadRegFromStackSlot(
     llvm_unreachable("Cannot load this register from stack slot");
   }
 }
+
+unsigned TLCS900InstrInfo::removeBranch(MachineBasicBlock &MBB,
+                                        int *BytesRemoved) const {
+  assert(!BytesRemoved && "code size not handled");
+
+  MachineBasicBlock::iterator I = MBB.end();
+  unsigned Count = 0;
+
+  while (I != MBB.begin()) {
+    --I;
+    if (I->isDebugInstr())
+      continue;
+    if (I->getOpcode() != TLCS900::JP && I->getOpcode() != TLCS900::JPcc)
+      break;
+    I->eraseFromParent();
+    I = MBB.end();
+    ++Count;
+  }
+
+  return Count;
+}
+
+bool TLCS900InstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+                                     MachineBasicBlock *&TBB,
+                                     MachineBasicBlock *&FBB,
+                                     SmallVectorImpl<MachineOperand> &Cond,
+                                     bool AllowModify) const {
+  MachineBasicBlock::iterator I = MBB.end();
+
+  while (I != MBB.begin()) {
+    --I;
+    if (I->isDebugInstr())
+      continue;
+
+    if (!isUnpredicatedTerminator(*I))
+      break;
+
+    if (!I->isBranch())
+      return true;
+
+    // Handle unconditional branches.
+    if (I->getOpcode() == TLCS900::JP) {
+      if (!AllowModify) {
+        TBB = I->getOperand(0).getMBB();
+        continue;
+      }
+
+      // Delete dead code after unconditional branch.
+      MBB.erase(std::next(I), MBB.end());
+      Cond.clear();
+      FBB = nullptr;
+
+      // Remove JP if it's a fallthrough.
+      if (MBB.isLayoutSuccessor(I->getOperand(0).getMBB())) {
+        TBB = nullptr;
+        I->eraseFromParent();
+        I = MBB.end();
+        continue;
+      }
+
+      TBB = I->getOperand(0).getMBB();
+      continue;
+    }
+
+    // Handle conditional branches.
+    if (I->getOpcode() != TLCS900::JPcc)
+      return true; // Unknown branch type.
+
+    unsigned BranchCC = I->getOperand(0).getImm();
+
+    if (Cond.empty()) {
+      FBB = TBB;
+      TBB = I->getOperand(1).getMBB();
+      Cond.push_back(MachineOperand::CreateImm(BranchCC));
+      continue;
+    }
+
+    // Multiple conditional branches — only handle if same target.
+    if (TBB != I->getOperand(1).getMBB())
+      return true;
+
+    if ((unsigned)Cond[0].getImm() == BranchCC)
+      continue;
+
+    return true;
+  }
+
+  return false;
+}
+
+unsigned TLCS900InstrInfo::insertBranch(MachineBasicBlock &MBB,
+                                        MachineBasicBlock *TBB,
+                                        MachineBasicBlock *FBB,
+                                        ArrayRef<MachineOperand> Cond,
+                                        const DebugLoc &DL,
+                                        int *BytesAdded) const {
+  assert(TBB && "insertBranch must not be told to insert a fallthrough");
+  assert((Cond.size() == 1 || Cond.size() == 0) &&
+         "TLCS900 branch conditions have one component!");
+  assert(!BytesAdded && "code size not handled");
+
+  if (Cond.empty()) {
+    // Unconditional branch.
+    assert(!FBB && "Unconditional branch with multiple successors!");
+    BuildMI(&MBB, DL, get(TLCS900::JP)).addMBB(TBB);
+    return 1;
+  }
+
+  // Conditional branch.
+  unsigned Count = 0;
+  BuildMI(&MBB, DL, get(TLCS900::JPcc))
+      .addImm(Cond[0].getImm())
+      .addMBB(TBB);
+  ++Count;
+
+  if (FBB) {
+    BuildMI(&MBB, DL, get(TLCS900::JP)).addMBB(FBB);
+    ++Count;
+  }
+  return Count;
+}
+
+bool TLCS900InstrInfo::reverseBranchCondition(
+    SmallVectorImpl<MachineOperand> &Cond) const {
+  assert(Cond.size() == 1 && "Invalid branch condition!");
+
+  unsigned CC = Cond[0].getImm();
+
+  // TLCS-900 condition codes come in complementary pairs: CC ^ 8
+  // F(0)↔T(8), LT(1)↔GE(9), LE(2)↔GT(10), ULE(3)↔UGT(11),
+  // OV(4)↔NOV(12), MI(5)↔PL(13), Z(6)↔NZ(14), C(7)↔NC(15)
+  Cond[0].setImm(CC ^ 8);
+  return false;
+}
