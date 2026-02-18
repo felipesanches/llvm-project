@@ -109,6 +109,12 @@ def LD32mr : TLCS900Inst<(outs), (ins MEMri:$addr, GPR:$rs),
                          [(store GPR:$rs, addr:$addr)]>,
              Sched<[WriteSTW, ReadMemBase]>;
 
+// LD (base+disp), #imm — Store immediate to memory
+def LD32mi : TLCS900Inst<(outs), (ins MEMri:$addr, i32imm:$val),
+                         "ld", "$addr, $val",
+                         [(store (i32 imm:$val), addr:$addr)]>,
+             Sched<[WriteSTW, ReadMemBase]>;
+
 // Patterns for global address and external symbol materialization
 def : Pat<(i32 tglobaladdr:$addr), (LD32ri tglobaladdr:$addr)>;
 def : Pat<(i32 texternalsym:$addr), (LD32ri texternalsym:$addr)>;
@@ -222,6 +228,28 @@ def SRL32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
               Sched<[WriteShift, ReadIALU]>;
 
 } // Constraints = "$rd = $rs1"
+
+//===----------------------------------------------------------------------===//
+// Unary Instructions (single-operand, in-place)
+//===----------------------------------------------------------------------===//
+
+let Constraints = "$rd = $rs1" in {
+
+// NEG rd — Negate: rd = 0 - rd
+def NEG32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                         "neg", "$rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+// CPL rd — Complement (bitwise NOT): rd = ~rd
+def CPL32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                         "cpl", "$rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+} // Constraints = "$rd = $rs1"
+
+// Patterns for NEG and CPL
+def : Pat<(sub 0, GPR:$rs), (NEG32 GPR:$rs)>;
+def : Pat<(not GPR:$rs), (CPL32 GPR:$rs)>;
 
 //===----------------------------------------------------------------------===//
 // Compare Instructions (set flags in SR)
