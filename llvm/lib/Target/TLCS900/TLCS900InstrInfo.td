@@ -228,16 +228,16 @@ def JALR : RWInstI<0b000, OPC_JALR, (outs GPR:$rd),
 
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
 def PseudoRET : Pseudo<(outs), (ins), [(tlcs900_ret)]>,
-                PseudoInstExpansion<(JALR DE, BC, 0)>;
+                PseudoInstExpansion<(JALR XDE, XBC, 0)>;
 
 def : InstAlias<"mv $rd, $rs",   (ADDI GPR:$rd, GPR:$rs,       0)>;
 def : InstAlias<"not $rd, $rs",  (XORI GPR:$rd, GPR:$rs,      -1)>;
-def : InstAlias<"neg $rd, $rs",  (SUB  GPR:$rd,      DE, GPR:$rs)>;
+def : InstAlias<"neg $rd, $rs",  (SUB  GPR:$rd,      XDE, GPR:$rs)>;
 
 def : InstAlias<"seqz $rd, $rs", (SLTIU GPR:$rd, GPR:$rs,       1)>;
-def : InstAlias<"snez $rd, $rs", (SLTU  GPR:$rd,      DE, GPR:$rs)>;
-def : InstAlias<"sltz $rd, $rs", (SLT   GPR:$rd, GPR:$rs,      DE)>;
-def : InstAlias<"sgtz $rd, $rs", (SLT   GPR:$rd,      DE, GPR:$rs)>;
+def : InstAlias<"snez $rd, $rs", (SLTU  GPR:$rd,      XDE, GPR:$rs)>;
+def : InstAlias<"sltz $rd, $rs", (SLT   GPR:$rd, GPR:$rs,      XDE)>;
+def : InstAlias<"sgtz $rd, $rs", (SLT   GPR:$rd,      XDE, GPR:$rs)>;
 
 // sgt/sgtu are recognised by the GNU assembler but the canonical slt/sltu
 // form will always be printed. Therefore, set a zero weight.
@@ -251,7 +251,7 @@ def : InstAlias<"sltu $rd, $rs1, $imm12",
                 (SLTIU  GPR:$rd, GPR:$rs1, simm12:$imm12)>;
 }
 
-def : InstAlias<"ret",                   (JALR      DE,      BC, 0), 4>;
+def : InstAlias<"ret",                   (JALR      XDE,      XBC, 0), 4>;
 
 def : MnemonicAlias<"move", "mv">;
 
@@ -275,7 +275,7 @@ class PatGprUimmLog2WSize<SDPatternOperator OpNode, RWInstIShift Inst>
 
 /// Immediates
 
-def : Pat<(simm12:$imm), (ADDI DE, simm12:$imm)>;
+def : Pat<(simm12:$imm), (ADDI XDE, simm12:$imm)>;
 def : Pat<(simm32hi20:$imm), (LUI (HI20 imm:$imm))>;
 def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>;
 

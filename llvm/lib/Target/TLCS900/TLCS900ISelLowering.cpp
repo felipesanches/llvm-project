@@ -47,7 +47,7 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   // Set scheduling preference
   setSchedulingPreference(Sched::RegPressure);
 
-  setStackPointerRegisterToSaveRestore(TLCS900::X2);
+  setStackPointerRegisterToSaveRestore(TLCS900::XSP);
 
   // Use i32 for setcc operations results (slt, sgt, ...).
   setBooleanContents(ZeroOrOneBooleanContent);
@@ -102,9 +102,9 @@ void TLCS900TargetLowering::ReplaceNodeResults(SDNode *N,
 //@            Formal Arguments Calling Convention Implementation
 //===----------------------------------------------------------------------===//
 
-// The BeyondRISC calling convention parameter registers.
+// The TLCS900 calling convention parameter registers.
 static const MCPhysReg GPRArgRegs[] = {
-  TLCS900::X0, TLCS900::X1, TLCS900::X2, TLCS900::X3
+  TLCS900::XWA, TLCS900::XBC, TLCS900::XDE, TLCS900::XHL
 };
 
 /// LowerFormalArguments - transform physical registers into virtual registers
@@ -138,7 +138,7 @@ SDValue TLCS900TargetLowering::LowerFormalArguments(
   // We need to know this before we allocate the first byval or variadic
   // argument, as they will be allocated a stack slot below the CFA (Canonical
   // Frame Address, the stack pointer at entry to the function).
-  unsigned ArgRegBegin = TLCS900::X4;
+  unsigned ArgRegBegin = TLCS900::XIX;
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     if (CCInfo.getInRegsParamsProcessed() >= CCInfo.getInRegsParamsCount())
       break;

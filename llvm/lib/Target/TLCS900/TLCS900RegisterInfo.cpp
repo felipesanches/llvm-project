@@ -23,7 +23,7 @@
 using namespace llvm;
 
 TLCS900RegisterInfo::TLCS900RegisterInfo(const TLCS900Subtarget &ST)
-  : TLCS900GenRegisterInfo(TLCS900::X1, /*DwarfFlavour*/0, /*EHFlavor*/0,
+  : TLCS900GenRegisterInfo(TLCS900::XBC, /*DwarfFlavour*/0, /*EHFlavor*/0,
                          /*PC*/0), Subtarget(ST) {}
 
 const MCPhysReg *
@@ -44,10 +44,7 @@ TLCS900RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
 BitVector TLCS900RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
 
-  markSuperRegs(Reserved, TLCS900::X0); // zero
-  markSuperRegs(Reserved, TLCS900::X2); // sp
-  markSuperRegs(Reserved, TLCS900::X3); // gp
-  markSuperRegs(Reserved, TLCS900::X4); // tp
+  markSuperRegs(Reserved, TLCS900::XSP); // sp
 
   return Reserved;
 }

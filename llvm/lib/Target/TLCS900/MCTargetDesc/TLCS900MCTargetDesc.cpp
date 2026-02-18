@@ -66,7 +66,7 @@ static MCAsmInfo *createTLCS900MCAsmInfo(const MCRegisterInfo &MRI,
                                        const MCTargetOptions &Options) {
   MCAsmInfo *MAI = new TLCS900MCAsmInfo(TT);
 
-  unsigned WP = MRI.getDwarfRegNum(TLCS900::X0, true);
+  unsigned WP = MRI.getDwarfRegNum(TLCS900::XSP, true);
   MCCFIInstruction Inst = MCCFIInstruction::createDefCfa(nullptr, WP, 0);
   MAI->addInitialFrameState(Inst);
 

@@ -54,16 +54,6 @@ void TLCS900DAGToDAGISel::Select(SDNode *Node) {
   SDLoc DL(Node);
 
   switch(Opcode) {
-  case ISD::Constant: {
-    auto ConstNode = cast<ConstantSDNode>(Node);
-    if (ConstNode->isZero()) {
-      SDValue New = CurDAG->getCopyFromReg(CurDAG->getEntryNode(), SDLoc(Node),
-                                           TLCS900::X0, MVT::i32);
-      ReplaceNode(Node, New.getNode());
-      return;
-    }
-    break;
-  }
   default: break;
   }
 
