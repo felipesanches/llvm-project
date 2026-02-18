@@ -100,7 +100,7 @@ static MCDisassembler::DecodeStatus decodePrefixRegReg(MCInst &MI,
   return MCDisassembler::Success;
 }
 
-DecodeStatus TLCS900Disassembler::decodeRegPrefix(MCInst &MI, uint64_t &Size,
+MCDisassembler::DecodeStatus TLCS900Disassembler::decodeRegPrefix(MCInst &MI, uint64_t &Size,
                                                   ArrayRef<uint8_t> Bytes,
                                                   unsigned PrefixReg) const {
   if (Bytes.size() < 2)
@@ -386,7 +386,7 @@ DecodeStatus TLCS900Disassembler::decodeRegPrefix(MCInst &MI, uint64_t &Size,
   return MCDisassembler::Fail;
 }
 
-DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, uint64_t &Size,
+MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, uint64_t &Size,
                                                   ArrayRef<uint8_t> Bytes,
                                                   unsigned BaseReg,
                                                   int64_t Disp,
@@ -483,7 +483,7 @@ DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, uint64_t &Size,
   return MCDisassembler::Fail;
 }
 
-DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
+MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
                                                  ArrayRef<uint8_t> Bytes,
                                                  uint64_t Address,
                                                  raw_ostream &CStream) const {
