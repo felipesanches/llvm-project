@@ -25,6 +25,8 @@ include "TLCS900InstrInfo.td"
 
 def TLCS900InstrInfo : InstrInfo;
 
+def TLCS900AsmParser : AsmParser;
+
 //===----------------------------------------------------------------------===//
 // TLCS900 processors supported
 //===----------------------------------------------------------------------===//
@@ -37,4 +39,5 @@ def : ProcessorModel<"generic",  NoSchedModel, []>;
 
 def TLCS900 : Target {
   let InstructionSet = TLCS900InstrInfo;
+  let AssemblyParsers = [TLCS900AsmParser];
 }

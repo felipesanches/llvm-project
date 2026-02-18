@@ -62,18 +62,32 @@ include "TLCS900InstrFormats.td"
 // Operand definitions
 //===----------------------------------------------------------------------===//
 
+// AsmOperandClass for condition codes (used by AsmParser)
+def CCOperand : AsmOperandClass {
+  let Name = "CondCode";
+  let ParserMethod = "parseCondCodeOperand";
+}
+
 // Condition code operand for conditional branches
 def cc : Operand<i32> {
   let PrintMethod = "printCondCode";
+  let ParserMatchClass = CCOperand;
 }
 
 // Branch target (basic block reference)
 def brtarget : Operand<OtherVT>;
 
+// AsmOperandClass for memory operands (used by AsmParser)
+def MEMriAsmOperand : AsmOperandClass {
+  let Name = "Memri";
+  let ParserMethod = "parseMemriOperand";
+}
+
 // Memory operand: base register + 16-bit displacement
 def MEMri : Operand<i32> {
   let MIOperandInfo = (ops GPR:$base, i32imm:$disp);
   let PrintMethod = "printMemOperand";
+  let ParserMatchClass = MEMriAsmOperand;
 }
 
 // Address pattern: matches base+offset and frame indices
