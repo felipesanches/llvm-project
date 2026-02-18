@@ -22,10 +22,10 @@ TLCS900ToolChain::TLCS900ToolChain(const Driver &D, const llvm::Triple &Triple,
                                    const ArgList &Args)
     : ToolChain(D, Triple, Args) {}
 
-bool TLCS900ToolChain::isPICDefault() const { return true; }
+bool TLCS900ToolChain::isPICDefault() const { return false; }
 bool TLCS900ToolChain::isPIEDefault(const llvm::opt::ArgList &Args) const {
   return false;
 }
-bool TLCS900ToolChain::isPICDefaultForced() const { return true; }
+bool TLCS900ToolChain::isPICDefaultForced() const { return false; }
 bool TLCS900ToolChain::SupportsProfiling() const { return false; }
 bool TLCS900ToolChain::hasBlocksRuntime() const { return false; }
