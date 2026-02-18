@@ -150,6 +150,28 @@ def SUB32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                           [(set GPR:$rd, (sub GPR:$rs1, (imm):$imm))]>,
               Sched<[WriteIALU, ReadIALU]>;
 
+// ADC rd, rs — rd = rd + rs + carry
+let Defs = [SR], Uses = [SR] in {
+def ADC32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                          "adc", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+// ADC rd, #imm — rd = rd + imm + carry
+def ADC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                          "adc", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+// SBC rd, rs — rd = rd - rs - carry
+def SBC32rr : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
+                          "sbc", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+// SBC rd, #imm — rd = rd - imm - carry
+def SBC32ri : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                          "sbc", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+} // Defs = [SR], Uses = [SR]
+
 //===----------------------------------------------------------------------===//
 // Logic Instructions (two-address)
 //===----------------------------------------------------------------------===//
@@ -245,11 +267,37 @@ def CPL32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
                          "cpl", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
+// INC #1, rd — Increment by 1
+def INC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                         "inc", "1, $rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+// DEC #1, rd — Decrement by 1
+def DEC32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                         "dec", "1, $rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+// EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits
+def EXTS32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                          "exts", "$rd", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+// EXTZ rd — Zero extend: low 16 bits zero-extended to 32 bits
+def EXTZ32 : TLCS900Inst<(outs GPR:$rd), (ins GPR:$rs1),
+                          "extz", "$rd", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
 } // Constraints = "$rd = $rs1"
 
 // Patterns for NEG and CPL
 def : Pat<(sub 0, GPR:$rs), (NEG32 GPR:$rs)>;
 def : Pat<(not GPR:$rs), (CPL32 GPR:$rs)>;
+
+// Pattern for EXTS: sign extend from i16 to i32
+def : Pat<(sext_inreg GPR:$rs, i16), (EXTS32 GPR:$rs)>;
+
+// Pattern for EXTZ: zero extend low 16 bits (AND with 0xFFFF)
+def : Pat<(and GPR:$rs, 65535), (EXTZ32 GPR:$rs)>;
 
 //===----------------------------------------------------------------------===//
 // Compare Instructions (set flags in SR)
