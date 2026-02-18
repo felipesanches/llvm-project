@@ -154,14 +154,17 @@ def LD32mi : MemStoreInst<0x08, 8, (outs), (ins MEMri:$addr, i32imm:$val),
 // Note: upper 16 bits of the 32-bit register are UNCHANGED by hardware.
 // This is used internally; zextloadi16/sextloadi16 patterns add explicit
 // EXTZ/EXTS to clear/sign-extend the upper bits.
-let mayLoad = 1, OpSize = OpSize16.Value in
+// isCodeGenOnly: prevents asm matcher from preferring this over LD32rm
+// (GPR_with_sub8 ⊂ GPR causes ambiguous matching otherwise).
+let mayLoad = 1, OpSize = OpSize16.Value, isCodeGenOnly = 1 in
 def LD16rm : MemLoadInst<0x20, 4, (outs GPR_lo16:$rd), (ins MEMri:$addr),
                          "ld", "$rd, $addr", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 // LD rd:lo8, (base+disp) — Load 8-bit from memory into low byte of GPR
 // Note: other bytes of the register are UNCHANGED by hardware.
-let mayLoad = 1, OpSize = OpSize8.Value in
+// isCodeGenOnly: same reason as LD16rm.
+let mayLoad = 1, OpSize = OpSize8.Value, isCodeGenOnly = 1 in
 def LD8rm : MemLoadInst<0x20, 3, (outs GPR_lo8:$rd), (ins MEMri:$addr),
                         "ld", "$rd, $addr", []>,
             Sched<[WriteLDW, ReadMemBase]>;
@@ -171,13 +174,15 @@ def LD8rm : MemLoadInst<0x20, 3, (outs GPR_lo8:$rd), (ins MEMri:$addr),
 // LD (base+disp), rs:lo16 — Truncating store: writes low 16 bits to memory
 // Pattern is separate (below) because the RegisterOperand GPR_lo16 doesn't
 // match bare GPR in inline patterns.
-let OpSize = OpSize16.Value in
+// isCodeGenOnly: prevents asm matcher ambiguity with LD32mr.
+let OpSize = OpSize16.Value, isCodeGenOnly = 1 in
 def LD16mr : MemStoreInst<0x40, 4, (outs), (ins MEMri:$addr, GPR_lo16:$rs),
                           "ld", "$addr, $rs", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 
 // LD (base+disp), rs:lo8 — Truncating store: writes low 8 bits to memory
-let OpSize = OpSize8.Value in
+// isCodeGenOnly: prevents asm matcher ambiguity with LD32mr.
+let OpSize = OpSize8.Value, isCodeGenOnly = 1 in
 def LD8mr : MemStoreInst<0x40, 3, (outs), (ins MEMri:$addr, GPR_lo8:$rs),
                          "ld", "$addr, $rs", []>,
             Sched<[WriteSTW, ReadMemBase]>;
