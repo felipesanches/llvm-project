@@ -42,7 +42,7 @@ static MCInstrInfo *createTLCS900MCInstrInfo() {
 
 static MCRegisterInfo *createTLCS900MCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
-  InitTLCS900MCRegisterInfo(X, /*RA=*/0);
+  InitTLCS900MCRegisterInfo(X, TLCS900::PC);
   return X;
 }
 

@@ -18,10 +18,12 @@ define void @store32(ptr %p, i32 %v) {
   ret void
 }
 
-; Store immediate to memory
+; Store immediate to memory — TLCS-900/H has no 32-bit immediate-to-memory
+; store, so this is lowered as: ld reg, #42; ld (ptr), reg
 define void @store_imm(ptr %p) {
 ; CHECK-LABEL: store_imm:
-; CHECK: ld ({{.*}}), 42
+; CHECK: ld {{.*}}, 42
+; CHECK: ld ({{.*}}), {{.*}}
   store i32 42, ptr %p
   ret void
 }
