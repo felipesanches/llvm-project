@@ -649,6 +649,18 @@ def POP32 : SingleByteRegInst<0x58, (outs GPR:$rd), (ins),
                               "pop", "$rd", []>,
             Sched<[WritePop]>;
 
+// PUSH rs16 — Push 16-bit register (prefix D8+r, opcode 0x04)
+let mayStore = 1, OpSize = OpSize16.Value in
+def PUSH16 : PrefixPushInst<0x04, (outs), (ins GR16:$rs),
+                             "push", "$rs", []>,
+             Sched<[WritePush]>;
+
+// POP rd16 — Pop 16-bit register (prefix D8+r, opcode 0x05)
+let mayLoad = 1, OpSize = OpSize16.Value in
+def POP16 : PrefixPopInst<0x05, (outs GR16:$rd), (ins),
+                           "pop", "$rd", []>,
+            Sched<[WritePop]>;
+
 } // Defs = [XSP], Uses = [XSP], hasSideEffects
 
 //===----------------------------------------------------------------------===//
@@ -1059,3 +1071,389 @@ def CPD : BlockTransferInst<0x16, (outs), (ins), "cpd", "", []>,
 let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
 def CPDR : BlockTransferInst<0x17, (outs), (ins), "cpdr", "", []>,
            Sched<[WriteIALU]>;
+
+//===----------------------------------------------------------------------===//
+// 16-bit Sub-register Instructions (assembler-only, no codegen patterns)
+//
+// These use the D8-DF register prefix (16-bit) with the same opcodes as
+// their 32-bit counterparts. The encoder selects the prefix automatically
+// based on OpSize. Register class GR16 (WA, BC, DE, HL, IX, IY, IZ).
+//===----------------------------------------------------------------------===//
+
+let OpSize = OpSize16.Value in {
+
+// --- Data transfer ---
+
+// LD rd16, rs16: D8+src, 0x88+dst
+let isAsCheapAsAMove = 1, hasSideEffects = 0 in
+def LD16rr_asm : PrefixRegRegInst<0x88, (outs GR16:$rd), (ins GR16:$rs),
+                                   "ld", "$rd, $rs", []>,
+                 Sched<[WriteIALU]>;
+
+// LD rd16, #imm16: D8+rd, 0x03, imm16
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in
+def LD16ri_asm : PrefixLDImmInst<0x03, 4, (outs GR16:$rd), (ins i16imm:$imm),
+                                  "ld", "$rd, $imm", []>,
+                 Sched<[WriteIALU]>;
+
+// --- Arithmetic (two-address: rd = rd op rs) ---
+let Constraints = "$rd = $rs1", Defs = [SR] in {
+
+let isCommutable = 1 in
+def ADD16rr : PrefixRegRegInst<0x80, (outs GR16:$rd),
+                                (ins GR16:$rs1, GR16:$rs2),
+                                "add", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def ADD16ri : PrefixRegImmInst<0xC8, 4, (outs GR16:$rd),
+                                (ins GR16:$rs1, i16imm:$imm),
+                                "add", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+def SUB16rr : PrefixRegRegInst<0xA0, (outs GR16:$rd),
+                                (ins GR16:$rs1, GR16:$rs2),
+                                "sub", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def SUB16ri : PrefixRegImmInst<0xCA, 4, (outs GR16:$rd),
+                                (ins GR16:$rs1, i16imm:$imm),
+                                "sub", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+// --- Carry arithmetic ---
+let Uses = [SR] in {
+
+def ADC16rr : PrefixRegRegInst<0x90, (outs GR16:$rd),
+                                (ins GR16:$rs1, GR16:$rs2),
+                                "adc", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def ADC16ri : PrefixRegImmInst<0xC9, 4, (outs GR16:$rd),
+                                (ins GR16:$rs1, i16imm:$imm),
+                                "adc", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+def SBC16rr : PrefixRegRegInst<0xB0, (outs GR16:$rd),
+                                (ins GR16:$rs1, GR16:$rs2),
+                                "sbc", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def SBC16ri : PrefixRegImmInst<0xCB, 4, (outs GR16:$rd),
+                                (ins GR16:$rs1, i16imm:$imm),
+                                "sbc", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+} // Uses = [SR]
+
+// --- Logic ---
+
+let isCommutable = 1 in
+def AND16rr : PrefixRegRegInst<0xC0, (outs GR16:$rd),
+                                (ins GR16:$rs1, GR16:$rs2),
+                                "and", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def AND16ri : PrefixRegImmInst<0xCC, 4, (outs GR16:$rd),
+                                (ins GR16:$rs1, i16imm:$imm),
+                                "and", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+let isCommutable = 1 in
+def OR16rr : PrefixRegRegInst<0xE0, (outs GR16:$rd),
+                               (ins GR16:$rs1, GR16:$rs2),
+                               "or", "$rd, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def OR16ri : PrefixRegImmInst<0xCE, 4, (outs GR16:$rd),
+                               (ins GR16:$rs1, i16imm:$imm),
+                               "or", "$rd, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+let isCommutable = 1 in
+def XOR16rr : PrefixRegRegInst<0xD0, (outs GR16:$rd),
+                                (ins GR16:$rs1, GR16:$rs2),
+                                "xor", "$rd, $rs2", []>,
+              Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def XOR16ri : PrefixRegImmInst<0xCD, 4, (outs GR16:$rd),
+                                (ins GR16:$rs1, i16imm:$imm),
+                                "xor", "$rd, $imm", []>,
+              Sched<[WriteIALU, ReadIALU]>;
+
+// --- Shifts ---
+
+def SLA16ri : PrefixShiftInst<0xEC, (outs GR16:$rd),
+                               (ins GR16:$rs1, i16imm:$imm),
+                               "sla", "$rd, $imm", []>,
+              Sched<[WriteShift, ReadIALU]>;
+
+def SRA16ri : PrefixShiftInst<0xED, (outs GR16:$rd),
+                               (ins GR16:$rs1, i16imm:$imm),
+                               "sra", "$rd, $imm", []>,
+              Sched<[WriteShift, ReadIALU]>;
+
+def SRL16ri : PrefixShiftInst<0xEF, (outs GR16:$rd),
+                               (ins GR16:$rs1, i16imm:$imm),
+                               "srl", "$rd, $imm", []>,
+              Sched<[WriteShift, ReadIALU]>;
+
+// --- Unary ---
+
+def NEG16 : PrefixUnaryInst<0x07, (outs GR16:$rd), (ins GR16:$rs1),
+                             "neg", "$rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+def CPL16 : PrefixUnaryInst<0x06, (outs GR16:$rd), (ins GR16:$rs1),
+                             "cpl", "$rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+// --- Extend ---
+
+def EXTS16 : PrefixUnaryInst<0x13, (outs GR16:$rd), (ins GR16:$rs1),
+                              "exts", "$rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+def EXTZ16 : PrefixUnaryInst<0x12, (outs GR16:$rd), (ins GR16:$rs1),
+                              "extz", "$rd", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+// --- INC/DEC ---
+
+def INC16 : PrefixIncDecInst<0x60, (outs GR16:$rd),
+                              (ins GR16:$rs1, i16imm:$n),
+                              "inc", "$n, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+def DEC16 : PrefixIncDecInst<0x68, (outs GR16:$rd),
+                              (ins GR16:$rs1, i16imm:$n),
+                              "dec", "$n, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+} // Constraints = "$rd = $rs1", Defs = [SR]
+
+// --- Compare (no output register) ---
+let Defs = [SR], isCompare = 1 in {
+
+def CP16rr : PrefixRegRegInst<0xF0, (outs), (ins GR16:$rs1, GR16:$rs2),
+                               "cp", "$rs1, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def CP16ri : PrefixRegImmInst<0xCF, 4, (outs), (ins GR16:$rs1, i16imm:$imm),
+                               "cp", "$rs1, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+} // Defs = [SR]
+
+// --- Rotates (read AND write carry) ---
+let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR], hasSideEffects = 0 in {
+
+def RLC16 : PrefixRotateInst<0xE8, (outs GR16:$rd), (ins GR16:$rs1),
+                              "rlc", "$rd", []>,
+            Sched<[WriteShift, ReadIALU]>;
+
+def RRC16 : PrefixRotateInst<0xE9, (outs GR16:$rd), (ins GR16:$rs1),
+                              "rrc", "$rd", []>,
+            Sched<[WriteShift, ReadIALU]>;
+
+def RL16 : PrefixRotateInst<0xEA, (outs GR16:$rd), (ins GR16:$rs1),
+                             "rl", "$rd", []>,
+           Sched<[WriteShift, ReadIALU]>;
+
+def RR16 : PrefixRotateInst<0xEB, (outs GR16:$rd), (ins GR16:$rs1),
+                             "rr", "$rd", []>,
+           Sched<[WriteShift, ReadIALU]>;
+
+} // Constraints, Defs, Uses
+
+} // OpSize = OpSize16.Value
+
+//===----------------------------------------------------------------------===//
+// 8-bit Sub-register Instructions (assembler-only, no codegen patterns)
+//
+// These use the C8-CF register prefix (8-bit) with the same opcodes as
+// their 32-bit counterparts. Register class GR8 (W, A, B, C, D, E, H, L).
+//===----------------------------------------------------------------------===//
+
+let OpSize = OpSize8.Value in {
+
+// --- Data transfer ---
+
+let isAsCheapAsAMove = 1, hasSideEffects = 0 in
+def LD8rr_asm : PrefixRegRegInst<0x88, (outs GR8:$rd), (ins GR8:$rs),
+                                  "ld", "$rd, $rs", []>,
+                Sched<[WriteIALU]>;
+
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in
+def LD8ri_asm : PrefixLDImmInst<0x03, 3, (outs GR8:$rd), (ins i8imm:$imm),
+                                 "ld", "$rd, $imm", []>,
+                Sched<[WriteIALU]>;
+
+// --- Arithmetic ---
+let Constraints = "$rd = $rs1", Defs = [SR] in {
+
+let isCommutable = 1 in
+def ADD8rr : PrefixRegRegInst<0x80, (outs GR8:$rd),
+                               (ins GR8:$rs1, GR8:$rs2),
+                               "add", "$rd, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def ADD8ri : PrefixRegImmInst<0xC8, 3, (outs GR8:$rd),
+                               (ins GR8:$rs1, i8imm:$imm),
+                               "add", "$rd, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+def SUB8rr : PrefixRegRegInst<0xA0, (outs GR8:$rd),
+                               (ins GR8:$rs1, GR8:$rs2),
+                               "sub", "$rd, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def SUB8ri : PrefixRegImmInst<0xCA, 3, (outs GR8:$rd),
+                               (ins GR8:$rs1, i8imm:$imm),
+                               "sub", "$rd, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+let Uses = [SR] in {
+
+def ADC8rr : PrefixRegRegInst<0x90, (outs GR8:$rd),
+                               (ins GR8:$rs1, GR8:$rs2),
+                               "adc", "$rd, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def ADC8ri : PrefixRegImmInst<0xC9, 3, (outs GR8:$rd),
+                               (ins GR8:$rs1, i8imm:$imm),
+                               "adc", "$rd, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+def SBC8rr : PrefixRegRegInst<0xB0, (outs GR8:$rd),
+                               (ins GR8:$rs1, GR8:$rs2),
+                               "sbc", "$rd, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def SBC8ri : PrefixRegImmInst<0xCB, 3, (outs GR8:$rd),
+                               (ins GR8:$rs1, i8imm:$imm),
+                               "sbc", "$rd, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+} // Uses = [SR]
+
+// --- Logic ---
+
+let isCommutable = 1 in
+def AND8rr : PrefixRegRegInst<0xC0, (outs GR8:$rd),
+                               (ins GR8:$rs1, GR8:$rs2),
+                               "and", "$rd, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def AND8ri : PrefixRegImmInst<0xCC, 3, (outs GR8:$rd),
+                               (ins GR8:$rs1, i8imm:$imm),
+                               "and", "$rd, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+let isCommutable = 1 in
+def OR8rr : PrefixRegRegInst<0xE0, (outs GR8:$rd),
+                              (ins GR8:$rs1, GR8:$rs2),
+                              "or", "$rd, $rs2", []>,
+            Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def OR8ri : PrefixRegImmInst<0xCE, 3, (outs GR8:$rd),
+                              (ins GR8:$rs1, i8imm:$imm),
+                              "or", "$rd, $imm", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+let isCommutable = 1 in
+def XOR8rr : PrefixRegRegInst<0xD0, (outs GR8:$rd),
+                               (ins GR8:$rs1, GR8:$rs2),
+                               "xor", "$rd, $rs2", []>,
+             Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def XOR8ri : PrefixRegImmInst<0xCD, 3, (outs GR8:$rd),
+                               (ins GR8:$rs1, i8imm:$imm),
+                               "xor", "$rd, $imm", []>,
+             Sched<[WriteIALU, ReadIALU]>;
+
+// --- Shifts ---
+
+def SLA8ri : PrefixShiftInst<0xEC, (outs GR8:$rd),
+                              (ins GR8:$rs1, i8imm:$imm),
+                              "sla", "$rd, $imm", []>,
+             Sched<[WriteShift, ReadIALU]>;
+
+def SRA8ri : PrefixShiftInst<0xED, (outs GR8:$rd),
+                              (ins GR8:$rs1, i8imm:$imm),
+                              "sra", "$rd, $imm", []>,
+             Sched<[WriteShift, ReadIALU]>;
+
+def SRL8ri : PrefixShiftInst<0xEF, (outs GR8:$rd),
+                              (ins GR8:$rs1, i8imm:$imm),
+                              "srl", "$rd, $imm", []>,
+             Sched<[WriteShift, ReadIALU]>;
+
+// --- Unary ---
+
+def NEG8 : PrefixUnaryInst<0x07, (outs GR8:$rd), (ins GR8:$rs1),
+                            "neg", "$rd", []>,
+           Sched<[WriteIALU, ReadIALU]>;
+
+def CPL8 : PrefixUnaryInst<0x06, (outs GR8:$rd), (ins GR8:$rs1),
+                            "cpl", "$rd", []>,
+           Sched<[WriteIALU, ReadIALU]>;
+
+// --- Extend (8→16 within 16-bit register) ---
+
+def EXTS8 : PrefixUnaryInst<0x13, (outs GR8:$rd), (ins GR8:$rs1),
+                             "exts", "$rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+def EXTZ8 : PrefixUnaryInst<0x12, (outs GR8:$rd), (ins GR8:$rs1),
+                             "extz", "$rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+// --- INC/DEC ---
+
+def INC8 : PrefixIncDecInst<0x60, (outs GR8:$rd),
+                             (ins GR8:$rs1, i8imm:$n),
+                             "inc", "$n, $rd", []>,
+           Sched<[WriteIALU, ReadIALU]>;
+
+def DEC8 : PrefixIncDecInst<0x68, (outs GR8:$rd),
+                             (ins GR8:$rs1, i8imm:$n),
+                             "dec", "$n, $rd", []>,
+           Sched<[WriteIALU, ReadIALU]>;
+
+} // Constraints = "$rd = $rs1", Defs = [SR]
+
+// --- Compare ---
+let Defs = [SR], isCompare = 1 in {
+
+def CP8rr : PrefixRegRegInst<0xF0, (outs), (ins GR8:$rs1, GR8:$rs2),
+                              "cp", "$rs1, $rs2", []>,
+            Sched<[WriteIALU, ReadIALU, ReadIALU]>;
+
+def CP8ri : PrefixRegImmInst<0xCF, 3, (outs), (ins GR8:$rs1, i8imm:$imm),
+                              "cp", "$rs1, $imm", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+} // Defs = [SR]
+
+// --- Rotates ---
+let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR], hasSideEffects = 0 in {
+
+def RLC8 : PrefixRotateInst<0xE8, (outs GR8:$rd), (ins GR8:$rs1),
+                             "rlc", "$rd", []>,
+           Sched<[WriteShift, ReadIALU]>;
+
+def RRC8 : PrefixRotateInst<0xE9, (outs GR8:$rd), (ins GR8:$rs1),
+                             "rrc", "$rd", []>,
+           Sched<[WriteShift, ReadIALU]>;
+
+def RL8 : PrefixRotateInst<0xEA, (outs GR8:$rd), (ins GR8:$rs1),
+                            "rl", "$rd", []>,
+          Sched<[WriteShift, ReadIALU]>;
+
+def RR8 : PrefixRotateInst<0xEB, (outs GR8:$rd), (ins GR8:$rs1),
+                            "rr", "$rd", []>,
+          Sched<[WriteShift, ReadIALU]>;
+
+} // Constraints, Defs, Uses
+
+} // OpSize = OpSize8.Value
