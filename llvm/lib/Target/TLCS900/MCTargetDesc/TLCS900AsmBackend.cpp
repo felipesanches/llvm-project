@@ -43,6 +43,19 @@ void TLCS900AsmBackend::applyFixup(const MCAssembler &Asm,
 
   assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
 
+  // TLCS-900 PC-relative branches measure displacement from the END of the
+  // instruction, not from the displacement field itself. LLVM's PC-relative
+  // fixup computes Value = target - fixup_address, where fixup_address points
+  // to the displacement field. We need to subtract the size of the remaining
+  // displacement bytes so the displacement is relative to the instruction end.
+  //
+  // JR (rel8):  2-byte insn, fixup at byte 1 -> subtract 1 (1 byte remains)
+  // JRL (rel16): 3-byte insn, fixup at byte 1 -> subtract 2 (2 bytes remain)
+  if (Kind == TLCS900::fixup_tlcs900_rel8)
+    Value -= 1;
+  else if (Kind == TLCS900::fixup_tlcs900_rel16)
+    Value -= 2;
+
   // For each byte of the fragment that the fixup touches, mask in the bits
   // from the fixup value (little-endian).
   for (unsigned i = 0; i < NumBytes; ++i) {
