@@ -36,4 +36,4 @@ default:
 }
 
 ; CHECK: .LJTI0_0:
-; CHECK-NEXT: .long
+; CHECK-NEXT: .word
