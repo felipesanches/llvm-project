@@ -504,24 +504,20 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
   switch (FirstByte) {
   case 0x00: // NOP
     return decodeSingleByte(MI, Size, TLCS900::NOP);
-  case 0x06: // HALT
+  case 0x05: // HALT
     return decodeSingleByte(MI, Size, TLCS900::HALT);
-  case 0x07: // DI
-    return decodeSingleByte(MI, Size, TLCS900::DI);
-  case 0x0B: // RETI
+  case 0x07: // RETI
     return decodeSingleByte(MI, Size, TLCS900::RETI);
   case 0x0E: // RET
     return decodeSingleByte(MI, Size, TLCS900::RET);
 
-  // EI level: 0x08 + level (levels 0-2, 4-5; 3/6/7 conflict with RETI/RET/RETD)
-  case 0x08:
-  case 0x09:
-  case 0x0A:
-  case 0x0C:
-  case 0x0D:
+  // EI level: 0x06, level_byte — 2 bytes
+  case 0x06:
+    if (Bytes.size() < 2)
+      return MCDisassembler::Fail;
     MI.setOpcode(TLCS900::EI);
-    MI.addOperand(MCOperand::createImm(FirstByte - 0x08));
-    Size = 1;
+    MI.addOperand(MCOperand::createImm(Bytes[1] & 0x7));
+    Size = 2;
     return MCDisassembler::Success;
 
   // RETD: 0x0F + d16 — 3 bytes
@@ -533,26 +529,27 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
     Size = 3;
     return MCDisassembler::Success;
 
-  // === Block transfer instructions (single byte) ===
-  case 0x10: // LDI
-    return decodeSingleByte(MI, Size, TLCS900::LDI);
-  case 0x11: // LDIR
-    return decodeSingleByte(MI, Size, TLCS900::LDIR);
-  case 0x12: // LDD
-    return decodeSingleByte(MI, Size, TLCS900::LDD);
-  case 0x13: // LDDR
-    return decodeSingleByte(MI, Size, TLCS900::LDDR);
-  case 0x14: // CPI
-    return decodeSingleByte(MI, Size, TLCS900::CPI);
-  case 0x15: // CPIR
-    return decodeSingleByte(MI, Size, TLCS900::CPIR);
-  case 0x16: // CPD
-    return decodeSingleByte(MI, Size, TLCS900::CPD);
-  case 0x17: // CPDR
-    return decodeSingleByte(MI, Size, TLCS900::CPDR);
+  // === Block transfer instructions: 0x80 prefix + sub-opcode — 2 bytes ===
+  case 0x80:
+    if (Bytes.size() < 2)
+      return MCDisassembler::Fail;
+    switch (Bytes[1]) {
+    case 0x10: MI.setOpcode(TLCS900::LDI);  break;
+    case 0x11: MI.setOpcode(TLCS900::LDIR); break;
+    case 0x12: MI.setOpcode(TLCS900::LDD);  break;
+    case 0x13: MI.setOpcode(TLCS900::LDDR); break;
+    case 0x14: MI.setOpcode(TLCS900::CPI);  break;
+    case 0x15: MI.setOpcode(TLCS900::CPIR); break;
+    case 0x16: MI.setOpcode(TLCS900::CPD);  break;
+    case 0x17: MI.setOpcode(TLCS900::CPDR); break;
+    default:
+      return MCDisassembler::Fail;
+    }
+    Size = 2;
+    return MCDisassembler::Success;
 
-  // === JP absolute: 0x1C + addr24 — 4 bytes ===
-  case 0x1C:
+  // === JP absolute: 0x1B + addr24 — 4 bytes ===
+  case 0x1B:
     if (Bytes.size() < 4)
       return MCDisassembler::Fail;
     MI.setOpcode(TLCS900::JP);
@@ -610,8 +607,8 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
     return MCDisassembler::Success;
   }
 
-  // === PUSH r32: 0x48+r — 1 byte ===
-  if (FirstByte >= 0x48 && FirstByte <= 0x4F) {
+  // === PUSH r32: 0x38+r — 1 byte ===
+  if (FirstByte >= 0x38 && FirstByte <= 0x3F) {
     unsigned Reg = decodeGPR(FirstByte & 0x7);
     MI.setOpcode(TLCS900::PUSH32);
     MI.addOperand(MCOperand::createReg(Reg));
