@@ -135,7 +135,12 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     return 2;
   } else {
     // (Xrr+d16) — 16-bit displacement, uses F3 prefix + mode byte + d16.
-    // F3 always dispatches to the destination-memory opcode table.
+    // WARNING: F3 always dispatches to the destination-memory opcode table
+    // (B0/F0). This is correct for MemStore and MemLoadDst (LDA), but
+    // INCORRECT for MemLoad and MemALU which need the A0 source-memory
+    // table. Large-displacement loads/ALU should be split into LDA + no-disp
+    // by the frame lowering or ISel.
+    // TODO: Add assertion or code path to handle this correctly.
     CB.push_back(0xF3);
     // Mode byte: bits 1-0 = 001 (Xrr+d16), bits 4-2 = base_reg.
     CB.push_back((BaseReg << 2) | 0x01);
@@ -350,6 +355,16 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // Uses source memory prefix (A0/A8) since data flows FROM memory.
     unsigned DstEnc = getRegEncoding(MI.getOperand(0));
     emitMemPrefix(MI, 1, 2, /*IsDstMem=*/false, CB, Fixups);
+    CB.push_back(Opcode + DstEnc);
+    break;
+  }
+
+  case TLCS900II::MemLoadDst: {
+    // dst_mem_prefix [+disp] + (opcode + dst_reg).
+    // LDA32: op 0 = dst, op 1 = base, op 2 = disp.
+    // Uses destination memory prefix (B0/B8) — LDA is in the B0 opcode table.
+    unsigned DstEnc = getRegEncoding(MI.getOperand(0));
+    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/true, CB, Fixups);
     CB.push_back(Opcode + DstEnc);
     break;
   }

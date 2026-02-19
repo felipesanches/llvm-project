@@ -40,8 +40,9 @@ enum InstFormat : uint8_t {
   PrefixRotate,      // Reg prefix + rotate opcode (RLC, RRC, RL, RR)
   PrefixBit,         // Reg prefix + bit opcode + bit number (SET, RES, CHG, BIT, TSET)
   PrefixIncDec,      // Reg prefix + inc/dec opcode with count in bits 0-2
-  MemLoad,           // Mem prefix + opcode (LD rd, (mem))
-  MemStore,          // Mem prefix + opcode (LD (mem), rs)
+  MemLoad,           // Mem prefix + opcode (LD rd, (mem)) — source mem (A0/A8)
+  MemLoadDst,        // Mem prefix + opcode (LDA rd, mem) — dest mem (B0/B8)
+  MemStore,          // Mem prefix + opcode (LD (mem), rs) — dest mem (B0/B8)
   MemALU,            // Mem prefix + opcode + operand (ADD/SUB/etc (mem), rs/#imm)
   Branch24,          // JP nnn (0x1C + 24-bit absolute)
   BranchCond24,      // JP cc, nnn (not a real HW encoding — uses JR/JRL for cond)

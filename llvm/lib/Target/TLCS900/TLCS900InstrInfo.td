@@ -157,11 +157,13 @@ def LD32mr : MemStoreInst<0x60, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                           [(store GPR:$rs, addr:$addr)]>,
              Sched<[WriteSTW, ReadMemBase]>;
 
-// LD (base+disp), #imm — Store immediate to memory
-// Encoding: dst_mem_prefix + opcode + imm32 — size varies by addressing mode
+// Note: TLCS-900/H has no 32-bit immediate-to-memory store instruction
+// in hardware. The B0 table only has LDBMI (0x00, byte) and LDWMI (0x02,
+// word). This definition exists only for the disassembler; ISel lowers
+// 32-bit immediate stores as: LD reg, #imm; LD (mem), reg.
+let isCodeGenOnly = 0 in
 def LD32mi : MemStoreInst<0x08, 8, (outs), (ins MEMri:$addr, i32imm:$val),
-                          "ld", "$addr, $val",
-                          [(store (i32 imm:$val), addr:$addr)]>,
+                          "ld", "$addr, $val", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 
 // LD rd:lo16, (base+disp) — Load 16-bit from memory into low word of GPR
@@ -821,10 +823,10 @@ def EX32 : PrefixRegRegInst<0xB8, (outs GPR:$rd_out, GPR:$rs_out),
 //===----------------------------------------------------------------------===//
 
 // LDA rd, (base+disp) — Load effective address into register (pure computation)
-// Encoding: mem_prefix + 0x20+rd (uses MemLoad format with LDA opcode)
+// Encoding: dst_mem_prefix + 0x30+rd (LDA is in B0 opcode table at 0x30)
 let hasSideEffects = 0, isReMaterializable = 1 in
-def LDA32 : MemLoadInst<0x20, 4, (outs GPR:$rd), (ins MEMri:$addr),
-                        "lda", "$rd, $addr", []>,
+def LDA32 : MemLoadDstInst<0x30, 4, (outs GPR:$rd), (ins MEMri:$addr),
+                           "lda", "$rd, $addr", []>,
             Sched<[WriteIALU]>;
 
 //===----------------------------------------------------------------------===//
@@ -846,27 +848,32 @@ def DJNZ32 : PrefixDJNZInst<0x1C, (outs GPR:$rd), (ins GPR:$rs1, brtarget:$targe
 let Defs = [SR], mayLoad = 1, mayStore = 1 in {
 
 // ADD (mem), rs — Add register to memory location (read-modify-write)
-def ADD32mr : MemALUInst<0x80, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+// Opcode 0x88: ADDLMR in A0 table (0x80 = ADDLRM is register direction)
+def ADD32mr : MemALUInst<0x88, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                          "add", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // SUB (mem), rs — Subtract register from memory location (read-modify-write)
-def SUB32mr : MemALUInst<0xA0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+// Opcode 0xA8: SUBLMR in A0 table (0xA0 = SUBLRM is register direction)
+def SUB32mr : MemALUInst<0xA8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                          "sub", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // AND (mem), rs — AND register with memory location (read-modify-write)
-def AND32mr : MemALUInst<0xC0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+// Opcode 0xC8: ANDLMR in A0 table (0xC0 = ANDLRM is register direction)
+def AND32mr : MemALUInst<0xC8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                          "and", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // OR (mem), rs — OR register with memory location (read-modify-write)
-def OR32mr : MemALUInst<0xE0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+// Opcode 0xE8: ORLMR in A0 table (0xE0 = ORLRM is register direction)
+def OR32mr : MemALUInst<0xE8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                         "or", "$addr, $rs", []>,
              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
 // XOR (mem), rs — XOR register with memory location (read-modify-write)
-def XOR32mr : MemALUInst<0xD0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+// Opcode 0xD8: XORLMR in A0 table (0xD0 = XORLRM is register direction)
+def XOR32mr : MemALUInst<0xD8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                          "xor", "$addr, $rs", []>,
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 
@@ -876,7 +883,8 @@ def XOR32mr : MemALUInst<0xD0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
 let Defs = [SR], isCompare = 1 in {
 
 // CP (mem), rs — Compare memory with register (folds load into compare)
-def CP32mr : MemALUInst<0xF0, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+// Opcode 0xF8: CPLMR in A0 table — (mem) - r32 flags (0xF0 = CPLRM is reg direction)
+def CP32mr : MemALUInst<0xF8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                         "cp", "$addr, $rs",
                         [(tlcs900_cmp (load addr:$addr), GPR:$rs)]>,
              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
