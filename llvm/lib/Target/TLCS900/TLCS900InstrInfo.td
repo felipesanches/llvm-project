@@ -201,10 +201,10 @@ def LD8mr : MemStoreInst<0x40, 3, (outs), (ins MEMri:$addr, GPR_lo8:$rs),
                          "ld", "$addr, $rs", []>,
             Sched<[WriteSTW, ReadMemBase]>;
 
-// Patterns for global address and external symbol materialization
-def : Pat<(i32 tglobaladdr:$addr), (LD32ri tglobaladdr:$addr)>;
-def : Pat<(i32 texternalsym:$addr), (LD32ri texternalsym:$addr)>;
-def : Pat<(i32 tblockaddress:$addr), (LD32ri tblockaddress:$addr)>;
+// Patterns for address materialization — all go through TLCS900ISD::Wrapper
+def : Pat<(tlcs900_wrapper tglobaladdr:$addr), (LD32ri tglobaladdr:$addr)>;
+def : Pat<(tlcs900_wrapper texternalsym:$addr), (LD32ri texternalsym:$addr)>;
+def : Pat<(tlcs900_wrapper tblockaddress:$addr), (LD32ri tblockaddress:$addr)>;
 def : Pat<(tlcs900_wrapper tjumptable:$addr), (LD32ri tjumptable:$addr)>;
 
 //===----------------------------------------------------------------------===//

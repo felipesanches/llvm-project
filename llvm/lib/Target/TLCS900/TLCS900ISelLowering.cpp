@@ -357,16 +357,18 @@ SDValue
 TLCS900TargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
   auto *N = cast<GlobalAddressSDNode>(Op);
-  return DAG.getTargetGlobalAddress(N->getGlobal(), DL, MVT::i32,
-                                    N->getOffset());
+  SDValue GA = DAG.getTargetGlobalAddress(N->getGlobal(), DL, MVT::i32,
+                                          N->getOffset());
+  return DAG.getNode(TLCS900ISD::Wrapper, DL, MVT::i32, GA);
 }
 
 SDValue
 TLCS900TargetLowering::LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
   auto *N = cast<BlockAddressSDNode>(Op);
-  return DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i32,
-                                   N->getOffset());
+  SDValue BA = DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i32,
+                                         N->getOffset());
+  return DAG.getNode(TLCS900ISD::Wrapper, DL, MVT::i32, BA);
 }
 
 SDValue
@@ -374,7 +376,8 @@ TLCS900TargetLowering::LowerExternalSymbol(SDValue Op,
                                             SelectionDAG &DAG) const {
   SDLoc DL(Op);
   auto *N = cast<ExternalSymbolSDNode>(Op);
-  return DAG.getTargetExternalSymbol(N->getSymbol(), MVT::i32);
+  SDValue ES = DAG.getTargetExternalSymbol(N->getSymbol(), MVT::i32);
+  return DAG.getNode(TLCS900ISD::Wrapper, DL, MVT::i32, ES);
 }
 
 SDValue

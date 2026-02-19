@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TLCS900ISelDAGToDAG.h"
+#include "TLCS900ISelLowering.h"
 #include "TLCS900Subtarget.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
@@ -59,7 +60,8 @@ bool TLCS900DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
         Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);
       else
         Base = PossibleBase;
-      Offset = CurDAG->getTargetConstant(CN->getSExtValue(), DL, MVT::i32);
+      Offset =
+          CurDAG->getSignedTargetConstant(CN->getSExtValue(), DL, MVT::i32);
       return true;
     }
   }
@@ -71,10 +73,19 @@ bool TLCS900DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
       SDValue PossibleBase = Addr.getOperand(0);
       if (auto *FIN = dyn_cast<FrameIndexSDNode>(PossibleBase)) {
         Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);
-        Offset = CurDAG->getTargetConstant(CN->getSExtValue(), DL, MVT::i32);
+        Offset =
+            CurDAG->getSignedTargetConstant(CN->getSExtValue(), DL, MVT::i32);
         return true;
       }
     }
+  }
+
+  // Match Wrapper(TargetGlobalAddress/TargetExternalSymbol/TargetBlockAddress)
+  // so loads/stores can fold the global directly: ld rd, (symbol+offset).
+  if (Addr.getOpcode() == TLCS900ISD::Wrapper) {
+    Base = Addr.getOperand(0);
+    Offset = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    return true;
   }
 
   // Default: treat entire address as base, offset = 0
