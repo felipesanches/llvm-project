@@ -98,6 +98,17 @@ inline unsigned getRegPrefixBase(unsigned OpSize) {
   return 0xC8 + (OpSize * 0x10);
 }
 
+// Get the source memory prefix base byte for a given operand size.
+// The TLCS-900 ISA uses different prefix ranges per data size for source
+// memory (loads/ALU from memory):
+//   8-bit:  0x80 (no disp), 0x88 (+d8)  → mnemonic_80 table
+//   16-bit: 0x90 (no disp), 0x98 (+d8)  → mnemonic_90 table
+//   32-bit: 0xA0 (no disp), 0xA8 (+d8)  → mnemonic_a0 table
+// Destination memory (stores, LDA) always uses 0xB0/0xB8 regardless of size.
+inline unsigned getSrcMemPrefixBase(unsigned OpSize) {
+  return 0x80 + (OpSize * 0x10);
+}
+
 } // namespace TLCS900II
 
 } // namespace llvm

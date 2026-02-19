@@ -37,12 +37,14 @@ class TLCS900MCCodeEmitter : public MCCodeEmitter {
 
   /// Emit the memory addressing prefix bytes for MEMri operands.
   /// IsDstMem selects destination memory prefix (B0, for stores) vs
-  /// source memory prefix (A0, for loads/ALU).
+  /// source memory prefix (size-dependent, for loads/ALU).
+  /// OpSize selects the source memory prefix range (0=8-bit, 1=16-bit,
+  /// 2=32-bit); ignored for destination memory.
   /// StartByte is the CB offset where the current instruction starts,
   /// used to compute instruction-relative fixup offsets.
   /// Returns the number of bytes emitted.
   unsigned emitMemPrefix(const MCInst &MI, unsigned BaseOpIdx,
-                         unsigned DispOpIdx, bool IsDstMem,
+                         unsigned DispOpIdx, bool IsDstMem, unsigned OpSize,
                          uint64_t StartByte, SmallVectorImpl<char> &CB,
                          SmallVectorImpl<MCFixup> &Fixups) const;
 

@@ -92,15 +92,23 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
 
 unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     const MCInst &MI, unsigned BaseOpIdx, unsigned DispOpIdx, bool IsDstMem,
-    uint64_t StartByte, SmallVectorImpl<char> &CB,
+    unsigned OpSize, uint64_t StartByte, SmallVectorImpl<char> &CB,
     SmallVectorImpl<MCFixup> &Fixups) const {
   const MCOperand &BaseOp = MI.getOperand(BaseOpIdx);
 
   // Direct addressing: base is a symbol expression (global address).
-  // Two prefix bytes depending on direction:
-  //   E2 = source memory (nn) — dispatches to A0/E0 table (loads, ALU)
-  //   F2 = destination memory (nn) — dispatches to B0/F0 table (stores, LDA)
+  // Destination memory uses F2 prefix (dispatches to B0/F0 table — all sizes).
+  // Source memory uses E2 prefix (dispatches to E0 table — 32-bit ONLY).
+  // Byte/word source memory loads from globals must be lowered by ISel into
+  // address materialization + register-indirect load, since the E0 table
+  // has no 8/16-bit load sub-opcodes.
   if (BaseOp.isExpr()) {
+    if (!IsDstMem && OpSize != TLCS900II::OpSize32) {
+      Ctx.reportError(MI.getLoc(),
+          "byte/word direct memory load not encodable; "
+          "ISel should have materialized the address first");
+      return 0;
+    }
     const MCOperand &DispOp = MI.getOperand(DispOpIdx);
     int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
     CB.push_back(IsDstMem ? 0xF2 : 0xE2);
@@ -119,11 +127,20 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
   const MCOperand &DispOp = MI.getOperand(DispOpIdx);
   int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
 
-  // Select prefix base: source memory (A0/A8) vs destination memory (B0/B8).
-  // Source: 0xA0 (no disp), 0xA8 (+d8)  — used by MemLoad, MemALU
-  // Dest:   0xB0 (no disp), 0xB8 (+d8)  — used by MemStore
-  unsigned PrefixNoDisp = IsDstMem ? 0xB0 : 0xA0;
-  unsigned PrefixD8 = IsDstMem ? 0xB8 : 0xA8;
+  // Select prefix base: source or destination memory.
+  // Destination memory always uses B0/B8 (size encoded in sub-opcode).
+  // Source memory prefix depends on data size:
+  //   8-bit:  0x80/0x88 → mnemonic_80 table
+  //   16-bit: 0x90/0x98 → mnemonic_90 table
+  //   32-bit: 0xA0/0xA8 → mnemonic_a0 table
+  unsigned PrefixNoDisp, PrefixD8;
+  if (IsDstMem) {
+    PrefixNoDisp = 0xB0;
+    PrefixD8 = 0xB8;
+  } else {
+    PrefixNoDisp = TLCS900II::getSrcMemPrefixBase(OpSize);
+    PrefixD8 = PrefixNoDisp + 0x08;
+  }
 
   if (Disp == 0 && DispOp.isImm()) {
     // (Xrr) — no displacement, 1-byte prefix.
@@ -373,9 +390,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   case TLCS900II::MemLoad: {
     // src_mem_prefix [+disp] + (opcode + dst_reg).
     // LD32rm: op 0 = dst, op 1 = base, op 2 = disp.
-    // Uses source memory prefix (A0/A8) since data flows FROM memory.
+    // Uses source memory prefix (size-dependent) since data flows FROM memory.
     unsigned DstEnc = getRegEncoding(MI.getOperand(0));
-    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/false, StartByte, CB, Fixups);
+    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/false, OpSize, StartByte, CB, Fixups);
     CB.push_back(Opcode + DstEnc);
     break;
   }
@@ -385,7 +402,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // LDA32: op 0 = dst, op 1 = base, op 2 = disp.
     // Uses destination memory prefix (B0/B8) — LDA is in the B0 opcode table.
     unsigned DstEnc = getRegEncoding(MI.getOperand(0));
-    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/true, StartByte, CB, Fixups);
+    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
     CB.push_back(Opcode + DstEnc);
     break;
   }
@@ -395,7 +412,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // LD32mr: op 0 = base, op 1 = disp, op 2 = src_reg.
     // LD32mi: op 0 = base, op 1 = disp, op 2 = imm.
     // Uses destination memory prefix (B0/B8/F2) since data flows TO memory.
-    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, StartByte, CB, Fixups);
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
       unsigned SrcEnc = getRegEncoding(SrcOp);
@@ -414,9 +431,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   case TLCS900II::MemALU: {
     // src_mem_prefix [+disp] + (opcode + src_reg) or + opcode + imm.
     // ALU (mem), rs: op 0 = base, op 1 = disp, op 2 = reg_or_imm.
-    // Uses source memory prefix (A0/A8) — ALU-with-memory opcodes are
-    // in the source memory opcode table.
-    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, StartByte, CB, Fixups);
+    // Uses source memory prefix (size-dependent) — ALU-with-memory opcodes
+    // are in the source memory opcode table.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, OpSize, StartByte, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
       unsigned SrcEnc = getRegEncoding(SrcOp);
