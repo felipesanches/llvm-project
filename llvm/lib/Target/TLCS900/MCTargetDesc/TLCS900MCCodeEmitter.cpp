@@ -92,7 +92,8 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
 
 unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     const MCInst &MI, unsigned BaseOpIdx, unsigned DispOpIdx, bool IsDstMem,
-    SmallVectorImpl<char> &CB, SmallVectorImpl<MCFixup> &Fixups) const {
+    uint64_t StartByte, SmallVectorImpl<char> &CB,
+    SmallVectorImpl<MCFixup> &Fixups) const {
   const MCOperand &BaseOp = MI.getOperand(BaseOpIdx);
 
   // Direct addressing: base is a symbol expression (global address).
@@ -107,7 +108,7 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     // global+offset), we'd need to fold it into the symbol expression,
     // but in practice the ISel folds offsets into the symbol operand.
     Fixups.push_back(MCFixup::create(
-        CB.size(), BaseOp.getExpr(),
+        CB.size() - StartByte, BaseOp.getExpr(),
         (MCFixupKind)TLCS900::fixup_tlcs900_24));
     emitImmediate(Disp, 3, CB);
     return 4;
@@ -149,7 +150,7 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
       emitImmediate(Disp, 2, CB);
     } else if (DispOp.isExpr()) {
       Fixups.push_back(
-          MCFixup::create(CB.size(), DispOp.getExpr(), FK_Data_2));
+          MCFixup::create(CB.size() - StartByte, DispOp.getExpr(), FK_Data_2));
       CB.push_back(0);
       CB.push_back(0);
     }
@@ -165,6 +166,12 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   // Pseudos and codegen-only instructions don't get encoded.
   if (Desc.isPseudo())
     return;
+
+  // Record the start position so fixup offsets are instruction-relative.
+  // MCELFStreamer::emitInstToData adjusts fixup offsets by adding the
+  // instruction's start position in the fragment, so we must not include
+  // that base in the offsets we create.
+  uint64_t StartByte = CB.size();
 
   uint64_t TSFlags = Desc.TSFlags;
   unsigned Format = TLCS900II::getInstFormat(TSFlags);
@@ -209,13 +216,13 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       if (ImmOp.isImm())
         emitImmediate(ImmOp.getImm(), 2, CB);
       else
-        emitFixup(MI, ImmOp, CB.size(), FK_Data_2, CB, Fixups);
+        emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_2, CB, Fixups);
     } else {
       CB.push_back(Opcode);
       if (ImmOp.isImm())
         CB.push_back(static_cast<char>(ImmOp.getImm() & 0xFF));
       else
-        emitFixup(MI, ImmOp, CB.size(), FK_Data_1, CB, Fixups);
+        emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_1, CB, Fixups);
     }
     break;
   }
@@ -237,7 +244,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (ImmOp.isImm()) {
       emitImmediate(ImmOp.getImm(), ImmBytes, CB);
     } else {
-      emitFixup(MI, ImmOp, CB.size(), FK_Data_4, CB, Fixups);
+      emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
     }
     break;
   }
@@ -263,7 +270,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (ImmOp.isImm()) {
       emitImmediate(ImmOp.getImm(), ImmBytes, CB);
     } else {
-      emitFixup(MI, ImmOp, CB.size(), FK_Data_4, CB, Fixups);
+      emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
     }
     break;
   }
@@ -355,7 +362,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // LD32rm: op 0 = dst, op 1 = base, op 2 = disp.
     // Uses source memory prefix (A0/A8) since data flows FROM memory.
     unsigned DstEnc = getRegEncoding(MI.getOperand(0));
-    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/false, CB, Fixups);
+    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/false, StartByte, CB, Fixups);
     CB.push_back(Opcode + DstEnc);
     break;
   }
@@ -365,7 +372,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // LDA32: op 0 = dst, op 1 = base, op 2 = disp.
     // Uses destination memory prefix (B0/B8) — LDA is in the B0 opcode table.
     unsigned DstEnc = getRegEncoding(MI.getOperand(0));
-    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/true, CB, Fixups);
+    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/true, StartByte, CB, Fixups);
     CB.push_back(Opcode + DstEnc);
     break;
   }
@@ -375,7 +382,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // LD32mr: op 0 = base, op 1 = disp, op 2 = src_reg.
     // LD32mi: op 0 = base, op 1 = disp, op 2 = imm.
     // Uses destination memory prefix (B0/B8/F2) since data flows TO memory.
-    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, CB, Fixups);
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, StartByte, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
       unsigned SrcEnc = getRegEncoding(SrcOp);
@@ -386,7 +393,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       if (SrcOp.isImm())
         emitImmediate(SrcOp.getImm(), ImmBytes, CB);
       else
-        emitFixup(MI, SrcOp, CB.size(), FK_Data_4, CB, Fixups);
+        emitFixup(MI, SrcOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
     }
     break;
   }
@@ -396,7 +403,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // ALU (mem), rs: op 0 = base, op 1 = disp, op 2 = reg_or_imm.
     // Uses source memory prefix (A0/A8) — ALU-with-memory opcodes are
     // in the source memory opcode table.
-    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, CB, Fixups);
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, StartByte, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
       unsigned SrcEnc = getRegEncoding(SrcOp);
@@ -406,7 +413,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       if (SrcOp.isImm())
         emitImmediate(SrcOp.getImm(), ImmBytes, CB);
       else
-        emitFixup(MI, SrcOp, CB.size(), FK_Data_4, CB, Fixups);
+        emitFixup(MI, SrcOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
     }
     break;
   }
@@ -418,7 +425,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm()) {
       emitImmediate(Target.getImm(), 3, CB);
     } else {
-      emitFixup(MI, Target, CB.size(),
+      emitFixup(MI, Target, CB.size() - StartByte,
                 (MCFixupKind)TLCS900::fixup_tlcs900_24, CB, Fixups);
     }
     break;
@@ -434,7 +441,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm()) {
       emitImmediate(Target.getImm(), 2, CB);
     } else {
-      emitFixup(MI, Target, CB.size(), FK_Data_2, CB, Fixups);
+      emitFixup(MI, Target, CB.size() - StartByte, FK_Data_2, CB, Fixups);
     }
     break;
   }
@@ -451,7 +458,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       if (Target.isImm())
         CB.push_back(static_cast<char>(Target.getImm() & 0xFF));
       else
-        emitFixup(MI, Target, CB.size(), FK_Data_1, CB, Fixups);
+        emitFixup(MI, Target, CB.size() - StartByte, FK_Data_1, CB, Fixups);
     } else {
       // Unconditional: opcode already includes T condition.
       CB.push_back(Opcode);
@@ -459,7 +466,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       if (Target.isImm())
         CB.push_back(static_cast<char>(Target.getImm() & 0xFF));
       else
-        emitFixup(MI, Target, CB.size(), FK_Data_1, CB, Fixups);
+        emitFixup(MI, Target, CB.size() - StartByte, FK_Data_1, CB, Fixups);
     }
     break;
   }
@@ -473,14 +480,14 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       if (Target.isImm())
         emitImmediate(Target.getImm(), 2, CB);
       else
-        emitFixup(MI, Target, CB.size(), FK_Data_2, CB, Fixups);
+        emitFixup(MI, Target, CB.size() - StartByte, FK_Data_2, CB, Fixups);
     } else {
       CB.push_back(Opcode);
       const MCOperand &Target = MI.getOperand(0);
       if (Target.isImm())
         emitImmediate(Target.getImm(), 2, CB);
       else
-        emitFixup(MI, Target, CB.size(), FK_Data_2, CB, Fixups);
+        emitFixup(MI, Target, CB.size() - StartByte, FK_Data_2, CB, Fixups);
     }
     break;
   }
@@ -492,7 +499,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm()) {
       emitImmediate(Target.getImm(), 3, CB);
     } else {
-      emitFixup(MI, Target, CB.size(),
+      emitFixup(MI, Target, CB.size() - StartByte,
                 (MCFixupKind)TLCS900::fixup_tlcs900_24, CB, Fixups);
     }
     break;
@@ -505,7 +512,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm()) {
       emitImmediate(Target.getImm(), 2, CB);
     } else {
-      emitFixup(MI, Target, CB.size(), FK_Data_2, CB, Fixups);
+      emitFixup(MI, Target, CB.size() - StartByte, FK_Data_2, CB, Fixups);
     }
     break;
   }
@@ -528,7 +535,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm())
       CB.push_back(static_cast<char>(Target.getImm() & 0xFF));
     else
-      emitFixup(MI, Target, CB.size(), FK_Data_1, CB, Fixups);
+      emitFixup(MI, Target, CB.size() - StartByte, FK_Data_1, CB, Fixups);
     break;
   }
 
@@ -541,7 +548,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (ImmOp.isImm())
       emitImmediate(ImmOp.getImm(), ImmBytes, CB);
     else
-      emitFixup(MI, ImmOp, CB.size(), FK_Data_4, CB, Fixups);
+      emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
     break;
   }
 
