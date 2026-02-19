@@ -135,6 +135,9 @@ MCOperand TLCS900AsmPrinter::LowerOperand(const MachineOperand& MO) const {
   case MachineOperand::MO_ConstantPoolIndex:
     return LowerSymbolOperand(MO, GetCPISymbol(MO.getIndex()));
 
+  case MachineOperand::MO_JumpTableIndex:
+    return LowerSymbolOperand(MO, GetJTISymbol(MO.getIndex()));
+
   case MachineOperand::MO_RegisterMask:
     break;
 

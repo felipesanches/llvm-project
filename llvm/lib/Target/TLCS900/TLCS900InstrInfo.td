@@ -202,6 +202,7 @@ def LD8mr : MemStoreInst<0x40, 3, (outs), (ins MEMri:$addr, GPR_lo8:$rs),
 def : Pat<(i32 tglobaladdr:$addr), (LD32ri tglobaladdr:$addr)>;
 def : Pat<(i32 texternalsym:$addr), (LD32ri texternalsym:$addr)>;
 def : Pat<(i32 tblockaddress:$addr), (LD32ri tblockaddress:$addr)>;
+def : Pat<(i32 tjumptable:$addr), (LD32ri tjumptable:$addr)>;
 
 //===----------------------------------------------------------------------===//
 // Arithmetic Instructions (two-address: rd = rd op rs)

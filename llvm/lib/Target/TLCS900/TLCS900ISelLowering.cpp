@@ -107,6 +107,7 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::GlobalAddress,    MVT::i32, Custom);
   setOperationAction(ISD::BlockAddress,     MVT::i32, Custom);
   setOperationAction(ISD::ExternalSymbol,   MVT::i32, Custom);
+  setOperationAction(ISD::JumpTable,        MVT::i32, Custom);
 
   // 8/16-bit truncating stores are supported directly by LD8mr/LD16mr
   setTruncStoreAction(MVT::i32, MVT::i16, Legal);
@@ -194,6 +195,7 @@ SDValue TLCS900TargetLowering::LowerOperation(SDValue Op,
   case ISD::GlobalAddress:        return LowerGlobalAddress(Op, DAG);
   case ISD::BlockAddress:         return LowerBlockAddress(Op, DAG);
   case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
+  case ISD::JumpTable:            return LowerJumpTable(Op, DAG);
   case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:            return LowerSELECT_CC(Op, DAG);
   case ISD::SETCC:                return LowerSETCC(Op, DAG);
@@ -372,6 +374,13 @@ TLCS900TargetLowering::LowerExternalSymbol(SDValue Op,
   SDLoc DL(Op);
   auto *N = cast<ExternalSymbolSDNode>(Op);
   return DAG.getTargetExternalSymbol(N->getSymbol(), MVT::i32);
+}
+
+SDValue
+TLCS900TargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  auto *N = cast<JumpTableSDNode>(Op);
+  return DAG.getTargetJumpTable(N->getIndex(), MVT::i32);
 }
 
 //===----------------------------------------------------------------------===//
