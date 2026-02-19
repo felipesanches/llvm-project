@@ -113,18 +113,18 @@ sub xwa, 1
 ; CHECK: cp xwa, 0       ; encoding: [0xe8,0xcf,0x00,0x00,0x00,0x00]
 cp xwa, 0
 
-; === INC/DEC (prefix + opcode|(count-1)) ===
+; === INC/DEC (prefix + opcode|(n&7)) — I3: 1→1, 2→2, ..., 7→7, 8→0 ===
 
-; INC 1, rd: E8+r, 0x60+(1-1)=0x60
-; CHECK: inc 1, xwa      ; encoding: [0xe8,0x60]
+; INC 1, rd: E8+r, 0x60+1=0x61
+; CHECK: inc 1, xwa      ; encoding: [0xe8,0x61]
 inc 1, xwa
 
-; INC 3, rd: E8+r, 0x60+(3-1)=0x62
-; CHECK: inc 3, xwa      ; encoding: [0xe8,0x62]
+; INC 3, rd: E8+r, 0x60+3=0x63
+; CHECK: inc 3, xwa      ; encoding: [0xe8,0x63]
 inc 3, xwa
 
-; DEC 1, rd: E8+r, 0x68+(1-1)=0x68
-; CHECK: dec 1, xwa      ; encoding: [0xe8,0x68]
+; DEC 1, rd: E8+r, 0x68+1=0x69
+; CHECK: dec 1, xwa      ; encoding: [0xe8,0x69]
 dec 1, xwa
 
 ; === Shift instructions (prefix + opcode + amount) ===
@@ -373,12 +373,12 @@ neg wa
 ; CHECK: cpl bc             ; encoding: [0xd9,0x06]
 cpl bc
 
-; INC 1, rd16: D8+r, 0x60
-; CHECK: inc 1, wa          ; encoding: [0xd8,0x60]
+; INC 1, rd16: D8+r, 0x61
+; CHECK: inc 1, wa          ; encoding: [0xd8,0x61]
 inc 1, wa
 
-; DEC 2, rd16: D8+r, 0x69
-; CHECK: dec 2, de          ; encoding: [0xda,0x69]
+; DEC 2, rd16: D8+r, 0x6a
+; CHECK: dec 2, de          ; encoding: [0xda,0x6a]
 dec 2, de
 
 ; SLA rd16, #imm: D8+r, 0xEC, amount
@@ -478,12 +478,12 @@ neg a
 ; CHECK: cpl b              ; encoding: [0xca,0x06]
 cpl b
 
-; INC 1, rd8: C8+r, 0x60
-; CHECK: inc 1, a           ; encoding: [0xc9,0x60]
+; INC 1, rd8: C8+r, 0x61
+; CHECK: inc 1, a           ; encoding: [0xc9,0x61]
 inc 1, a
 
-; DEC 1, rd8: C8+r, 0x68
-; CHECK: dec 1, b           ; encoding: [0xca,0x68]
+; DEC 1, rd8: C8+r, 0x69
+; CHECK: dec 1, b           ; encoding: [0xca,0x69]
 dec 1, b
 
 ; SLA rd8, #imm: C8+r, 0xEC, amount

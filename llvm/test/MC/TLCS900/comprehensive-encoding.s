@@ -219,27 +219,27 @@ cp xde, 1000
 ; 32-bit prefix: Unary instructions
 ; ==========================================================================
 
-; INC n, rd: E8+r, 0x60+(n-1)
-; CHECK: inc 1, xwa       ; encoding: [0xe8,0x60]
+; INC n, rd: E8+r, 0x60+(n&7) — I3 field: 1→0x61, 2→0x62, ..., 7→0x67, 8→0x60
+; CHECK: inc 1, xwa       ; encoding: [0xe8,0x61]
 inc 1, xwa
 
-; CHECK: inc 2, xbc       ; encoding: [0xe9,0x61]
+; CHECK: inc 2, xbc       ; encoding: [0xe9,0x62]
 inc 2, xbc
 
-; CHECK: inc 4, xde       ; encoding: [0xea,0x63]
+; CHECK: inc 4, xde       ; encoding: [0xea,0x64]
 inc 4, xde
 
-; CHECK: inc 8, xhl       ; encoding: [0xeb,0x67]
+; CHECK: inc 8, xhl       ; encoding: [0xeb,0x60]
 inc 8, xhl
 
-; DEC n, rd: E8+r, 0x68+(n-1)
-; CHECK: dec 1, xwa       ; encoding: [0xe8,0x68]
+; DEC n, rd: E8+r, 0x68+(n&7) — same I3 encoding as INC
+; CHECK: dec 1, xwa       ; encoding: [0xe8,0x69]
 dec 1, xwa
 
-; CHECK: dec 3, xbc       ; encoding: [0xe9,0x6a]
+; CHECK: dec 3, xbc       ; encoding: [0xe9,0x6b]
 dec 3, xbc
 
-; CHECK: dec 8, xde       ; encoding: [0xea,0x6f]
+; CHECK: dec 8, xde       ; encoding: [0xea,0x68]
 dec 8, xde
 
 ; EXTS rd: E8+r, 0x13
@@ -628,18 +628,18 @@ cpl bc
 ; CHECK: cpl de            ; encoding: [0xda,0x06]
 cpl de
 
-; INC n, rd16: D8+r, 0x60+(n-1)
-; CHECK: inc 1, wa         ; encoding: [0xd8,0x60]
+; INC n, rd16: D8+r, 0x60+(n&7)
+; CHECK: inc 1, wa         ; encoding: [0xd8,0x61]
 inc 1, wa
 
-; CHECK: inc 4, bc         ; encoding: [0xd9,0x63]
+; CHECK: inc 4, bc         ; encoding: [0xd9,0x64]
 inc 4, bc
 
-; DEC n, rd16: D8+r, 0x68+(n-1)
-; CHECK: dec 1, wa         ; encoding: [0xd8,0x68]
+; DEC n, rd16: D8+r, 0x68+(n&7)
+; CHECK: dec 1, wa         ; encoding: [0xd8,0x69]
 dec 1, wa
 
-; CHECK: dec 2, de         ; encoding: [0xda,0x69]
+; CHECK: dec 2, de         ; encoding: [0xda,0x6a]
 dec 2, de
 
 ; EXTS rd16: D8+r, 0x13
@@ -760,12 +760,12 @@ neg a
 ; CHECK: cpl b             ; encoding: [0xca,0x06]
 cpl b
 
-; INC 1, rd8: C8+r, 0x60
-; CHECK: inc 1, a          ; encoding: [0xc9,0x60]
+; INC 1, rd8: C8+r, 0x61
+; CHECK: inc 1, a          ; encoding: [0xc9,0x61]
 inc 1, a
 
-; DEC 1, rd8: C8+r, 0x68
-; CHECK: dec 1, b          ; encoding: [0xca,0x68]
+; DEC 1, rd8: C8+r, 0x69
+; CHECK: dec 1, b          ; encoding: [0xca,0x69]
 dec 1, b
 
 ; SLA rd8, #n: C8+r, 0xEC, n

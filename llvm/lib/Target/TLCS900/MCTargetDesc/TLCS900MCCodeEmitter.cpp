@@ -375,13 +375,13 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::PrefixIncDec: {
-    // reg_prefix(rd) + (opcode + (n-1)).
+    // reg_prefix(rd) + (opcode + I3).
     // INC32/DEC32: op 0 = dst, op 1 = src (tied), op 2 = count.
     unsigned RegEnc = getRegEncoding(MI.getOperand(0));
     unsigned Count =
         MI.getOperand(2).isImm() ? MI.getOperand(2).getImm() : 1;
-    // Hardware encodes count 1-8 as 0-7 in bits 0-2.
-    unsigned EncodedCount = ((Count - 1) & 0x7);
+    // Hardware I3 field: 001=1, 010=2, ..., 111=7, 000=8.
+    unsigned EncodedCount = Count & 0x7;
     CB.push_back(PrefixBase + RegEnc);
     CB.push_back(Opcode + EncodedCount);
     break;

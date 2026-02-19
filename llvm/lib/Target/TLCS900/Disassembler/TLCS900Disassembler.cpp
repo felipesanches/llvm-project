@@ -250,9 +250,11 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeRegPrefix(MCInst &MI, ui
     break;
   }
 
-  // --- INC/DEC: prefix + (base_opcode | count-1) — 2 bytes ---
+  // --- INC/DEC: prefix + (base_opcode | I3) — 2 bytes ---
+  // I3 field: 001=1, 010=2, ..., 111=7, 000=8.
   if (SecondByte >= 0x60 && SecondByte <= 0x67) {
-    unsigned Count = (SecondByte & 0x7) + 1;
+    unsigned I3 = SecondByte & 0x7;
+    unsigned Count = (I3 == 0) ? 8 : I3;
     MI.setOpcode(TLCS900::INC32);
     MI.addOperand(MCOperand::createReg(Reg));
     MI.addOperand(MCOperand::createReg(Reg));
@@ -261,7 +263,8 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeRegPrefix(MCInst &MI, ui
     return MCDisassembler::Success;
   }
   if (SecondByte >= 0x68 && SecondByte <= 0x6F) {
-    unsigned Count = (SecondByte & 0x7) + 1;
+    unsigned I3 = SecondByte & 0x7;
+    unsigned Count = (I3 == 0) ? 8 : I3;
     MI.setOpcode(TLCS900::DEC32);
     MI.addOperand(MCOperand::createReg(Reg));
     MI.addOperand(MCOperand::createReg(Reg));
