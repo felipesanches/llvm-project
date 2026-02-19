@@ -48,7 +48,7 @@ unsigned TLCS900ELFObjectWriter::getRelocType(MCContext &Ctx,
   case FK_Data_1:
     return ELF::R_TLCS900_NONE;
   case TLCS900::fixup_tlcs900_24:
-    return ELF::R_TLCS900_32;
+    return ELF::R_TLCS900_24;
   case TLCS900::fixup_tlcs900_rel8:
     return ELF::R_TLCS900_PC16;
   case TLCS900::fixup_tlcs900_rel16:

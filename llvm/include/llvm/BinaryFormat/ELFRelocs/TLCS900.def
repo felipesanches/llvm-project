@@ -3,6 +3,7 @@
 #endif
 
 ELF_RELOC(R_TLCS900_NONE,                0)
+ELF_RELOC(R_TLCS900_24,                  1)
 ELF_RELOC(R_TLCS900_32,                  2)
 ELF_RELOC(R_TLCS900_HI16,                5)
 ELF_RELOC(R_TLCS900_LO16,                6)
