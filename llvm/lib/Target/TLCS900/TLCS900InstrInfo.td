@@ -951,6 +951,23 @@ def MULS16rr : PrefixRegRegInst<0x48, (outs GPR:$rd),
                                  "muls", "$rd, $rs2", []>,
                Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
+// DIV16rr: unsigned 32÷16→16q+16r.
+// Reads full 32-bit $src1 as dividend, divides by low 16 bits of $rs2.
+// Result in $rd: low 16 = quotient, high 16 = remainder.
+// Encoding: D8+src2, 0x50+dst (2 bytes) — 16-bit register prefix
+let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
+def DIV16rr : PrefixRegRegInst<0x50, (outs GPR:$rd),
+                                (ins GPR:$src1, GPR:$rs2),
+                                "div", "$rd, $rs2", []>,
+              Sched<[WriteIMul, ReadIALU, ReadIALU]>;
+
+// DIVS16rr: signed 32÷16→16q+16r.
+let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
+def DIVS16rr : PrefixRegRegInst<0x58, (outs GPR:$rd),
+                                 (ins GPR:$src1, GPR:$rs2),
+                                 "divs", "$rd, $rs2", []>,
+               Sched<[WriteIMul, ReadIALU, ReadIALU]>;
+
 //===----------------------------------------------------------------------===//
 // Block Transfer Instructions (no isel patterns — for inline asm / builtins)
 //===----------------------------------------------------------------------===//

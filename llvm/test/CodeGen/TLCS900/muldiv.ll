@@ -37,3 +37,11 @@ define i32 @srem_i32(i32 %a, i32 %b) {
   %r = srem i32 %a, %b
   ret i32 %r
 }
+
+define i32 @urem_i32(i32 %a, i32 %b) {
+; CHECK-LABEL: urem_i32:
+; CHECK:       call __umodsi3
+; CHECK:       ret
+  %r = urem i32 %a, %b
+  ret i32 %r
+}
