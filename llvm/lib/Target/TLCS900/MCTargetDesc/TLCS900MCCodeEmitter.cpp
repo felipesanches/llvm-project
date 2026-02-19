@@ -90,27 +90,52 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
 }
 
 unsigned TLCS900MCCodeEmitter::emitMemPrefix(
-    const MCInst &MI, unsigned BaseOpIdx, unsigned DispOpIdx,
+    const MCInst &MI, unsigned BaseOpIdx, unsigned DispOpIdx, bool IsDstMem,
     SmallVectorImpl<char> &CB, SmallVectorImpl<MCFixup> &Fixups) const {
-  unsigned BaseReg = getRegEncoding(MI.getOperand(BaseOpIdx));
+  const MCOperand &BaseOp = MI.getOperand(BaseOpIdx);
+
+  // Direct addressing: base is a symbol expression (global address).
+  // Uses F2 prefix + 24-bit address.  The F2 prefix dispatches to the
+  // destination-memory opcode table (same as B0), which supports stores,
+  // LDA, bit operations, JP, and CALL — but NOT register loads.
+  if (BaseOp.isExpr()) {
+    const MCOperand &DispOp = MI.getOperand(DispOpIdx);
+    int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
+    CB.push_back(0xF2);
+    // Emit 24-bit address with fixup.  If there's a displacement (e.g.
+    // global+offset), we'd need to fold it into the symbol expression,
+    // but in practice the ISel folds offsets into the symbol operand.
+    Fixups.push_back(
+        MCFixup::create(CB.size(), BaseOp.getExpr(), FK_Data_4));
+    emitImmediate(Disp, 3, CB);
+    return 4;
+  }
+
+  // Register-indirect addressing.
+  unsigned BaseReg = getRegEncoding(BaseOp);
   const MCOperand &DispOp = MI.getOperand(DispOpIdx);
   int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
 
+  // Select prefix base: source memory (A0/A8) vs destination memory (B0/B8).
+  // Source: 0xA0 (no disp), 0xA8 (+d8)  — used by MemLoad, MemALU
+  // Dest:   0xB0 (no disp), 0xB8 (+d8)  — used by MemStore
+  unsigned PrefixNoDisp = IsDstMem ? 0xB0 : 0xA0;
+  unsigned PrefixD8 = IsDstMem ? 0xB8 : 0xA8;
+
   if (Disp == 0 && DispOp.isImm()) {
-    // (Xrr) — no displacement, 1-byte prefix
-    // Use 32-bit memory prefix: 0xA0 + base_reg (for src) or 0xB0 + base_reg
-    // (for dst). Caller must adjust if needed.
-    CB.push_back(0xA0 + BaseReg);
+    // (Xrr) — no displacement, 1-byte prefix.
+    CB.push_back(PrefixNoDisp + BaseReg);
     return 1;
   } else if (DispOp.isImm() && Disp >= -128 && Disp <= 127) {
-    // (Xrr+d8) — 8-bit displacement, 2-byte prefix
-    CB.push_back(0xA8 + BaseReg);
+    // (Xrr+d8) — 8-bit displacement, 2-byte prefix.
+    CB.push_back(PrefixD8 + BaseReg);
     CB.push_back(static_cast<char>(Disp & 0xFF));
     return 2;
   } else {
-    // (Xrr+d16) — 16-bit displacement, uses F3 prefix + mode byte + d16
+    // (Xrr+d16) — 16-bit displacement, uses F3 prefix + mode byte + d16.
+    // F3 always dispatches to the destination-memory opcode table.
     CB.push_back(0xF3);
-    // Mode byte: bits 1-0 = 001 (Xrr+d16), bits 4-2 = base_reg
+    // Mode byte: bits 1-0 = 001 (Xrr+d16), bits 4-2 = base_reg.
     CB.push_back((BaseReg << 2) | 0x01);
     if (DispOp.isImm()) {
       emitImmediate(Disp, 2, CB);
@@ -318,10 +343,11 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::MemLoad: {
-    // mem_prefix [+disp] + (opcode + dst_reg).
+    // src_mem_prefix [+disp] + (opcode + dst_reg).
     // LD32rm: op 0 = dst, op 1 = base, op 2 = disp.
+    // Uses source memory prefix (A0/A8) since data flows FROM memory.
     unsigned DstEnc = getRegEncoding(MI.getOperand(0));
-    emitMemPrefix(MI, 1, 2, CB, Fixups);
+    emitMemPrefix(MI, 1, 2, /*IsDstMem=*/false, CB, Fixups);
     CB.push_back(Opcode + DstEnc);
     break;
   }
@@ -330,7 +356,8 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // dst_mem_prefix [+disp] + (opcode + src_reg) or + imm.
     // LD32mr: op 0 = base, op 1 = disp, op 2 = src_reg.
     // LD32mi: op 0 = base, op 1 = disp, op 2 = imm.
-    emitMemPrefix(MI, 0, 1, CB, Fixups);
+    // Uses destination memory prefix (B0/B8/F2) since data flows TO memory.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
       unsigned SrcEnc = getRegEncoding(SrcOp);
@@ -347,9 +374,11 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::MemALU: {
-    // mem_prefix [+disp] + (opcode + src_reg) or + opcode + imm.
+    // src_mem_prefix [+disp] + (opcode + src_reg) or + opcode + imm.
     // ALU (mem), rs: op 0 = base, op 1 = disp, op 2 = reg_or_imm.
-    emitMemPrefix(MI, 0, 1, CB, Fixups);
+    // Uses source memory prefix (A0/A8) — ALU-with-memory opcodes are
+    // in the source memory opcode table.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
       unsigned SrcEnc = getRegEncoding(SrcOp);

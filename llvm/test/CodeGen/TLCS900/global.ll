@@ -1,6 +1,7 @@
 ; RUN: llc -mtriple=tlcs900 < %s | FileCheck %s
+; RUN: llc -mtriple=tlcs900 -filetype=obj < %s -o /dev/null
 
-; Test global variable access
+; Test global variable access (assembly and object emission)
 
 @g = global i32 0
 

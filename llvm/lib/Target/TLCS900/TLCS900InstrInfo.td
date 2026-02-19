@@ -151,8 +151,8 @@ def LD32rm : MemLoadInst<0x20, 4, (outs GPR:$rd), (ins MEMri:$addr),
              Sched<[WriteLDW, ReadMemBase]>;
 
 // LD (base+disp), rs — Store 32-bit to memory
-// Encoding: dst_mem_prefix + opcode(0x40+rs) — size varies by addressing mode
-def LD32mr : MemStoreInst<0x40, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+// Encoding: dst_mem_prefix + 0x60+rs (LDLMR in B0/F0 table)
+def LD32mr : MemStoreInst<0x60, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                           "ld", "$addr, $rs",
                           [(store GPR:$rs, addr:$addr)]>,
              Sched<[WriteSTW, ReadMemBase]>;
@@ -190,7 +190,7 @@ def LD8rm : MemLoadInst<0x20, 3, (outs GPR_lo8:$rd), (ins MEMri:$addr),
 // match bare GPR in inline patterns.
 // isCodeGenOnly: prevents asm matcher ambiguity with LD32mr.
 let OpSize = OpSize16.Value, isCodeGenOnly = 1 in
-def LD16mr : MemStoreInst<0x40, 4, (outs), (ins MEMri:$addr, GPR_lo16:$rs),
+def LD16mr : MemStoreInst<0x50, 4, (outs), (ins MEMri:$addr, GPR_lo16:$rs),
                           "ld", "$addr, $rs", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 

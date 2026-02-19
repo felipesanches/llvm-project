@@ -36,9 +36,12 @@ class TLCS900MCCodeEmitter : public MCCodeEmitter {
                  SmallVectorImpl<MCFixup> &Fixups) const;
 
   /// Emit the memory addressing prefix bytes for MEMri operands.
+  /// IsDstMem selects destination memory prefix (B0, for stores) vs
+  /// source memory prefix (A0, for loads/ALU).
   /// Returns the number of bytes emitted.
   unsigned emitMemPrefix(const MCInst &MI, unsigned BaseOpIdx,
-                         unsigned DispOpIdx, SmallVectorImpl<char> &CB,
+                         unsigned DispOpIdx, bool IsDstMem,
+                         SmallVectorImpl<char> &CB,
                          SmallVectorImpl<MCFixup> &Fixups) const;
 
 public:
