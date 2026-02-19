@@ -109,8 +109,8 @@ nop
 ; CHECK: halt
 halt
 
-; DI is an alias for EI 0
-; CHECK: ei	0
+; DI is an alias for EI 0 (prints back as "di")
+; CHECK: di
 di
 
 ; CHECK: ei	3

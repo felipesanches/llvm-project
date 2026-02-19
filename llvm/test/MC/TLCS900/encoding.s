@@ -14,8 +14,8 @@ ret
 ; CHECK: halt    ; encoding: [0x05]
 halt
 
-; DI is an alias for EI 0
-; CHECK: ei 0    ; encoding: [0x06,0x00]
+; DI is an alias for EI 0 (prints back as "di")
+; CHECK: di      ; encoding: [0x06,0x00]
 di
 
 ; CHECK: reti    ; encoding: [0x07]

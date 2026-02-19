@@ -54,12 +54,11 @@ define void @xor_mem(ptr %ptr, i32 %val) {
 }
 
 ; Memory-immediate ADD/SUB are invalid in the 32-bit A0 table.
-; ISel decomposes them to: LD tmp,(mem); ADD/SUB tmp,#imm; ST (mem),tmp.
+; ISel materializes the immediate into a register and uses memory-register ALU.
 define void @add_mem_imm(ptr %ptr) {
 ; CHECK-LABEL: add_mem_imm:
-; CHECK: ld [[TMP:x[a-z]+]], (xde)
-; CHECK: add [[TMP]], 42
-; CHECK: ld (xde), [[TMP]]
+; CHECK: ld [[TMP:x[a-z]+]], 42
+; CHECK: add (xde), [[TMP]]
 ; CHECK: ret
   %old = load i32, ptr %ptr
   %new = add i32 %old, 42
@@ -70,9 +69,8 @@ define void @add_mem_imm(ptr %ptr) {
 ; DAG canonicalizes sub(x, 10) to add(x, -10).
 define void @sub_mem_imm(ptr %ptr) {
 ; CHECK-LABEL: sub_mem_imm:
-; CHECK: ld [[TMP:x[a-z]+]], (xde)
-; CHECK: add [[TMP]], -10
-; CHECK: ld (xde), [[TMP]]
+; CHECK: ld [[TMP:x[a-z]+]], -10
+; CHECK: add (xde), [[TMP]]
 ; CHECK: ret
   %old = load i32, ptr %ptr
   %new = sub i32 %old, 10
