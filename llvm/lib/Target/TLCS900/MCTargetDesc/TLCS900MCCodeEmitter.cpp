@@ -135,12 +135,13 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     return 2;
   } else {
     // (Xrr+d16) — 16-bit displacement, uses F3 prefix + mode byte + d16.
-    // WARNING: F3 always dispatches to the destination-memory opcode table
-    // (B0/F0). This is correct for MemStore and MemLoadDst (LDA), but
-    // INCORRECT for MemLoad and MemALU which need the A0 source-memory
-    // table. Large-displacement loads/ALU should be split into LDA + no-disp
-    // by the frame lowering or ISel.
-    // TODO: Add assertion or code path to handle this correctly.
+    // F3 dispatches to the destination-memory opcode table (B0/F0), which
+    // is correct for MemStore and MemLoadDst (LDA) but not for MemLoad
+    // or MemALU. The register allocator's eliminateFrameIndex splits
+    // MemLoad/MemALU with large offsets into LDA + register-indirect,
+    // so we should only reach here for destination-memory formats.
+    assert(IsDstMem && "F3 d16 prefix only valid for destination memory "
+                       "formats (MemStore/MemLoadDst)");
     CB.push_back(0xF3);
     // Mode byte: bits 1-0 = 001 (Xrr+d16), bits 4-2 = base_reg.
     CB.push_back((BaseReg << 2) | 0x01);
