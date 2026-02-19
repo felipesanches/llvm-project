@@ -458,12 +458,50 @@ def : Pat<(and GPR:$rs, 65535), (EXTZ32 GPR:$rs)>;
 def : Pat<(truncstorei16 GPR:$rs, addr:$addr), (LD16mr addr:$addr, GPR:$rs)>;
 def : Pat<(truncstorei8  GPR:$rs, addr:$addr), (LD8mr  addr:$addr, GPR:$rs)>;
 
-// Patterns for 16-bit extending loads
+// Patterns for byte/word extending loads from globals/externals.
+// Direct memory (E2 prefix) only supports 32-bit loads, so byte/word loads
+// from globals must materialize the address into a register first, then use
+// register-indirect addressing.  AddedComplexity ensures these are tried
+// before the generic addr:$addr patterns (whose ComplexPattern has high
+// implicit complexity).
+let AddedComplexity = 20 in {
+
+// 16-bit loads from globals
+def : Pat<(i32 (zextloadi16 (tlcs900_wrapper tglobaladdr:$addr))),
+          (EXTZ32 (LD16rm (LD32ri tglobaladdr:$addr), 0))>;
+def : Pat<(i32 (sextloadi16 (tlcs900_wrapper tglobaladdr:$addr))),
+          (EXTS32 (LD16rm (LD32ri tglobaladdr:$addr), 0))>;
+def : Pat<(i32 (extloadi16 (tlcs900_wrapper tglobaladdr:$addr))),
+          (EXTZ32 (LD16rm (LD32ri tglobaladdr:$addr), 0))>;
+def : Pat<(i32 (zextloadi16 (tlcs900_wrapper texternalsym:$addr))),
+          (EXTZ32 (LD16rm (LD32ri texternalsym:$addr), 0))>;
+def : Pat<(i32 (sextloadi16 (tlcs900_wrapper texternalsym:$addr))),
+          (EXTS32 (LD16rm (LD32ri texternalsym:$addr), 0))>;
+def : Pat<(i32 (extloadi16 (tlcs900_wrapper texternalsym:$addr))),
+          (EXTZ32 (LD16rm (LD32ri texternalsym:$addr), 0))>;
+
+// 8-bit loads from globals
+def : Pat<(i32 (zextloadi8 (tlcs900_wrapper tglobaladdr:$addr))),
+          (AND32ri (LD8rm (LD32ri tglobaladdr:$addr), 0), 255)>;
+def : Pat<(i32 (sextloadi8 (tlcs900_wrapper tglobaladdr:$addr))),
+          (SRA32ri (SLA32ri (LD8rm (LD32ri tglobaladdr:$addr), 0), 24), 24)>;
+def : Pat<(i32 (extloadi8 (tlcs900_wrapper tglobaladdr:$addr))),
+          (AND32ri (LD8rm (LD32ri tglobaladdr:$addr), 0), 255)>;
+def : Pat<(i32 (zextloadi8 (tlcs900_wrapper texternalsym:$addr))),
+          (AND32ri (LD8rm (LD32ri texternalsym:$addr), 0), 255)>;
+def : Pat<(i32 (sextloadi8 (tlcs900_wrapper texternalsym:$addr))),
+          (SRA32ri (SLA32ri (LD8rm (LD32ri texternalsym:$addr), 0), 24), 24)>;
+def : Pat<(i32 (extloadi8 (tlcs900_wrapper texternalsym:$addr))),
+          (AND32ri (LD8rm (LD32ri texternalsym:$addr), 0), 255)>;
+
+} // AddedComplexity = 20
+
+// Patterns for 16-bit extending loads (generic — register-indirect)
 def : Pat<(i32 (zextloadi16 addr:$addr)), (EXTZ32 (LD16rm addr:$addr))>;
 def : Pat<(i32 (sextloadi16 addr:$addr)), (EXTS32 (LD16rm addr:$addr))>;
 def : Pat<(i32 (extloadi16 addr:$addr)),  (EXTZ32 (LD16rm addr:$addr))>;
 
-// Patterns for 8-bit extending loads
+// Patterns for 8-bit extending loads (generic — register-indirect)
 // Zero-extend: load byte, then AND with 0xFF
 def : Pat<(i32 (zextloadi8 addr:$addr)),
           (AND32ri (LD8rm addr:$addr), 255)>;

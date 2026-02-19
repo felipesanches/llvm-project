@@ -173,13 +173,17 @@ bool TLCS900TargetLowering::isLegalAddressingMode(const DataLayout &DL,
                                                    const AddrMode &AM,
                                                    Type *Ty, unsigned AS,
                                                    Instruction *I) const {
-  // TLCS-900 supports: (reg), (reg+disp16), (imm24)
+  // TLCS-900 supports: (reg), (reg+d8), (imm24)
   // No scaled indexing: reg + scale*idx is not directly supported.
   if (AM.Scale != 0)
     return false;
 
-  // Displacement must fit in 16 bits (signed).
-  if (AM.BaseOffs < -32768 || AM.BaseOffs > 32767)
+  // Displacement must fit in d8 (signed 8-bit: -128 to +127).
+  // Source memory (loads/ALU) only supports d8 in the prefix encoding.
+  // Destination memory (stores/LDA) supports d16 via the F3 prefix, but
+  // restricting to d8 here is safe: eliminateFrameIndex handles large
+  // frame offsets post-ISel by splitting into LDA + register-indirect.
+  if (AM.BaseOffs < -128 || AM.BaseOffs > 127)
     return false;
 
   // Either base register or global address, not both in one operand.
