@@ -26,31 +26,33 @@ let Namespace = "TLCS900" in {
 }
 
 // 8-bit registers
+// DWARF register numbers: 8-bit regs = 16-23
 // Low registers
-let DwarfRegNum = [17] in def A : TLCS900Reg<"a", 1>;
-let DwarfRegNum = [19] in def C : TLCS900Reg<"c", 3>;
-let DwarfRegNum = [21] in def E : TLCS900Reg<"e", 5>;
-let DwarfRegNum = [23] in def L : TLCS900Reg<"l", 7>;
+def A : TLCS900Reg<"a", 1>, DwarfRegNum<[17]>;
+def C : TLCS900Reg<"c", 3>, DwarfRegNum<[19]>;
+def E : TLCS900Reg<"e", 5>, DwarfRegNum<[21]>;
+def L : TLCS900Reg<"l", 7>, DwarfRegNum<[23]>;
 
 // High registers
-let DwarfRegNum = [16] in def W : TLCS900Reg<"w", 0>;
-let DwarfRegNum = [18] in def B : TLCS900Reg<"b", 2>;
-let DwarfRegNum = [20] in def D : TLCS900Reg<"d", 4>;
-let DwarfRegNum = [22] in def H : TLCS900Reg<"h", 6>;
+def W : TLCS900Reg<"w", 0>, DwarfRegNum<[16]>;
+def B : TLCS900Reg<"b", 2>, DwarfRegNum<[18]>;
+def D : TLCS900Reg<"d", 4>, DwarfRegNum<[20]>;
+def H : TLCS900Reg<"h", 6>, DwarfRegNum<[22]>;
 
-// 16-bit registers
+// 16-bit registers (with 8-bit sub-register pairs)
+// DWARF register numbers: 16-bit regs = 8-15
 let SubRegIndices = [sub_8bit, sub_8bit_hi], CoveredBySubRegs = 1 in {
-let DwarfRegNum = [8]  in def WA : TLCS900Reg<"wa", 0, [A,W]>;
-let DwarfRegNum = [9]  in def BC : TLCS900Reg<"bc", 1, [C,B]>;
-let DwarfRegNum = [10] in def DE : TLCS900Reg<"de", 2, [E,D]>;
-let DwarfRegNum = [11] in def HL : TLCS900Reg<"hl", 3, [L,H]>;
+def WA : TLCS900Reg<"wa", 0, [A,W]>, DwarfRegNum<[8]>;
+def BC : TLCS900Reg<"bc", 1, [C,B]>, DwarfRegNum<[9]>;
+def DE : TLCS900Reg<"de", 2, [E,D]>, DwarfRegNum<[10]>;
+def HL : TLCS900Reg<"hl", 3, [L,H]>, DwarfRegNum<[11]>;
 }
 
-// 16-bit registers
-let DwarfRegNum = [12] in def IX : TLCS900Reg<"ix", 4>;
-let DwarfRegNum = [13] in def IY : TLCS900Reg<"iy", 5>;
-let DwarfRegNum = [14] in def IZ : TLCS900Reg<"iz", 6>;
-let DwarfRegNum = [15] in def SP : TLCS900Reg<"sp", 7>;
+// 16-bit registers (index/stack pointer — no 8-bit sub-registers)
+def IX : TLCS900Reg<"ix", 4>, DwarfRegNum<[12]>;
+def IY : TLCS900Reg<"iy", 5>, DwarfRegNum<[13]>;
+def IZ : TLCS900Reg<"iz", 6>, DwarfRegNum<[14]>;
+def SP : TLCS900Reg<"sp", 7>, DwarfRegNum<[15]>;
 
 let isArtificial = 1 in {
 // High word of the low 32 bits of the super-register:
@@ -65,25 +67,24 @@ def HSP : TLCS900Reg<"", -1>;
 }
 
 // 32-bit registers
+// DWARF register numbers: 32-bit regs = 0-7
 let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
-let DwarfRegNum = [0] in def XWA : TLCS900Reg<"xwa", 0, [WA, HWA]>;
-let DwarfRegNum = [1] in def XBC : TLCS900Reg<"xbc", 1, [BC, HBC]>;
-let DwarfRegNum = [2] in def XDE : TLCS900Reg<"xde", 2, [DE, HDE]>;
-let DwarfRegNum = [3] in def XHL : TLCS900Reg<"xhl", 3, [HL, HHL]>;
-let DwarfRegNum = [4] in def XIX : TLCS900Reg<"xix", 4, [IX, HIX]>;
-let DwarfRegNum = [5] in def XIY : TLCS900Reg<"xiy", 5, [IY, HIY]>;
-let DwarfRegNum = [6] in def XIZ : TLCS900Reg<"xiz", 6, [IZ, HIZ]>;
-let DwarfRegNum = [7] in def XSP : TLCS900Reg<"xsp", 7, [SP, HSP]>;
+def XWA : TLCS900Reg<"xwa", 0, [WA, HWA]>, DwarfRegNum<[0]>;
+def XBC : TLCS900Reg<"xbc", 1, [BC, HBC]>, DwarfRegNum<[1]>;
+def XDE : TLCS900Reg<"xde", 2, [DE, HDE]>, DwarfRegNum<[2]>;
+def XHL : TLCS900Reg<"xhl", 3, [HL, HHL]>, DwarfRegNum<[3]>;
+def XIX : TLCS900Reg<"xix", 4, [IX, HIX]>, DwarfRegNum<[4]>;
+def XIY : TLCS900Reg<"xiy", 5, [IY, HIY]>, DwarfRegNum<[5]>;
+def XIZ : TLCS900Reg<"xiz", 6, [IZ, HIZ]>, DwarfRegNum<[6]>;
+def XSP : TLCS900Reg<"xsp", 7, [SP, HSP]>, DwarfRegNum<[7]>;
 }
 
 // Status Register (flags) — not allocatable, used implicitly by compare/branch
-let DwarfRegNum = [24] in
-def SR : TLCS900Reg<"sr", 8>;
+def SR : TLCS900Reg<"sr", 8>, DwarfRegNum<[24]>;
 
 // Program Counter — not directly accessible in instructions, but needed for
 // DWARF unwinding as the return address register.
-let DwarfRegNum = [25] in
-def PC : TLCS900Reg<"pc", 9>;
+def PC : TLCS900Reg<"pc", 9>, DwarfRegNum<[25]>;
 
 // The order of registers represents the preferred allocation sequence.
 // Registers are listed in the order caller-save, callee-save, specials.
