@@ -214,10 +214,6 @@ ld (xsp), xwa
 ; CHECK: ld (xsp+8), xwa ; encoding: [0xbf,0x08,0x60]
 ld (xsp+8), xwa
 
-; LD (Xrr), #imm: B0+base, 0x08, imm32
-; CHECK: ld (xhl), 255   ; encoding: [0xb3,0x08,0xff,0x00,0x00,0x00]
-ld (xhl), 255
-
 ; === Memory ALU instructions (MemALU) ===
 
 ; ADD (Xrr), rs: A0+base, 0x88+src
@@ -279,20 +275,20 @@ swi 7
 ; CHECK: retd 8           ; encoding: [0x0f,0x08,0x00]
 retd 8
 
-; === Call indirect (CallIndirect: B0+reg, 0x1F) ===
+; === Call indirect (CallIndirect: B0+reg, 0xE8 = CALL T) ===
 
-; CHECK: call (xwa)       ; encoding: [0xb0,0x1f]
+; CHECK: call (xwa)       ; encoding: [0xb0,0xe8]
 call (xwa)
 
-; CHECK: call (xhl)       ; encoding: [0xb3,0x1f]
+; CHECK: call (xhl)       ; encoding: [0xb3,0xe8]
 call (xhl)
 
-; === Jump indirect (CallIndirect: B0+reg, 0x1C) ===
+; === Jump indirect (CallIndirect: B0+reg, 0xD8 = JP T) ===
 
-; CHECK: jp (xwa)         ; encoding: [0xb0,0x1c]
+; CHECK: jp (xwa)         ; encoding: [0xb0,0xd8]
 jp (xwa)
 
-; CHECK: jp (xhl)         ; encoding: [0xb3,0x1c]
+; CHECK: jp (xhl)         ; encoding: [0xb3,0xd8]
 jp (xhl)
 
 ; === DAA instruction (PrefixUnary: E8+r, 0x10) ===

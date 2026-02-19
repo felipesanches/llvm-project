@@ -97,13 +97,13 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
   const MCOperand &BaseOp = MI.getOperand(BaseOpIdx);
 
   // Direct addressing: base is a symbol expression (global address).
-  // Uses F2 prefix + 24-bit address.  The F2 prefix dispatches to the
-  // direct-memory opcode table which supports both loads and stores
-  // (LD r,(nn), LD (nn),r, LDA, bit ops, JP, CALL, ALU, etc.).
+  // Two prefix bytes depending on direction:
+  //   E2 = source memory (nn) — dispatches to A0/E0 table (loads, ALU)
+  //   F2 = destination memory (nn) — dispatches to B0/F0 table (stores, LDA)
   if (BaseOp.isExpr()) {
     const MCOperand &DispOp = MI.getOperand(DispOpIdx);
     int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
-    CB.push_back(0xF2);
+    CB.push_back(IsDstMem ? 0xF2 : 0xE2);
     // Emit 24-bit address with fixup.  If there's a displacement (e.g.
     // global+offset), we'd need to fold it into the symbol expression,
     // but in practice the ISel folds offsets into the symbol operand.
@@ -531,7 +531,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::CallIndirect: {
-    // CALL (reg): mem_prefix(0xB0+reg) + 0x1F.
+    // CALL/JP (reg): B0+reg, opcode (0xE8=CALL T, 0xD8=JP T in B0 table).
     unsigned RegEnc = getRegEncoding(MI.getOperand(0));
     CB.push_back(0xB0 + RegEnc);
     CB.push_back(Opcode);

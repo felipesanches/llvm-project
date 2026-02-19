@@ -24,13 +24,6 @@ ld (xsp+8), xwa
 ; CHECK: ld	(xiy+16), xde
 ld (xiy+16), xde
 
-; Store immediate to memory
-; CHECK: ld	(xsp+4), 0
-ld (xsp+4), 0
-
-; CHECK: ld	(xhl), 255
-ld (xhl), 255
-
 ; Memory-register arithmetic
 ; CHECK: add	(xhl), xwa
 add (xhl), xwa

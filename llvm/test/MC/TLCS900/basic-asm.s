@@ -19,9 +19,6 @@ ld (xsp), xde
 ; CHECK: ld	(xsp+4), xbc
 ld (xsp+4), xbc
 
-; CHECK: ld	(xsp), 42
-ld (xsp), 42
-
 ; Test arithmetic instructions
 ; CHECK: add	xde, xbc
 add xde, xbc

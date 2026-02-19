@@ -159,9 +159,10 @@ def LD32mr : MemStoreInst<0x60, 4, (outs), (ins MEMri:$addr, GPR:$rs),
 
 // Note: TLCS-900/H has no 32-bit immediate-to-memory store instruction
 // in hardware. The B0 table only has LDBMI (0x00, byte) and LDWMI (0x02,
-// word). This definition exists only for the disassembler; ISel lowers
-// 32-bit immediate stores as: LD reg, #imm; LD (mem), reg.
-let isCodeGenOnly = 0 in
+// word). ISel lowers 32-bit immediate stores as: LD reg, #imm;
+// LD (mem), reg. Kept as codegen-only placeholder; not exposed to the
+// assembler since opcode 0x08 is invalid for 32-bit stores.
+let isCodeGenOnly = 1 in
 def LD32mi : MemStoreInst<0x08, 8, (outs), (ins MEMri:$addr, i32imm:$val),
                           "ld", "$addr, $val", []>,
              Sched<[WriteSTW, ReadMemBase]>;
@@ -526,9 +527,9 @@ def JP : Branch24Inst<0x1B, (outs), (ins brtarget:$target),
          Sched<[WriteJmp]>;
 
 // JP (rs) — Indirect jump through register
-// Encoding: B0+rs, 0x1C (2 bytes)
+// Encoding: B0+rs, 0xD8 (2 bytes) — JP T,(mem) in B0 table (0xD0+cc, cc=T=8)
 let isBranch = 1, isTerminator = 1, isBarrier = 1, isIndirectBranch = 1 in
-def JP_r : CallIndirectInst<0x1C, (outs), (ins GPR:$target),
+def JP_r : CallIndirectInst<0xD8, (outs), (ins GPR:$target),
                             "jp", "(${target})",
                             [(brind GPR:$target)]>,
            Sched<[WriteJmp]>;
@@ -584,8 +585,8 @@ def CALL : Call24Inst<0x1D, (outs), (ins i32imm:$target),
            Sched<[WriteJmp]>;
 
 // CALL (rs) — Indirect function call through register
-// Encoding: mem_prefix(0xB0+rs), 0x1F (2 bytes)
-def CALL_r : CallIndirectInst<0x1F, (outs), (ins GPR:$target),
+// Encoding: B0+rs, 0xE8 (2 bytes) — CALL T,(mem) in B0 table (0xE0+cc, cc=T=8)
+def CALL_r : CallIndirectInst<0xE8, (outs), (ins GPR:$target),
                               "call", "(${target})",
                               [(tlcs900_call GPR:$target)]>,
              Sched<[WriteJmp]>;
