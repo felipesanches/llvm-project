@@ -228,7 +228,8 @@ cpdr
 ; === SingleByteImm8 (immediate encoded in opcode byte) ===
 
 ; EI level: 0x06, level
-; CHECK: ei 0             ; encoding: [0x06,0x00]
+; EI 0 prints as "di" due to InstAlias
+; CHECK: di               ; encoding: [0x06,0x00]
 ei 0
 
 ; CHECK: ei 3             ; encoding: [0x06,0x03]
