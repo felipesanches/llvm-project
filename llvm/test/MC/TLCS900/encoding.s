@@ -481,8 +481,8 @@ add a, b
 ; CHECK: add a, 42          ; encoding: [0xc9,0xc8,0x2a]
 add a, 42
 
-; SUB rd8, rs8: C8+src, 0xA0+dst
-; CHECK: sub c, d           ; encoding: [0xcb,0xa3]
+; SUB rd8, rs8: C8+src, 0xA0+dst (D=4, so C8+4=CC)
+; CHECK: sub c, d           ; encoding: [0xcc,0xa3]
 sub c, d
 
 ; AND rd8, rs8: C8+src, 0xC0+dst

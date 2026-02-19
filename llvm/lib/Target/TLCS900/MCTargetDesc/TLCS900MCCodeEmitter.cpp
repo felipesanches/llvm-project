@@ -98,15 +98,9 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
 
   // Direct addressing: base is a symbol expression (global address).
   // Uses F2 prefix + 24-bit address.  The F2 prefix dispatches to the
-  // destination-memory opcode table (same as B0), which supports stores,
-  // LDA, bit operations, JP, and CALL — but NOT register loads.
+  // direct-memory opcode table which supports both loads and stores
+  // (LD r,(nn), LD (nn),r, LDA, bit ops, JP, CALL, ALU, etc.).
   if (BaseOp.isExpr()) {
-    if (!IsDstMem) {
-      Ctx.reportError(MI.getLoc(),
-          "direct memory addressing not supported for this instruction; "
-          "use LDA to load the address into a register first");
-      return 0;
-    }
     const MCOperand &DispOp = MI.getOperand(DispOpIdx);
     int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
     CB.push_back(0xF2);
