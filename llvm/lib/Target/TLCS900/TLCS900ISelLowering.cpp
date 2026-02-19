@@ -62,8 +62,9 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setStackPointerRegisterToSaveRestore(TLCS900::XSP);
   setBooleanContents(ZeroOrOneBooleanContent);
 
-  // Expand multiply/divide to libcalls
-  setOperationAction(ISD::MUL,       MVT::i32, Expand);
+  // i32 MUL: custom-lowered to three 16×16→32 hardware multiplies.
+  // Divide and extended multiplies still use libcalls.
+  setOperationAction(ISD::MUL,       MVT::i32, Custom);
   setOperationAction(ISD::MULHS,     MVT::i32, Expand);
   setOperationAction(ISD::MULHU,     MVT::i32, Expand);
   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);
@@ -147,6 +148,7 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case TLCS900ISD::BRCOND:    return "TLCS900ISD::BRCOND";
   case TLCS900ISD::SELECT_CC: return "TLCS900ISD::SELECT_CC";
   case TLCS900ISD::SCC:       return "TLCS900ISD::SCC";
+  case TLCS900ISD::MUL16:     return "TLCS900ISD::MUL16";
   default:                    return nullptr;
   }
 }
@@ -195,6 +197,7 @@ SDValue TLCS900TargetLowering::LowerOperation(SDValue Op,
   case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:            return LowerSELECT_CC(Op, DAG);
   case ISD::SETCC:                return LowerSETCC(Op, DAG);
+  case ISD::MUL:                  return LowerMUL(Op, DAG);
   case ISD::FRAMEADDR:            return LowerFRAMEADDR(Op, DAG);
   case ISD::VASTART:              return LowerVASTART(Op, DAG);
   }
@@ -369,6 +372,39 @@ TLCS900TargetLowering::LowerExternalSymbol(SDValue Op,
   SDLoc DL(Op);
   auto *N = cast<ExternalSymbolSDNode>(Op);
   return DAG.getTargetExternalSymbol(N->getSymbol(), MVT::i32);
+}
+
+//===----------------------------------------------------------------------===//
+// Multiply lowering
+//===----------------------------------------------------------------------===//
+
+SDValue TLCS900TargetLowering::LowerMUL(SDValue Op, SelectionDAG &DAG) const {
+  // Decompose i32 multiply into three 16×16→32 hardware multiplies:
+  //   c = a * b  →  MUL16(a_lo, b_lo)
+  //                + (MUL16(a_hi, b_lo) + MUL16(a_lo, b_hi)) << 16
+  // The a_hi * b_hi term is entirely ≥ 2^32 and drops out.
+  SDLoc DL(Op);
+  SDValue A = Op.getOperand(0);
+  SDValue B = Op.getOperand(1);
+
+  SDValue Mask = DAG.getConstant(0xFFFF, DL, MVT::i32);
+  SDValue Shift16 = DAG.getConstant(16, DL, MVT::i32);
+
+  // Extract 16-bit halves (zero-extended in the 32-bit register).
+  SDValue ALo = DAG.getNode(ISD::AND, DL, MVT::i32, A, Mask);
+  SDValue AHi = DAG.getNode(ISD::SRL, DL, MVT::i32, A, Shift16);
+  SDValue BLo = DAG.getNode(ISD::AND, DL, MVT::i32, B, Mask);
+  SDValue BHi = DAG.getNode(ISD::SRL, DL, MVT::i32, B, Shift16);
+
+  // Three 16×16→32 unsigned multiplies.
+  SDValue LoLo = DAG.getNode(TLCS900ISD::MUL16, DL, MVT::i32, ALo, BLo);
+  SDValue HiLo = DAG.getNode(TLCS900ISD::MUL16, DL, MVT::i32, AHi, BLo);
+  SDValue LoHi = DAG.getNode(TLCS900ISD::MUL16, DL, MVT::i32, ALo, BHi);
+
+  // Combine: result = LoLo + ((HiLo + LoHi) << 16)
+  SDValue Cross = DAG.getNode(ISD::ADD, DL, MVT::i32, HiLo, LoHi);
+  SDValue CrossShifted = DAG.getNode(ISD::SHL, DL, MVT::i32, Cross, Shift16);
+  return DAG.getNode(ISD::ADD, DL, MVT::i32, LoLo, CrossShifted);
 }
 
 //===----------------------------------------------------------------------===//

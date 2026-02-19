@@ -42,6 +42,9 @@ private:
   DecodeStatus decodeRegPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes,
                                unsigned PrefixReg) const;
+  DecodeStatus decode16BitRegPrefix(MCInst &MI, uint64_t &Size,
+                                    ArrayRef<uint8_t> Bytes,
+                                    unsigned PrefixReg) const;
   DecodeStatus decodeMemPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes, unsigned BaseReg,
                                int64_t Disp, unsigned PrefixSize) const;
@@ -348,6 +351,42 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeRegPrefix(MCInst &MI, ui
     default:
       break;
     }
+  }
+
+  return MCDisassembler::Fail;
+}
+
+MCDisassembler::DecodeStatus TLCS900Disassembler::decode16BitRegPrefix(
+    MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes,
+    unsigned PrefixReg) const {
+  if (Bytes.size() < 2)
+    return MCDisassembler::Fail;
+
+  unsigned Reg = decodeGPR(PrefixReg);
+  uint8_t SecondByte = Bytes[1];
+
+  // MUL: 0x40-0x47 — MUL dst, src (unsigned 16×16→32)
+  if (SecondByte >= 0x40 && SecondByte <= 0x47) {
+    unsigned DstReg = decodeGPR(SecondByte & 0x7);
+    unsigned SrcReg = Reg;
+    MI.setOpcode(TLCS900::MUL16rr);
+    MI.addOperand(MCOperand::createReg(DstReg));
+    MI.addOperand(MCOperand::createReg(DstReg));
+    MI.addOperand(MCOperand::createReg(SrcReg));
+    Size = 2;
+    return MCDisassembler::Success;
+  }
+
+  // MULS: 0x48-0x4F — MULS dst, src (signed 16×16→32)
+  if (SecondByte >= 0x48 && SecondByte <= 0x4F) {
+    unsigned DstReg = decodeGPR(SecondByte & 0x7);
+    unsigned SrcReg = Reg;
+    MI.setOpcode(TLCS900::MULS16rr);
+    MI.addOperand(MCOperand::createReg(DstReg));
+    MI.addOperand(MCOperand::createReg(DstReg));
+    MI.addOperand(MCOperand::createReg(SrcReg));
+    Size = 2;
+    return MCDisassembler::Success;
   }
 
   return MCDisassembler::Fail;
@@ -660,6 +699,11 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
       return MCDisassembler::Success;
     }
     return MCDisassembler::Fail;
+  }
+
+  // === 16-bit register prefix: 0xD8-0xDF ===
+  if (FirstByte >= 0xD8 && FirstByte <= 0xDF) {
+    return decode16BitRegPrefix(MI, Size, Bytes, FirstByte & 0x7);
   }
 
   // === 32-bit register prefix: 0xE8-0xEF ===

@@ -300,6 +300,25 @@ jp (xhl)
 ; CHECK: daa xwa          ; encoding: [0xe8,0x10]
 daa xwa
 
+; === 16-bit prefix: MUL/MULS (16×16→32 multiply) ===
+
+; MUL rd, rs: D8+src, 0x40+dst (unsigned 16×16→32)
+; CHECK: mul xwa, xbc     ; encoding: [0xd9,0x40]
+mul xwa, xbc
+
+; CHECK: mul xde, xhl     ; encoding: [0xdb,0x42]
+mul xde, xhl
+
+; CHECK: mul xhl, xwa     ; encoding: [0xd8,0x43]
+mul xhl, xwa
+
+; MULS rd, rs: D8+src, 0x48+dst (signed 16×16→32)
+; CHECK: muls xwa, xbc    ; encoding: [0xd9,0x48]
+muls xwa, xbc
+
+; CHECK: muls xde, xwa    ; encoding: [0xd8,0x4a]
+muls xde, xwa
+
 ; === Call with immediate address ===
 
 ; CALL nnn: 0x1D, addr24

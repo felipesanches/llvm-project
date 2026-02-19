@@ -52,6 +52,12 @@ def SDT_TLCS900SCC : SDTypeProfile<1, 1, [SDTCisVT<0, i32>,
 def tlcs900_scc : SDNode<"TLCS900ISD::SCC", SDT_TLCS900SCC,
                           [SDNPInGlue]>;
 
+// 16x16→32 unsigned multiply (hardware MUL instruction)
+def SDT_TLCS900Mul16 : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
+                                              SDTCisVT<1, i32>,
+                                              SDTCisVT<2, i32>]>;
+def tlcs900_mul16 : SDNode<"TLCS900ISD::MUL16", SDT_TLCS900Mul16>;
+
 // Call sequence markers
 def SDT_CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
                                        SDTCisVT<1, i32>]>;
@@ -915,14 +921,31 @@ def : Pat<(store (sub (load addr:$a), (i32 imm:$v)), addr:$a),
           (SUB32mi addr:$a, imm:$v)>;
 
 //===----------------------------------------------------------------------===//
-// Multiply / Divide — i32 uses libcalls
+// Multiply / Divide
 //===----------------------------------------------------------------------===//
-// The TLCS-900/H hardware only provides 16×16→32 MUL/MULS and 32÷16→16+16r
-// DIV/DIVS, using the 16-bit register prefix (0xD8-0xDF). Under the 32-bit
-// prefix (0xE8-0xEF) opcodes 0x08-0x0B are undefined (op_DB in MAME tables).
-// Since this backend only supports i32, MUL/DIV are Expanded to libcalls in
-// ISelLowering.cpp. Hardware MUL/DIV will be added when 16-bit register
-// classes are introduced.
+// The TLCS-900/H hardware provides 16×16→32 MUL/MULS under the 16-bit
+// register prefix (0xD8-0xDF). i32 MUL is custom-lowered to three MUL16
+// operations. DIV/DIVS (32÷16→16+16r) still use libcalls.
+
+// MUL16rr: unsigned 16×16→32 multiply.
+// Reads low 16 bits of $src1, multiplies by low 16 bits of $rs2,
+// writes full 32-bit result to $rd (destructive on $src1).
+// Encoding: D8+src2, 0x40+dst (2 bytes) — 16-bit register prefix
+let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
+def MUL16rr : PrefixRegRegInst<0x40, (outs GPR:$rd),
+                                (ins GPR:$src1, GPR:$rs2),
+                                "mul", "$rd, $rs2",
+                                [(set GPR:$rd,
+                                  (tlcs900_mul16 GPR:$src1, GPR:$rs2))]>,
+              Sched<[WriteIMul, ReadIALU, ReadIALU]>;
+
+// MULS16rr: signed 16×16→32 multiply (same encoding with opcode 0x48).
+// No isel pattern — for future use / inline asm.
+let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
+def MULS16rr : PrefixRegRegInst<0x48, (outs GPR:$rd),
+                                 (ins GPR:$src1, GPR:$rs2),
+                                 "muls", "$rd, $rs2", []>,
+               Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
 //===----------------------------------------------------------------------===//
 // Block Transfer Instructions (no isel patterns — for inline asm / builtins)

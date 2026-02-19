@@ -1,10 +1,14 @@
 ; RUN: llc -mtriple=tlcs900 < %s | FileCheck %s
 
-; Test multiply/divide (currently expands to libcalls for i32)
+; Test multiply (custom-lowered to 3 hardware 16×16→32 MUL16) and
+; divide (still expands to libcalls for i32).
 
 define i32 @mul_i32(i32 %a, i32 %b) {
 ; CHECK-LABEL: mul_i32:
-; CHECK:       call __mulsi3
+; CHECK-NOT:   call __mulsi3
+; CHECK:       mul
+; CHECK:       mul
+; CHECK:       mul
 ; CHECK:       ret
   %r = mul i32 %a, %b
   ret i32 %r

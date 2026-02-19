@@ -30,6 +30,7 @@ enum NodeType {
   BRCOND,     // Conditional branch (reads flags)
   SELECT_CC,  // Conditional select (reads flags)
   SCC,        // Set condition code (reads flags, produces 0/1)
+  MUL16,      // 16x16→32 unsigned multiply (hardware MUL instruction)
 };
 }
 
@@ -91,6 +92,7 @@ private:
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerMUL(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
 
 public:
