@@ -25,8 +25,8 @@
 using namespace llvm;
 
 TLCS900RegisterInfo::TLCS900RegisterInfo(const TLCS900Subtarget &ST)
-  : TLCS900GenRegisterInfo(/*RA=*/0, /*DwarfFlavour=*/0, /*EHFlavor=*/0,
-                         /*PC=*/0), Subtarget(ST) {}
+  : TLCS900GenRegisterInfo(TLCS900::PC, /*DwarfFlavour=*/0, /*EHFlavor=*/0,
+                         TLCS900::PC), Subtarget(ST) {}
 
 const MCPhysReg *
 TLCS900RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
@@ -48,6 +48,7 @@ BitVector TLCS900RegisterInfo::getReservedRegs(const MachineFunction &MF) const 
 
   markSuperRegs(Reserved, TLCS900::XSP); // Stack pointer
   Reserved.set(TLCS900::SR);             // Status register (flags)
+  Reserved.set(TLCS900::PC);             // Program counter (DWARF only)
 
   return Reserved;
 }
