@@ -101,6 +101,12 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
   // destination-memory opcode table (same as B0), which supports stores,
   // LDA, bit operations, JP, and CALL — but NOT register loads.
   if (BaseOp.isExpr()) {
+    if (!IsDstMem) {
+      Ctx.reportError(MI.getLoc(),
+          "direct memory addressing not supported for this instruction; "
+          "use LDA to load the address into a register first");
+      return 0;
+    }
     const MCOperand &DispOp = MI.getOperand(DispOpIdx);
     int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
     CB.push_back(0xF2);
@@ -141,8 +147,12 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     // or MemALU. The register allocator's eliminateFrameIndex splits
     // MemLoad/MemALU with large offsets into LDA + register-indirect,
     // so we should only reach here for destination-memory formats.
-    assert(IsDstMem && "F3 d16 prefix only valid for destination memory "
-                       "formats (MemStore/MemLoadDst)");
+    if (!IsDstMem) {
+      Ctx.reportError(MI.getLoc(),
+          "displacement too large for source memory; "
+          "use LDA to compute the effective address first");
+      return 0;
+    }
     CB.push_back(0xF3);
     // Mode byte: bits 1-0 = 001 (Xrr+d16), bits 4-2 = base_reg.
     CB.push_back((BaseReg << 2) | 0x01);
@@ -267,10 +277,13 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // Find the immediate operand (last operand).
     unsigned ImmIdx = Desc.getNumOperands() - 1;
     const MCOperand &ImmOp = MI.getOperand(ImmIdx);
+    MCFixupKind ImmFixupKind = (ImmBytes == 1)   ? FK_Data_1
+                               : (ImmBytes == 2) ? FK_Data_2
+                                                  : FK_Data_4;
     if (ImmOp.isImm()) {
       emitImmediate(ImmOp.getImm(), ImmBytes, CB);
     } else {
-      emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
+      emitFixup(MI, ImmOp, CB.size() - StartByte, ImmFixupKind, CB, Fixups);
     }
     break;
   }
@@ -551,10 +564,13 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(PrefixBase + RegEnc);
     CB.push_back(Opcode);
     const MCOperand &ImmOp = MI.getOperand(1);
+    MCFixupKind LDImmFixupKind = (ImmBytes == 1)   ? FK_Data_1
+                                 : (ImmBytes == 2) ? FK_Data_2
+                                                    : FK_Data_4;
     if (ImmOp.isImm())
       emitImmediate(ImmOp.getImm(), ImmBytes, CB);
     else
-      emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
+      emitFixup(MI, ImmOp, CB.size() - StartByte, LDImmFixupKind, CB, Fixups);
     break;
   }
 
