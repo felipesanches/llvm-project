@@ -328,3 +328,207 @@ call 0
 ; CALR d16: 0x1E, d16
 ; CHECK: calr 0           ; encoding: [0x1e,0x00,0x00]
 calr 0
+
+; === 16-bit PUSH/POP (PrefixPush/PrefixPop: D8+r, opcode) ===
+
+; PUSH rs16: D8+r, 0x04
+; CHECK: push wa           ; encoding: [0xd8,0x04]
+push wa
+
+; CHECK: push bc           ; encoding: [0xd9,0x04]
+push bc
+
+; CHECK: push hl           ; encoding: [0xdb,0x04]
+push hl
+
+; POP rd16: D8+r, 0x05
+; CHECK: pop wa            ; encoding: [0xd8,0x05]
+pop wa
+
+; CHECK: pop de            ; encoding: [0xda,0x05]
+pop de
+
+; CHECK: pop ix            ; encoding: [0xdc,0x05]
+pop ix
+
+; === 16-bit register instructions (D8-DF prefix) ===
+
+; LD rd16, rs16: D8+src, 0x88+dst
+; CHECK: ld wa, bc          ; encoding: [0xd9,0x88]
+ld wa, bc
+
+; LD rd16, #imm16: D8+rd, 0x03, imm16
+; CHECK: ld wa, 0           ; encoding: [0xd8,0x03,0x00,0x00]
+ld wa, 0
+
+; CHECK: ld de, 1234        ; encoding: [0xda,0x03,0xd2,0x04]
+ld de, 1234
+
+; ADD rd16, rs16: D8+src, 0x80+dst
+; CHECK: add wa, bc         ; encoding: [0xd9,0x80]
+add wa, bc
+
+; ADD rd16, #imm16: D8+dst, 0xC8, imm16
+; CHECK: add wa, 42         ; encoding: [0xd8,0xc8,0x2a,0x00]
+add wa, 42
+
+; SUB rd16, rs16: D8+src, 0xA0+dst
+; CHECK: sub de, hl         ; encoding: [0xdb,0xa2]
+sub de, hl
+
+; SUB rd16, #imm16: D8+dst, 0xCA, imm16
+; CHECK: sub bc, 100        ; encoding: [0xd9,0xca,0x64,0x00]
+sub bc, 100
+
+; AND rd16, rs16: D8+src, 0xC0+dst
+; CHECK: and wa, bc         ; encoding: [0xd9,0xc0]
+and wa, bc
+
+; OR rd16, rs16: D8+src, 0xE0+dst
+; CHECK: or wa, de          ; encoding: [0xda,0xe0]
+or wa, de
+
+; XOR rd16, rs16: D8+src, 0xD0+dst
+; CHECK: xor hl, bc         ; encoding: [0xd9,0xd3]
+xor hl, bc
+
+; CP rd16, rs16: D8+rs2, 0xF0+rs1
+; CHECK: cp wa, bc          ; encoding: [0xd9,0xf0]
+cp wa, bc
+
+; CP rd16, #imm16: D8+rs1, 0xCF, imm16
+; CHECK: cp de, 0           ; encoding: [0xda,0xcf,0x00,0x00]
+cp de, 0
+
+; NEG rd16: D8+r, 0x07
+; CHECK: neg wa             ; encoding: [0xd8,0x07]
+neg wa
+
+; CPL rd16: D8+r, 0x06
+; CHECK: cpl bc             ; encoding: [0xd9,0x06]
+cpl bc
+
+; INC 1, rd16: D8+r, 0x60
+; CHECK: inc 1, wa          ; encoding: [0xd8,0x60]
+inc 1, wa
+
+; DEC 2, rd16: D8+r, 0x69
+; CHECK: dec 2, de          ; encoding: [0xda,0x69]
+dec 2, de
+
+; SLA rd16, #imm: D8+r, 0xEC, amount
+; CHECK: sla wa, 1          ; encoding: [0xd8,0xec,0x01]
+sla wa, 1
+
+; SRA rd16, #imm: D8+r, 0xED, amount
+; CHECK: sra bc, 4          ; encoding: [0xd9,0xed,0x04]
+sra bc, 4
+
+; SRL rd16, #imm: D8+r, 0xEF, amount
+; CHECK: srl de, 8          ; encoding: [0xda,0xef,0x08]
+srl de, 8
+
+; RLC rd16: D8+r, 0xE8, 0x01
+; CHECK: rlc wa             ; encoding: [0xd8,0xe8,0x01]
+rlc wa
+
+; RRC rd16: D8+r, 0xE9, 0x01
+; CHECK: rrc bc             ; encoding: [0xd9,0xe9,0x01]
+rrc bc
+
+; RL rd16: D8+r, 0xEA, 0x01
+; CHECK: rl de              ; encoding: [0xda,0xea,0x01]
+rl de
+
+; RR rd16: D8+r, 0xEB, 0x01
+; CHECK: rr hl              ; encoding: [0xdb,0xeb,0x01]
+rr hl
+
+; EXTS rd16: D8+r, 0x13
+; CHECK: exts wa            ; encoding: [0xd8,0x13]
+exts wa
+
+; EXTZ rd16: D8+r, 0x12
+; CHECK: extz bc            ; encoding: [0xd9,0x12]
+extz bc
+
+; ADC rd16, rs16: D8+src, 0x90+dst
+; CHECK: adc wa, bc         ; encoding: [0xd9,0x90]
+adc wa, bc
+
+; SBC rd16, rs16: D8+src, 0xB0+dst
+; CHECK: sbc de, hl         ; encoding: [0xdb,0xb2]
+sbc de, hl
+
+; === 8-bit register instructions (C8-CF prefix) ===
+
+; LD rd8, rs8: C8+src, 0x88+dst
+; CHECK: ld w, a            ; encoding: [0xc9,0x88]
+ld w, a
+
+; LD rd8, #imm8: C8+rd, 0x03, imm8
+; CHECK: ld a, 0            ; encoding: [0xc9,0x03,0x00]
+ld a, 0
+
+; CHECK: ld b, 255          ; encoding: [0xca,0x03,0xff]
+ld b, 255
+
+; ADD rd8, rs8: C8+src, 0x80+dst
+; CHECK: add a, b           ; encoding: [0xca,0x81]
+add a, b
+
+; ADD rd8, #imm8: C8+dst, 0xC8, imm8
+; CHECK: add a, 42          ; encoding: [0xc9,0xc8,0x2a]
+add a, 42
+
+; SUB rd8, rs8: C8+src, 0xA0+dst
+; CHECK: sub c, d           ; encoding: [0xcb,0xa3]
+sub c, d
+
+; AND rd8, rs8: C8+src, 0xC0+dst
+; CHECK: and a, c           ; encoding: [0xcb,0xc1]
+and a, c
+
+; OR rd8, rs8: C8+src, 0xE0+dst
+; CHECK: or h, l            ; encoding: [0xcf,0xe6]
+or h, l
+
+; XOR rd8, rs8: C8+src, 0xD0+dst
+; CHECK: xor a, b           ; encoding: [0xca,0xd1]
+xor a, b
+
+; CP rd8, rs8: C8+rs2, 0xF0+rs1
+; CHECK: cp a, b            ; encoding: [0xca,0xf1]
+cp a, b
+
+; CP rd8, #imm8: C8+rs1, 0xCF, imm8
+; CHECK: cp a, 0            ; encoding: [0xc9,0xcf,0x00]
+cp a, 0
+
+; NEG rd8: C8+r, 0x07
+; CHECK: neg a              ; encoding: [0xc9,0x07]
+neg a
+
+; CPL rd8: C8+r, 0x06
+; CHECK: cpl b              ; encoding: [0xca,0x06]
+cpl b
+
+; INC 1, rd8: C8+r, 0x60
+; CHECK: inc 1, a           ; encoding: [0xc9,0x60]
+inc 1, a
+
+; DEC 1, rd8: C8+r, 0x68
+; CHECK: dec 1, b           ; encoding: [0xca,0x68]
+dec 1, b
+
+; SLA rd8, #imm: C8+r, 0xEC, amount
+; CHECK: sla a, 1           ; encoding: [0xc9,0xec,0x01]
+sla a, 1
+
+; RLC rd8: C8+r, 0xE8, 0x01
+; CHECK: rlc a              ; encoding: [0xc9,0xe8,0x01]
+rlc a
+
+; RRC rd8: C8+r, 0xE9, 0x01
+; CHECK: rrc b              ; encoding: [0xca,0xe9,0x01]
+rrc b

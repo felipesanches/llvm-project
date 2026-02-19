@@ -74,3 +74,22 @@ ld xwa, (xsp-4)
 
 ; CHECK: ld	(xsp-8), xde
 ld (xsp-8), xde
+
+; === Direct memory addressing ===
+
+; Store to absolute address
+; CHECK: ld	(0), xwa
+ld (0), xwa
+
+; Store to hex address
+; CHECK: ld	(4660), xwa
+ld (0x1234), xwa
+
+; Load effective address from direct memory
+; CHECK: lda	xwa, (0)
+lda xwa, (0)
+
+; Store with .equ constant
+.equ PORT, 0x200000
+; CHECK: ld	(2097152), xde
+ld (PORT), xde
