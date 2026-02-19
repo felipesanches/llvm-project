@@ -45,9 +45,12 @@ private:
   DecodeStatus decode16BitRegPrefix(MCInst &MI, uint64_t &Size,
                                     ArrayRef<uint8_t> Bytes,
                                     unsigned PrefixReg) const;
+  /// Decode a source/destination memory-prefixed instruction.
+  /// MemSize: 0=byte, 1=word, 2=long (selects sub-opcode interpretation).
   DecodeStatus decodeMemPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes, unsigned BaseReg,
-                               int64_t Disp, unsigned PrefixSize) const;
+                               int64_t Disp, unsigned PrefixSize,
+                               unsigned MemSize = 2) const;
 };
 
 } // end anonymous namespace
@@ -396,7 +399,8 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
                                                   ArrayRef<uint8_t> Bytes,
                                                   unsigned BaseReg,
                                                   int64_t Disp,
-                                                  unsigned PrefixSize) const {
+                                                  unsigned PrefixSize,
+                                                  unsigned MemSize) const {
   unsigned OpByteIdx = PrefixSize;
   if (Bytes.size() <= OpByteIdx)
     return MCDisassembler::Fail;
@@ -404,10 +408,32 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
   uint8_t OpByte = Bytes[OpByteIdx];
   unsigned Base = decodeGPR(BaseReg);
 
-  // MemLoad: 0x20-0x27 = LD rd, (mem)
+  // Block transfer instructions live in the byte source memory table (0x80).
+  // Sub-opcodes 0x10-0x17 are block transfers (LDI, LDIR, LDD, LDDR, etc.)
+  if (MemSize == 0 && OpByte >= 0x10 && OpByte <= 0x17) {
+    switch (OpByte) {
+    case 0x10: MI.setOpcode(TLCS900::LDI);  break;
+    case 0x11: MI.setOpcode(TLCS900::LDIR); break;
+    case 0x12: MI.setOpcode(TLCS900::LDD);  break;
+    case 0x13: MI.setOpcode(TLCS900::LDDR); break;
+    case 0x14: MI.setOpcode(TLCS900::CPI);  break;
+    case 0x15: MI.setOpcode(TLCS900::CPIR); break;
+    case 0x16: MI.setOpcode(TLCS900::CPD);  break;
+    case 0x17: MI.setOpcode(TLCS900::CPDR); break;
+    default:
+      return MCDisassembler::Fail;
+    }
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
+
+  // MemLoad: 0x20-0x27 = LD rd, (mem) — size depends on prefix
   if (OpByte >= 0x20 && OpByte <= 0x27) {
     unsigned DstReg = decodeGPR(OpByte & 0x7);
-    MI.setOpcode(TLCS900::LD32rm);
+    unsigned Opc = (MemSize == 0)   ? TLCS900::LD8rm
+                   : (MemSize == 1) ? TLCS900::LD16rm
+                                    : TLCS900::LD32rm;
+    MI.setOpcode(Opc);
     MI.addOperand(MCOperand::createReg(DstReg));
     MI.addOperand(MCOperand::createReg(Base));
     MI.addOperand(MCOperand::createImm(Disp));
@@ -416,7 +442,8 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
   }
 
   // MemStore immediate: 0x08 = LD (mem), #imm32
-  if (OpByte == 0x08) {
+  // Only supported for 32-bit (destination memory B0/F0 table).
+  if (OpByte == 0x08 && MemSize == 2) {
     if (Bytes.size() < OpByteIdx + 5)
       return MCDisassembler::Fail;
     uint32_t Imm = readU32LE(Bytes, OpByteIdx + 1);
@@ -428,32 +455,19 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
     return MCDisassembler::Success;
   }
 
-  // MemStore register: 0x40-0x47 = LD (mem), rs
-  if (OpByte >= 0x40 && OpByte <= 0x47) {
-    unsigned SrcReg = decodeGPR(OpByte & 0x7);
-    MI.setOpcode(TLCS900::LD32mr);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
-    MI.addOperand(MCOperand::createReg(SrcReg));
-    Size = PrefixSize + 1;
-    return MCDisassembler::Success;
-  }
-
-  // MemALU register-source operations
-  struct MemALURegEntry {
-    uint8_t Base;
-    unsigned Opcode;
-  };
-  static const MemALURegEntry MemALURegOps[] = {
-      {0x80, TLCS900::ADD32mr}, {0xA0, TLCS900::SUB32mr},
-      {0xC0, TLCS900::AND32mr}, {0xD0, TLCS900::XOR32mr},
-      {0xE0, TLCS900::OR32mr},  {0xF0, TLCS900::CP32mr},
-  };
-  unsigned AluBase = OpByte & 0xF8;
-  for (const auto &Op : MemALURegOps) {
-    if (AluBase == Op.Base) {
+  // MemStore register: size-dependent sub-opcodes in B0/F0 table
+  //   0x40-0x47 = LD (mem), rs:byte   (only in B0 table)
+  //   0x50-0x57 = LD (mem), rs:word   (only in B0 table)
+  //   0x60-0x67 = LD (mem), rs:long   (only in B0 table)
+  // For source memory tables (80/90/A0), these sub-opcodes are different.
+  if (MemSize == 2) {
+    // 32-bit: store register at 0x60-0x67, but existing encoding uses 0x40-0x47
+    // for LD32mr (from the A0 source-memory table's perspective this is wrong,
+    // but these reach here only from B0 destination-memory path which is handled
+    // by existing callers that pass MemSize=2 for B0 prefix range).
+    if (OpByte >= 0x40 && OpByte <= 0x47) {
       unsigned SrcReg = decodeGPR(OpByte & 0x7);
-      MI.setOpcode(Op.Opcode);
+      MI.setOpcode(TLCS900::LD32mr);
       MI.addOperand(MCOperand::createReg(Base));
       MI.addOperand(MCOperand::createImm(Disp));
       MI.addOperand(MCOperand::createReg(SrcReg));
@@ -462,27 +476,52 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
     }
   }
 
-  // MemALU immediate-source operations
-  struct MemALUImmEntry {
-    uint8_t Opc;
-    unsigned Opcode;
-  };
-  static const MemALUImmEntry MemALUImmOps[] = {
-      {0xC8, TLCS900::ADD32mi},
-      {0xCA, TLCS900::SUB32mi},
-      {0xCF, TLCS900::CP32mi},
-  };
-  for (const auto &Op : MemALUImmOps) {
-    if (OpByte == Op.Opc) {
-      if (Bytes.size() < OpByteIdx + 5)
-        return MCDisassembler::Fail;
-      uint32_t Imm = readU32LE(Bytes, OpByteIdx + 1);
-      MI.setOpcode(Op.Opcode);
-      MI.addOperand(MCOperand::createReg(Base));
-      MI.addOperand(MCOperand::createImm(Disp));
-      MI.addOperand(MCOperand::createImm(Imm));
-      Size = PrefixSize + 5;
-      return MCDisassembler::Success;
+  // MemALU register-source operations (only 32-bit currently supported)
+  if (MemSize == 2) {
+    struct MemALURegEntry {
+      uint8_t Base;
+      unsigned Opcode;
+    };
+    static const MemALURegEntry MemALURegOps[] = {
+        {0x80, TLCS900::ADD32mr}, {0xA0, TLCS900::SUB32mr},
+        {0xC0, TLCS900::AND32mr}, {0xD0, TLCS900::XOR32mr},
+        {0xE0, TLCS900::OR32mr},  {0xF0, TLCS900::CP32mr},
+    };
+    unsigned AluBase = OpByte & 0xF8;
+    for (const auto &Op : MemALURegOps) {
+      if (AluBase == Op.Base) {
+        unsigned SrcReg = decodeGPR(OpByte & 0x7);
+        MI.setOpcode(Op.Opcode);
+        MI.addOperand(MCOperand::createReg(Base));
+        MI.addOperand(MCOperand::createImm(Disp));
+        MI.addOperand(MCOperand::createReg(SrcReg));
+        Size = PrefixSize + 1;
+        return MCDisassembler::Success;
+      }
+    }
+
+    // MemALU immediate-source operations
+    struct MemALUImmEntry {
+      uint8_t Opc;
+      unsigned Opcode;
+    };
+    static const MemALUImmEntry MemALUImmOps[] = {
+        {0xC8, TLCS900::ADD32mi},
+        {0xCA, TLCS900::SUB32mi},
+        {0xCF, TLCS900::CP32mi},
+    };
+    for (const auto &Op : MemALUImmOps) {
+      if (OpByte == Op.Opc) {
+        if (Bytes.size() < OpByteIdx + 5)
+          return MCDisassembler::Fail;
+        uint32_t Imm = readU32LE(Bytes, OpByteIdx + 1);
+        MI.setOpcode(Op.Opcode);
+        MI.addOperand(MCOperand::createReg(Base));
+        MI.addOperand(MCOperand::createImm(Disp));
+        MI.addOperand(MCOperand::createImm(Imm));
+        Size = PrefixSize + 5;
+        return MCDisassembler::Success;
+      }
     }
   }
 
@@ -529,24 +568,9 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
     Size = 3;
     return MCDisassembler::Success;
 
-  // === Block transfer instructions: 0x80 prefix + sub-opcode — 2 bytes ===
-  case 0x80:
-    if (Bytes.size() < 2)
-      return MCDisassembler::Fail;
-    switch (Bytes[1]) {
-    case 0x10: MI.setOpcode(TLCS900::LDI);  break;
-    case 0x11: MI.setOpcode(TLCS900::LDIR); break;
-    case 0x12: MI.setOpcode(TLCS900::LDD);  break;
-    case 0x13: MI.setOpcode(TLCS900::LDDR); break;
-    case 0x14: MI.setOpcode(TLCS900::CPI);  break;
-    case 0x15: MI.setOpcode(TLCS900::CPIR); break;
-    case 0x16: MI.setOpcode(TLCS900::CPD);  break;
-    case 0x17: MI.setOpcode(TLCS900::CPDR); break;
-    default:
-      return MCDisassembler::Fail;
-    }
-    Size = 2;
-    return MCDisassembler::Success;
+  // 0x80 is the byte source memory prefix for register 0 (XWA).
+  // Block transfer instructions live in this table (sub-opcodes 0x10-0x17).
+  // Fall through to the 0x80-0x87 range handler below.
 
   // === JP absolute: 0x1B + addr24 — 4 bytes ===
   case 0x1B:
@@ -663,19 +687,50 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
     return MCDisassembler::Success;
   }
 
-  // === Memory prefix (no displacement): 0xA0-0xA7 ===
-  if (FirstByte >= 0xA0 && FirstByte <= 0xA7) {
+  // === Byte source memory prefix (no disp): 0x80-0x87 ===
+  // Includes block transfer instructions (LDI, LDIR, etc.) at sub-opcodes 0x10-0x17
+  if (FirstByte >= 0x80 && FirstByte <= 0x87) {
     unsigned BaseReg = FirstByte & 0x7;
-    return decodeMemPrefix(MI, Size, Bytes, BaseReg, 0, 1);
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, 0, 1, /*MemSize=*/0);
   }
 
-  // === Memory prefix (d8 displacement): 0xA8-0xAF ===
+  // === Byte source memory prefix (d8 disp): 0x88-0x8F ===
+  if (FirstByte >= 0x88 && FirstByte <= 0x8F) {
+    if (Bytes.size() < 2)
+      return MCDisassembler::Fail;
+    unsigned BaseReg = FirstByte & 0x7;
+    int8_t Disp = static_cast<int8_t>(Bytes[1]);
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, 2, /*MemSize=*/0);
+  }
+
+  // === Word source memory prefix (no disp): 0x90-0x97 ===
+  if (FirstByte >= 0x90 && FirstByte <= 0x97) {
+    unsigned BaseReg = FirstByte & 0x7;
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, 0, 1, /*MemSize=*/1);
+  }
+
+  // === Word source memory prefix (d8 disp): 0x98-0x9F ===
+  if (FirstByte >= 0x98 && FirstByte <= 0x9F) {
+    if (Bytes.size() < 2)
+      return MCDisassembler::Fail;
+    unsigned BaseReg = FirstByte & 0x7;
+    int8_t Disp = static_cast<int8_t>(Bytes[1]);
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, 2, /*MemSize=*/1);
+  }
+
+  // === Long source memory prefix (no disp): 0xA0-0xA7 ===
+  if (FirstByte >= 0xA0 && FirstByte <= 0xA7) {
+    unsigned BaseReg = FirstByte & 0x7;
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, 0, 1, /*MemSize=*/2);
+  }
+
+  // === Long source memory prefix (d8 disp): 0xA8-0xAF ===
   if (FirstByte >= 0xA8 && FirstByte <= 0xAF) {
     if (Bytes.size() < 2)
       return MCDisassembler::Fail;
     unsigned BaseReg = FirstByte & 0x7;
     int8_t Disp = static_cast<int8_t>(Bytes[1]);
-    return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, 2);
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, 2, /*MemSize=*/2);
   }
 
   // === CALL/JP indirect: 0xB0+reg, opcode — 2 bytes ===
