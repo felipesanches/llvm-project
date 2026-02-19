@@ -22,6 +22,9 @@ namespace llvm {
 class TLCS900FunctionInfo : public MachineFunctionInfo {
   virtual void anchor();
 
+  /// FrameIndex for start of varargs area
+  int VarArgsFrameIndex = 0;
+
 public:
   TLCS900FunctionInfo(const Function &F, const TargetSubtargetInfo *STI) {}
 
@@ -29,6 +32,9 @@ public:
   clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
         const DenseMap<MachineBasicBlock *, MachineBasicBlock *> &Src2DstMBB)
       const override;
+
+  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
+  void setVarArgsFrameIndex(int FI) { VarArgsFrameIndex = FI; }
 };
 
 } // end of namespace llvm

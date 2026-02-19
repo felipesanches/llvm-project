@@ -25,6 +25,17 @@ def TLCS900_CCallingConv : CallingConv<[
   CCIfType<[i32], CCAssignToStack<4, 4>>
 ]>;
 
+// TLCS900 Vararg Calling Convention — all args on stack (no register passing)
+def TLCS900_VarargCC : CallingConv<[
+  CCIfByVal<CCPassByVal<4, 4>>,
+
+  // Promote i8/i16 to i32
+  CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
+
+  // All arguments go on the stack
+  CCIfType<[i32], CCAssignToStack<4, 4>>
+]>;
+
 // TLCS900 C Return Convention
 def TLCS900_CRetConv : CallingConv<[
   CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,

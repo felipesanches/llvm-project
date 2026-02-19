@@ -13,6 +13,7 @@
 
 #include "TLCS900ISelLowering.h"
 #include "TLCS900.h"
+#include "TLCS900MachineFunction.h"
 #include "TLCS900Subtarget.h"
 #include "TLCS900TargetMachine.h"
 #include "llvm/CodeGen/CallingConvLower.h"
@@ -127,7 +128,7 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
 
   // Varargs
-  setOperationAction(ISD::VASTART, MVT::Other, Expand);
+  setOperationAction(ISD::VASTART, MVT::Other, Custom);
   setOperationAction(ISD::VAARG,   MVT::Other, Expand);
   setOperationAction(ISD::VACOPY,  MVT::Other, Expand);
   setOperationAction(ISD::VAEND,   MVT::Other, Expand);
@@ -195,6 +196,7 @@ SDValue TLCS900TargetLowering::LowerOperation(SDValue Op,
   case ISD::SELECT_CC:            return LowerSELECT_CC(Op, DAG);
   case ISD::SETCC:                return LowerSETCC(Op, DAG);
   case ISD::FRAMEADDR:            return LowerFRAMEADDR(Op, DAG);
+  case ISD::VASTART:              return LowerVASTART(Op, DAG);
   }
 }
 
@@ -389,6 +391,23 @@ TLCS900TargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
 }
 
 //===----------------------------------------------------------------------===//
+// Varargs
+//===----------------------------------------------------------------------===//
+
+SDValue
+TLCS900TargetLowering::LowerVASTART(SDValue Op, SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  auto *FuncInfo = MF.getInfo<TLCS900FunctionInfo>();
+  SDLoc DL(Op);
+
+  // va_start stores the address of the first vararg into the va_list pointer.
+  SDValue FI = DAG.getFrameIndex(FuncInfo->getVarArgsFrameIndex(), MVT::i32);
+  const Value *SV = cast<SrcValueSDNode>(Op.getOperand(2))->getValue();
+  return DAG.getStore(Op.getOperand(0), DL, FI, Op.getOperand(1),
+                      MachinePointerInfo(SV));
+}
+
+//===----------------------------------------------------------------------===//
 // Formal Arguments
 //===----------------------------------------------------------------------===//
 
@@ -402,10 +421,13 @@ SDValue TLCS900TargetLowering::LowerFormalArguments(
   MachineFunction &MF = DAG.getMachineFunction();
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
 
+  // Use the vararg calling convention for variadic functions (all args on stack)
+  auto CCFunc = isVarArg ? TLCS900_VarargCC : TLCS900_CCallingConv;
+
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
                  *DAG.getContext());
-  CCInfo.AnalyzeFormalArguments(Ins, TLCS900_CCallingConv);
+  CCInfo.AnalyzeFormalArguments(Ins, CCFunc);
 
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     CCValAssign &VA = ArgLocs[i];
@@ -446,6 +468,14 @@ SDValue TLCS900TargetLowering::LowerFormalArguments(
                                  MachinePointerInfo::getFixedStack(MF, FI));
       InVals.push_back(Load);
     }
+  }
+
+  // For variadic functions, record the frame index where varargs begin
+  if (isVarArg) {
+    auto *FuncInfo = MF.getInfo<TLCS900FunctionInfo>();
+    unsigned StackSize = CCInfo.getStackSize();
+    int FI = MF.getFrameInfo().CreateFixedObject(4, StackSize, true);
+    FuncInfo->setVarArgsFrameIndex(FI);
   }
 
   return Chain;
@@ -561,10 +591,13 @@ SDValue TLCS900TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   bool IsVarArg = CLI.IsVarArg;
   bool IsTailCall = CLI.IsTailCall;
 
+  // Use the vararg calling convention for variadic calls (all args on stack)
+  auto CCFunc = IsVarArg ? TLCS900_VarargCC : TLCS900_CCallingConv;
+
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), ArgLocs,
                  *DAG.getContext());
-  CCInfo.AnalyzeCallOperands(Outs, TLCS900_CCallingConv);
+  CCInfo.AnalyzeCallOperands(Outs, CCFunc);
 
   unsigned NumBytes = CCInfo.getStackSize();
 
