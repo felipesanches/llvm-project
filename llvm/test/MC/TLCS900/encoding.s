@@ -206,34 +206,34 @@ ld xbc, (xhl+100)
 
 ; === Memory store instructions (MemStore) ===
 
-; LD (Xrr), rs: A0+base, 0x40+src
-; CHECK: ld (xsp), xwa   ; encoding: [0xa7,0x40]
+; LD (Xrr), rs: B0+base, 0x60+src
+; CHECK: ld (xsp), xwa   ; encoding: [0xb7,0x60]
 ld (xsp), xwa
 
-; LD (Xrr+d8), rs: A8+base, d8, 0x40+src
-; CHECK: ld (xsp+8), xwa ; encoding: [0xaf,0x08,0x40]
+; LD (Xrr+d8), rs: B8+base, d8, 0x60+src
+; CHECK: ld (xsp+8), xwa ; encoding: [0xbf,0x08,0x60]
 ld (xsp+8), xwa
 
-; LD (Xrr), #imm: A0+base, 0x08, imm32
-; CHECK: ld (xhl), 255   ; encoding: [0xa3,0x08,0xff,0x00,0x00,0x00]
+; LD (Xrr), #imm: B0+base, 0x08, imm32
+; CHECK: ld (xhl), 255   ; encoding: [0xb3,0x08,0xff,0x00,0x00,0x00]
 ld (xhl), 255
 
 ; === Memory ALU instructions (MemALU) ===
 
-; ADD (Xrr), rs: A0+base, 0x80+src
-; CHECK: add (xhl), xwa  ; encoding: [0xa3,0x80]
+; ADD (Xrr), rs: A0+base, 0x88+src
+; CHECK: add (xhl), xwa  ; encoding: [0xa3,0x88]
 add (xhl), xwa
 
 ; ADD (Xrr), #imm: A0+base, 0xC8, imm32
 ; CHECK: add (xhl), 1    ; encoding: [0xa3,0xc8,0x01,0x00,0x00,0x00]
 add (xhl), 1
 
-; SUB (Xrr+d8), rs: A8+base, d8, 0xA0+src
-; CHECK: sub (xsp+4), xde ; encoding: [0xaf,0x04,0xa2]
+; SUB (Xrr+d8), rs: A8+base, d8, 0xA8+src
+; CHECK: sub (xsp+4), xde ; encoding: [0xaf,0x04,0xaa]
 sub (xsp+4), xde
 
-; CP (Xrr), rs: A0+base, 0xF0+src
-; CHECK: cp (xhl), xwa   ; encoding: [0xa3,0xf0]
+; CP (Xrr), rs: A0+base, 0xF8+src
+; CHECK: cp (xhl), xwa   ; encoding: [0xa3,0xf8]
 cp (xhl), xwa
 
 ; CP (Xrr+d8), #imm: A8+base, d8, 0xCF, imm32
