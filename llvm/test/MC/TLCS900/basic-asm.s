@@ -77,11 +77,8 @@ srl xbc, xwa
 srl xde, 8
 
 ; Test unary instructions
-; CHECK: neg	xwa
-neg xwa
-
-; CHECK: cpl	xde
-cpl xde
+; Note: 32-bit NEG/CPL are now isCodeGenOnly (invalid in E8 prefix table).
+; 16-bit NEG/CPL are tested in the 16-bit section below.
 
 ; CHECK: inc	1, xwa
 inc 1, xwa
@@ -112,7 +109,8 @@ nop
 ; CHECK: halt
 halt
 
-; CHECK: di
+; DI is an alias for EI 0
+; CHECK: ei	0
 di
 
 ; CHECK: ei	3
@@ -150,21 +148,8 @@ rl xbc
 ; CHECK: rr	xhl
 rr xhl
 
-; Test bit manipulation
-; CHECK: bit	7, xwa
-bit 7, xwa
-
-; CHECK: set	3, xde
-set 3, xde
-
-; CHECK: res	0, xbc
-res 0, xbc
-
-; CHECK: chg	15, xhl
-chg 15, xhl
-
-; CHECK: tset	4, xwa
-tset 4, xwa
+; Note: 32-bit bit manipulation (BIT/SET/RES/CHG/TSET) is now isCodeGenOnly
+; (invalid in E8 prefix table). Tested via 8/16-bit register forms.
 
 ; Test block transfer
 ; CHECK: ldi
@@ -193,8 +178,7 @@ cpd
 cpdr
 
 ; Test exchange
-; CHECK: ex	xwa, xbc
-ex xwa, xbc
+; Note: 32-bit EX is now isCodeGenOnly (invalid in E8 prefix table).
 
 ; Test load effective address
 ; CHECK: lda	xde, (xsp+16)

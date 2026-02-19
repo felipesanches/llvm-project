@@ -207,11 +207,17 @@ void TLCS900MCCodeEmitter::encodeInstruction(
 
   case TLCS900II::SingleByteImm8: {
     // Opcode + 8-bit immediate.
-    // For EI (0x08+level) and SWI (0xF8+num), the immediate is embedded
-    // in the opcode byte itself. For RETD (0x0F+d16), it's different.
+    // For EI (0x06, level), the level is a separate byte after the opcode.
+    // For SWI (0xF8+num), the immediate is embedded in the opcode byte.
+    // For RETD (0x0F, d16), it's different.
     const MCOperand &ImmOp = MI.getOperand(0);
-    if (Opcode == 0x08 || Opcode == 0xF8) {
-      // EI level or SWI num: immediate encoded in opcode bits 0-2.
+    if (Opcode == 0x06) {
+      // EI level: opcode 0x06 followed by level byte.
+      unsigned Imm = ImmOp.isImm() ? ImmOp.getImm() : 0;
+      CB.push_back(0x06);
+      CB.push_back(static_cast<char>(Imm & 0x7));
+    } else if (Opcode == 0xF8) {
+      // SWI num: immediate encoded in opcode bits 0-2.
       unsigned Imm = ImmOp.isImm() ? ImmOp.getImm() : 0;
       CB.push_back(Opcode + (Imm & 0x7));
     } else if (Opcode == 0x0F) {
@@ -585,7 +591,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::BlockTransfer: {
-    // Single-byte block transfer instruction.
+    // 2-byte block transfer: 0x80 prefix + sub-opcode.
+    // 0x80 = byte-wide source memory prefix (register 0 = XWA, unused).
+    CB.push_back(0x80);
     CB.push_back(Opcode);
     break;
   }

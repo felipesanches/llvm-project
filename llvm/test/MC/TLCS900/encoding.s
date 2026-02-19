@@ -11,31 +11,32 @@ nop
 ; CHECK: ret     ; encoding: [0x0e]
 ret
 
-; CHECK: halt    ; encoding: [0x06]
+; CHECK: halt    ; encoding: [0x05]
 halt
 
-; CHECK: di      ; encoding: [0x07]
+; DI is an alias for EI 0
+; CHECK: ei 0    ; encoding: [0x06,0x00]
 di
 
-; CHECK: reti    ; encoding: [0x0b]
+; CHECK: reti    ; encoding: [0x07]
 reti
 
 ; === Register-in-opcode instructions ===
 
-; PUSH r32: 0x48 + reg_encoding
-; CHECK: push xwa        ; encoding: [0x48]
+; PUSH r32: 0x38 + reg_encoding
+; CHECK: push xwa        ; encoding: [0x38]
 push xwa
 
-; CHECK: push xbc        ; encoding: [0x49]
+; CHECK: push xbc        ; encoding: [0x39]
 push xbc
 
-; CHECK: push xde        ; encoding: [0x4a]
+; CHECK: push xde        ; encoding: [0x3a]
 push xde
 
-; CHECK: push xhl        ; encoding: [0x4b]
+; CHECK: push xhl        ; encoding: [0x3b]
 push xhl
 
-; CHECK: push xsp        ; encoding: [0x4f]
+; CHECK: push xsp        ; encoding: [0x3f]
 push xsp
 
 ; POP r32: 0x58 + reg_encoding
@@ -58,16 +59,8 @@ ld xde, 255
 
 ; === Prefix + unary instructions (2 bytes: prefix + opcode) ===
 
-; NEG r32: E8+r, 0x07
-; CHECK: neg xwa         ; encoding: [0xe8,0x07]
-neg xwa
-
-; CHECK: neg xbc         ; encoding: [0xe9,0x07]
-neg xbc
-
-; CPL r32: E8+r, 0x06
-; CHECK: cpl xwa         ; encoding: [0xe8,0x06]
-cpl xwa
+; Note: NEG and CPL are invalid in E8 (32-bit) prefix table.
+; 32-bit NEG/CPL are now isCodeGenOnly. Only 8/16-bit versions tested here.
 
 ; EXTS r32: E8+r, 0x13
 ; CHECK: exts xwa        ; encoding: [0xe8,0x13]
@@ -166,27 +159,9 @@ rl xde
 ; CHECK: rr xhl          ; encoding: [0xeb,0xeb,0x01]
 rr xhl
 
-; === Bit manipulation instructions (PrefixBit: prefix + bit_opcode + bit_num) ===
-
-; SET bit, rd: E8+rd, 0x31, bit
-; CHECK: set 3, xde      ; encoding: [0xea,0x31,0x03]
-set 3, xde
-
-; RES bit, rd: E8+rd, 0x30, bit
-; CHECK: res 7, xwa      ; encoding: [0xe8,0x30,0x07]
-res 7, xwa
-
-; CHG bit, rd: E8+rd, 0x32, bit
-; CHECK: chg 0, xbc      ; encoding: [0xe9,0x32,0x00]
-chg 0, xbc
-
-; BIT bit, rs: E8+rs, 0x33, bit
-; CHECK: bit 5, xhl      ; encoding: [0xeb,0x33,0x05]
-bit 5, xhl
-
-; TSET bit, rd: E8+rd, 0x34, bit
-; CHECK: tset 1, xwa     ; encoding: [0xe8,0x34,0x01]
-tset 1, xwa
+; Note: 32-bit bit manipulation (SET/RES/CHG/BIT/TSET) is invalid in E8 table.
+; These instructions are now isCodeGenOnly for 32-bit.
+; 8/16-bit versions are still tested via their respective prefix tables.
 
 ; === Memory load instructions (MemLoad) ===
 
@@ -220,9 +195,8 @@ ld (xsp+8), xwa
 ; CHECK: add (xhl), xwa  ; encoding: [0xa3,0x88]
 add (xhl), xwa
 
-; ADD (Xrr), #imm: A0+base, 0xC8, imm32
-; CHECK: add (xhl), 1    ; encoding: [0xa3,0xc8,0x01,0x00,0x00,0x00]
-add (xhl), 1
+; Note: ADD/SUB/CP (mem), #imm are invalid in 32-bit A0 table.
+; These are now isCodeGenOnly and not testable in assembly.
 
 ; SUB (Xrr+d8), rs: A8+base, d8, 0xA8+src
 ; CHECK: sub (xsp+4), xde ; encoding: [0xaf,0x04,0xaa]
@@ -232,36 +206,32 @@ sub (xsp+4), xde
 ; CHECK: cp (xhl), xwa   ; encoding: [0xa3,0xf8]
 cp (xhl), xwa
 
-; CP (Xrr+d8), #imm: A8+base, d8, 0xCF, imm32
-; CHECK: cp (xsp+4), 100 ; encoding: [0xaf,0x04,0xcf,0x64,0x00,0x00,0x00]
-cp (xsp+4), 100
+; === Block transfer instructions (BlockTransfer: 0x80 prefix + sub-opcode) ===
 
-; === Block transfer instructions (BlockTransfer: single opcode byte) ===
-
-; CHECK: ldi              ; encoding: [0x10]
+; CHECK: ldi              ; encoding: [0x80,0x10]
 ldi
-; CHECK: ldir             ; encoding: [0x11]
+; CHECK: ldir             ; encoding: [0x80,0x11]
 ldir
-; CHECK: ldd              ; encoding: [0x12]
+; CHECK: ldd              ; encoding: [0x80,0x12]
 ldd
-; CHECK: lddr             ; encoding: [0x13]
+; CHECK: lddr             ; encoding: [0x80,0x13]
 lddr
-; CHECK: cpi              ; encoding: [0x14]
+; CHECK: cpi              ; encoding: [0x80,0x14]
 cpi
-; CHECK: cpir             ; encoding: [0x15]
+; CHECK: cpir             ; encoding: [0x80,0x15]
 cpir
-; CHECK: cpd              ; encoding: [0x16]
+; CHECK: cpd              ; encoding: [0x80,0x16]
 cpd
-; CHECK: cpdr             ; encoding: [0x17]
+; CHECK: cpdr             ; encoding: [0x80,0x17]
 cpdr
 
 ; === SingleByteImm8 (immediate encoded in opcode byte) ===
 
-; EI level: 0x08 + level
-; CHECK: ei 0             ; encoding: [0x08]
+; EI level: 0x06, level
+; CHECK: ei 0             ; encoding: [0x06,0x00]
 ei 0
 
-; CHECK: ei 3             ; encoding: [0x0b]
+; CHECK: ei 3             ; encoding: [0x06,0x03]
 ei 3
 
 ; SWI num: 0xF8 + num
@@ -291,10 +261,8 @@ jp (xwa)
 ; CHECK: jp (xhl)         ; encoding: [0xb3,0xd8]
 jp (xhl)
 
-; === DAA instruction (PrefixUnary: E8+r, 0x10) ===
-
-; CHECK: daa xwa          ; encoding: [0xe8,0x10]
-daa xwa
+; Note: 32-bit DAA is invalid in E8 table (only valid in C8 = 8-bit).
+; DAA32 is now isCodeGenOnly.
 
 ; === 16-bit prefix: MUL/MULS (16×16→32 multiply) ===
 

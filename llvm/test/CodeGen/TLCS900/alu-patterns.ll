@@ -34,18 +34,19 @@ define i32 @dec8(i32 %a) {
   ret i32 %r
 }
 
-; NEG: negate
+; NEG: negate — expanded to XOR + INC (invalid in E8 32-bit table)
 define i32 @negate(i32 %a) {
 ; CHECK-LABEL: negate:
-; CHECK: neg
+; CHECK: xor xde, -1
+; CHECK: inc 1, xde
   %r = sub i32 0, %a
   ret i32 %r
 }
 
-; CPL: bitwise NOT
+; CPL: bitwise NOT — expanded to XOR with -1 (invalid in E8 32-bit table)
 define i32 @bitwise_not(i32 %a) {
 ; CHECK-LABEL: bitwise_not:
-; CHECK: cpl
+; CHECK: xor xde, -1
   %r = xor i32 %a, -1
   ret i32 %r
 }
@@ -67,26 +68,26 @@ define i32 @zext_i16(i32 %a) {
   ret i32 %r
 }
 
-; SET bit: OR with power of 2
+; SET bit: OR with power of 2 — uses OR32ri (SET32 invalid in E8 table)
 define i32 @set_bit3(i32 %a) {
 ; CHECK-LABEL: set_bit3:
-; CHECK: set 3
+; CHECK: or xde, 8
   %r = or i32 %a, 8
   ret i32 %r
 }
 
-; RES bit: AND with ~(power of 2)
+; RES bit: AND with ~(power of 2) — uses AND32ri (RES32 invalid in E8 table)
 define i32 @res_bit5(i32 %a) {
 ; CHECK-LABEL: res_bit5:
-; CHECK: res 5
+; CHECK: and xde, -33
   %r = and i32 %a, -33
   ret i32 %r
 }
 
-; CHG bit: XOR with power of 2
+; CHG bit: XOR with power of 2 — uses XOR32ri (CHG32 invalid in E8 table)
 define i32 @chg_bit7(i32 %a) {
 ; CHECK-LABEL: chg_bit7:
-; CHECK: chg 7, xde
+; CHECK: xor xde, 128
   %r = xor i32 %a, 128
   ret i32 %r
 }

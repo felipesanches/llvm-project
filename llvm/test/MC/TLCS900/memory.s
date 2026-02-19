@@ -44,15 +44,8 @@ xor (xhl+2), xde
 ; CHECK: cp	(xhl), xwa
 cp (xhl), xwa
 
-; CHECK: cp	(xsp+4), 100
-cp (xsp+4), 100
-
-; Memory-immediate arithmetic
-; CHECK: add	(xhl), 1
-add (xhl), 1
-
-; CHECK: sub	(xsp+8), 10
-sub (xsp+8), 10
+; Note: Memory-immediate CP/ADD/SUB are invalid in the 32-bit A0 table.
+; These are now isCodeGenOnly and not testable in assembly.
 
 ; Load effective address
 ; CHECK: lda	xwa, (xsp+64)

@@ -93,7 +93,7 @@ class Pseudo<dag outs, dag ins, list<dag> pattern,
 // Single-byte instructions (no prefix, no operands in encoding)
 //===----------------------------------------------------------------------===//
 
-// SingleByteInst: 1 byte, opcode only (NOP, RET, HALT, DI, RETI)
+// SingleByteInst: 1 byte, opcode only (NOP, RET, HALT, RETI)
 class SingleByteInst<bits<8> opc, dag outs, dag ins, string opcodestr,
                      string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
@@ -345,11 +345,12 @@ class PrefixPopInst<bits<8> opc, dag outs, dag ins, string opcodestr,
   let Size = 2;
 }
 
-// BlockTransferInst: single-byte block operations (LDI, LDIR, etc.)
+// BlockTransferInst: 2-byte block operations (LDI, LDIR, etc.)
+// Encoding: 0x80 prefix (byte-wide source memory, register 0) + sub-opcode
 class BlockTransferInst<bits<8> opc, dag outs, dag ins, string opcodestr,
                         string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatBlockTransfer.Value;
   let Opcode = opc;
-  let Size = 1;
+  let Size = 2;
 }

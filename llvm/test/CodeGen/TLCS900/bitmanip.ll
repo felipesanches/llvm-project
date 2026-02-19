@@ -1,11 +1,13 @@
 ; RUN: llc -mtriple=tlcs900 < %s | FileCheck %s
 
 ; Test bit manipulation patterns
+; SET32/RES32/CHG32 are invalid in the E8 (32-bit) prefix table.
+; ISel now uses the generic OR32ri/AND32ri/XOR32ri immediate forms.
 
-; SET: or with power-of-2 → set instruction
+; SET: or with power-of-2 → or immediate
 define i32 @set_bit3(i32 %a) {
 ; CHECK-LABEL: set_bit3:
-; CHECK:       set 3, xde
+; CHECK:       or xde, 8
 ; CHECK:       ret
   %r = or i32 %a, 8
   ret i32 %r
@@ -13,7 +15,7 @@ define i32 @set_bit3(i32 %a) {
 
 define i32 @set_bit0(i32 %a) {
 ; CHECK-LABEL: set_bit0:
-; CHECK:       set 0, xde
+; CHECK:       or xde, 1
 ; CHECK:       ret
   %r = or i32 %a, 1
   ret i32 %r
@@ -21,16 +23,16 @@ define i32 @set_bit0(i32 %a) {
 
 define i32 @set_bit31(i32 %a) {
 ; CHECK-LABEL: set_bit31:
-; CHECK:       set 31, xde
+; CHECK:       or xde, -2147483648
 ; CHECK:       ret
   %r = or i32 %a, -2147483648
   ret i32 %r
 }
 
-; RES: and with ~power-of-2 → res instruction
+; RES: and with ~power-of-2 → and immediate
 define i32 @clear_bit3(i32 %a) {
 ; CHECK-LABEL: clear_bit3:
-; CHECK:       res 3, xde
+; CHECK:       and xde, -9
 ; CHECK:       ret
   %r = and i32 %a, -9
   ret i32 %r
@@ -38,16 +40,16 @@ define i32 @clear_bit3(i32 %a) {
 
 define i32 @clear_bit0(i32 %a) {
 ; CHECK-LABEL: clear_bit0:
-; CHECK:       res 0, xde
+; CHECK:       and xde, -2
 ; CHECK:       ret
   %r = and i32 %a, -2
   ret i32 %r
 }
 
-; CHG: xor with power-of-2 → chg instruction
+; CHG: xor with power-of-2 → xor immediate
 define i32 @toggle_bit4(i32 %a) {
 ; CHECK-LABEL: toggle_bit4:
-; CHECK:       chg 4, xde
+; CHECK:       xor xde, 16
 ; CHECK:       ret
   %r = xor i32 %a, 16
   ret i32 %r
@@ -55,7 +57,7 @@ define i32 @toggle_bit4(i32 %a) {
 
 define i32 @toggle_bit7(i32 %a) {
 ; CHECK-LABEL: toggle_bit7:
-; CHECK:       chg 7, xde
+; CHECK:       xor xde, 128
 ; CHECK:       ret
   %r = xor i32 %a, 128
   ret i32 %r

@@ -29,7 +29,7 @@ namespace TLCS900II {
 // Instruction encoding format classes.
 enum InstFormat : uint8_t {
   Pseudo = 0,        // No encoding (pseudo-instructions)
-  SingleByte,        // 1-byte instruction (NOP, RET, HALT, DI, RETI)
+  SingleByte,        // 1-byte instruction (NOP, RET, HALT, RETI)
   SingleByteImm8,    // 1-byte opcode + 8-bit immediate (EI, SWI)
   SingleByteReg,     // Opcode embeds register in bits 0-2 (PUSH r32, POP r32)
   SingleByteRegImm,  // Opcode+reg + immediate (LD r32, #imm32)
@@ -55,7 +55,7 @@ enum InstFormat : uint8_t {
   PrefixLDImm,       // Reg prefix + 0x03 + immediate (LD R, #imm via prefix)
   PrefixPush,        // Reg prefix + 0x04 (PUSH via prefix)
   PrefixPop,         // Reg prefix + 0x05 (POP via prefix)
-  BlockTransfer,     // Single-byte block transfer (LDI, LDIR, LDD, LDDR, etc.)
+  BlockTransfer,     // 2-byte block transfer: 0x80 prefix + sub-opcode (LDI, LDIR, etc.)
 };
 
 // TSFlags bit field positions and masks.

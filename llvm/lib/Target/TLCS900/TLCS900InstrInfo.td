@@ -384,13 +384,17 @@ def : Pat<(sube GPR:$rs1, (imm):$imm), (SBC32ri GPR:$rs1, (imm):$imm)>;
 let Constraints = "$rd = $rs1", Defs = [SR] in {
 
 // NEG rd — Negate: rd = 0 - rd (affects all flags)
-// Encoding: E8+rd, 0x07 (2 bytes)
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+// isCodeGenOnly: 32-bit NEG is expanded to XOR + INC by ISel patterns.
+let isCodeGenOnly = 1 in
 def NEG32 : PrefixUnaryInst<0x07, (outs GPR:$rd), (ins GPR:$rs1),
                             "neg", "$rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // CPL rd — Complement (bitwise NOT): rd = ~rd (affects H=1, N=1)
-// Encoding: E8+rd, 0x06 (2 bytes)
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+// isCodeGenOnly: 32-bit CPL is expanded to XOR with -1 by ISel patterns.
+let isCodeGenOnly = 1 in
 def CPL32 : PrefixUnaryInst<0x06, (outs GPR:$rd), (ins GPR:$rs1),
                             "cpl", "$rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
@@ -426,15 +430,19 @@ def EXTZ32 : PrefixUnaryInst<0x12, (outs GPR:$rd), (ins GPR:$rs1),
 
 // DAA rd — Decimal Adjust after Addition (BCD) (affects all flags)
 // Reads N and H flags from prior arithmetic to determine BCD correction.
-// Encoding: E8+rd, 0x10 (2 bytes)
-let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR] in
+// Only valid in C8 (8-bit) prefix table, NOT D8 (16-bit) or E8 (32-bit).
+// isCodeGenOnly: DAA is only meaningful for 8-bit BCD operations.
+let Constraints = "$rd = $rs1", Defs = [SR], Uses = [SR], isCodeGenOnly = 1 in
 def DAA32 : PrefixUnaryInst<0x10, (outs GPR:$rd), (ins GPR:$rs1),
                             "daa", "$rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // Patterns for NEG and CPL
-def : Pat<(sub 0, GPR:$rs), (NEG32 GPR:$rs)>;
-def : Pat<(not GPR:$rs), (CPL32 GPR:$rs)>;
+// NEG32 and CPL32 are invalid in the E8 (32-bit) prefix table.
+// Expand NEG (0 - x) to: XOR x, -1 (bitwise NOT) then INC 1 (two's complement).
+def : Pat<(sub 0, GPR:$rs), (INC32 (XOR32ri GPR:$rs, -1), 1)>;
+// Expand CPL (bitwise NOT) to: XOR x, -1 (all ones).
+def : Pat<(not GPR:$rs), (XOR32ri GPR:$rs, -1)>;
 
 // Pattern for EXTS: sign extend from i16 to i32
 def : Pat<(sext_inreg GPR:$rs, i16), (EXTS32 GPR:$rs)>;
@@ -637,9 +645,9 @@ def RET : SingleByteInst<0x0E, (outs), (ins),
 let Defs = [XSP], Uses = [XSP], hasSideEffects = 0 in {
 
 // PUSH rs — Push 32-bit register to stack (pre-decrement SP, store)
-// Encoding: 0x48+r (1 byte)
+// Encoding: 0x38+r (1 byte)
 let mayStore = 1 in
-def PUSH32 : SingleByteRegInst<0x48, (outs), (ins GPR:$rs),
+def PUSH32 : SingleByteRegInst<0x38, (outs), (ins GPR:$rs),
                                "push", "$rs", []>,
              Sched<[WritePush]>;
 
@@ -711,21 +719,19 @@ def NOP : SingleByteInst<0x00, (outs), (ins), "nop", "", []>,
           Sched<[WriteNop]>;
 
 // HALT — Halt CPU until interrupt
-// Encoding: 0x06 (1 byte)
-def HALT : SingleByteInst<0x06, (outs), (ins), "halt", "", []>,
+// Encoding: 0x05 (1 byte)
+def HALT : SingleByteInst<0x05, (outs), (ins), "halt", "", []>,
            Sched<[WriteNop]>;
 
-// DI — Disable interrupts
-// Encoding: 0x07 (1 byte)
-def DI : SingleByteInst<0x07, (outs), (ins), "di", "", []>,
-         Sched<[WriteNop]>;
-
-// EI — Enable interrupts (with level)
-// Encoding: 0x08+level (1 byte, level encoded in bits 0-2)
-// Using SingleByteImm8 as a close approximation; encoder handles specially.
-def EI : SingleByteImm8Inst<0x08, (outs), (ins i32imm:$level),
+// EI — Enable/disable interrupts (with level)
+// Encoding: 0x06, level (2 bytes — opcode then level byte)
+def EI : SingleByteImm8Inst<0x06, (outs), (ins i32imm:$level),
                             "ei", "$level", []>,
          Sched<[WriteNop]>;
+
+// DI is an alias for EI 0 (setting interrupt level to 0 disables interrupts).
+// There is no separate DI opcode in the TLCS-900/H instruction set.
+def : InstAlias<"di", (EI 0)>;
 
 // SWI — Software interrupt (with vector number)
 // Encoding: 0xF8+num (1 byte, num in bits 0-2)
@@ -735,9 +741,9 @@ def SWI : SingleByteImm8Inst<0xF8, (outs), (ins i32imm:$num),
           Sched<[WriteJmp]>;
 
 // RETI — Return from interrupt (pops SR then PC from stack)
-// Encoding: 0x0B (1 byte)
+// Encoding: 0x07 (1 byte)
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
-def RETI : SingleByteInst<0x0B, (outs), (ins), "reti", "", []>,
+def RETI : SingleByteInst<0x07, (outs), (ins), "reti", "", []>,
            Sched<[WriteJmp]>;
 
 // RETD — Return and deallocate stack space
@@ -785,36 +791,36 @@ def RR32 : PrefixRotateInst<0xEB, (outs GPR:$rd), (ins GPR:$rs1),
 //===----------------------------------------------------------------------===//
 
 // BIT #bit, rd — Test bit (set Z flag; effect captured by Defs)
-// Encoding: E8+rs, 0x33, bit_num (3 bytes)
-let Defs = [SR], hasSideEffects = 0 in
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+let Defs = [SR], hasSideEffects = 0, isCodeGenOnly = 1 in
 def BIT32 : PrefixBitInst<0x33, (outs), (ins i32imm:$bit, GPR:$rs),
                           "bit", "$bit, $rs", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // SET #bit, rd — Set bit (pure computation on register)
-// Encoding: E8+rd, 0x31, bit_num (3 bytes)
-let Constraints = "$rd = $rs1", hasSideEffects = 0 in
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+let Constraints = "$rd = $rs1", hasSideEffects = 0, isCodeGenOnly = 1 in
 def SET32 : PrefixBitInst<0x31, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                           "set", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // RES #bit, rd — Reset (clear) bit (pure computation on register)
-// Encoding: E8+rd, 0x30, bit_num (3 bytes)
-let Constraints = "$rd = $rs1", hasSideEffects = 0 in
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+let Constraints = "$rd = $rs1", hasSideEffects = 0, isCodeGenOnly = 1 in
 def RES32 : PrefixBitInst<0x30, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                           "res", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // CHG #bit, rd — Change (toggle) bit (pure computation on register)
-// Encoding: E8+rd, 0x32, bit_num (3 bytes)
-let Constraints = "$rd = $rs1", hasSideEffects = 0 in
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+let Constraints = "$rd = $rs1", hasSideEffects = 0, isCodeGenOnly = 1 in
 def CHG32 : PrefixBitInst<0x32, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                           "chg", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
 // TSET #bit, rd — Test and set bit (set Z flag, then set the bit)
-// Encoding: E8+rd, 0x34, bit_num (3 bytes)
-let Constraints = "$rd = $rs1", Defs = [SR], hasSideEffects = 0 in
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+let Constraints = "$rd = $rs1", Defs = [SR], hasSideEffects = 0, isCodeGenOnly = 1 in
 def TSET32 : PrefixBitInst<0x34, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
                            "tset", "$bit, $rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
@@ -824,8 +830,10 @@ def TSET32 : PrefixBitInst<0x34, (outs GPR:$rd), (ins i32imm:$bit, GPR:$rs1),
 //===----------------------------------------------------------------------===//
 
 // EX rd, rs — Exchange contents of two registers (no side effects)
-// Encoding: E8+rs, 0xB8+rd (2 bytes) — using LD R,C form variant
-let Constraints = "$rd_out = $rd_in, $rs_out = $rs_in", hasSideEffects = 0 in
+// Only valid in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+// isCodeGenOnly: no ISel patterns use this; kept for future pseudo expansion.
+let Constraints = "$rd_out = $rd_in, $rs_out = $rs_in", hasSideEffects = 0,
+    isCodeGenOnly = 1 in
 def EX32 : PrefixRegRegInst<0xB8, (outs GPR:$rd_out, GPR:$rs_out),
                             (ins GPR:$rd_in, GPR:$rs_in),
                             "ex", "$rd_out, $rs_out", []>,
@@ -847,8 +855,11 @@ def LDA32 : MemLoadDstInst<0x30, 4, (outs GPR:$rd), (ins MEMri:$addr),
 //===----------------------------------------------------------------------===//
 
 // DJNZ rd, target — Decrement and jump if not zero (modifies flags)
-// Encoding: E8+rd, 0x1C, d8 (3 bytes)
-let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR] in
+// Encoding: D8+rd, 0x1C, d8 (3 bytes) — uses 16-bit prefix (D8)
+// DJNZ only exists in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
+// We use OpSize16 so the encoder emits a D8 prefix, decrementing the low 16 bits.
+let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR],
+    OpSize = OpSize16.Value in
 def DJNZ32 : PrefixDJNZInst<0x1C, (outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
                              "djnz", "$rd, $target", []>,
              Sched<[WriteIALU, WriteJmp]>;
@@ -902,28 +913,29 @@ def CP32mr : MemALUInst<0xF8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
                         [(tlcs900_cmp (load addr:$addr), GPR:$rs)]>,
              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
 
-// CP (mem), #imm — Compare memory with immediate (folds load into compare)
+// CP (mem), #imm — Compare memory with immediate
+// Invalid for 32-bit: A0 table has no memory-immediate ALU (0x38-0x3F are DB).
+// isCodeGenOnly: ISel will generate LD tmp,(mem); CP tmp,#imm instead.
+let isCodeGenOnly = 1 in
 def CP32mi : MemALUInst<0xCF, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
-                        "cp", "$addr, $imm",
-                        [(tlcs900_cmp (i32 (load addr:$addr)), (i32 (imm):$imm))]>,
+                        "cp", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 
 } // Defs = [SR]
 
-// ADD/SUB memory-immediate: also read-modify-write
-let Defs = [SR], mayLoad = 1, mayStore = 1 in {
+// ADD/SUB memory-immediate: invalid for 32-bit (A0 table has no mem-imm ALU).
+// isCodeGenOnly: ISel will generate LD tmp,(mem); ADD/SUB tmp,#imm; ST (mem),tmp.
+let Defs = [SR], mayLoad = 1, mayStore = 1, isCodeGenOnly = 1 in {
 
-// ADD (mem), #imm — Add immediate to memory location (read-modify-write)
 def ADD32mi : MemALUInst<0xC8, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
                          "add", "$addr, $imm", []>,
               Sched<[WriteSTW, ReadMemBase]>;
 
-// SUB (mem), #imm — Subtract immediate from memory location (read-modify-write)
 def SUB32mi : MemALUInst<0xCA, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
                          "sub", "$addr, $imm", []>,
               Sched<[WriteSTW, ReadMemBase]>;
 
-} // Defs = [SR], mayLoad, mayStore
+} // Defs = [SR], mayLoad, mayStore, isCodeGenOnly
 
 // Memory-ALU isel patterns: fold load+op+store into CISC read-modify-write.
 // Matches (store (op (load addr), val), addr) → OP32mr addr, val.
@@ -939,11 +951,14 @@ def : Pat<(store (or (load addr:$a), GPR:$v), addr:$a),
 def : Pat<(store (xor (load addr:$a), GPR:$v), addr:$a),
           (XOR32mr addr:$a, GPR:$v)>;
 
-// Memory-immediate patterns for ADD and SUB.
-def : Pat<(store (add (load addr:$a), (i32 imm:$v)), addr:$a),
-          (ADD32mi addr:$a, imm:$v)>;
-def : Pat<(store (sub (load addr:$a), (i32 imm:$v)), addr:$a),
-          (SUB32mi addr:$a, imm:$v)>;
+// Note: Memory-immediate ADD/SUB patterns removed because these instructions
+// are invalid in the A0 (32-bit source memory) table. ISel will naturally
+// decompose these as: LD tmp,(mem); ADD/SUB tmp,#imm; ST (mem),tmp.
+
+// Compare memory with immediate: expand to LD + CP since CP32mi is invalid
+// in the 32-bit A0 table.
+def : Pat<(tlcs900_cmp (i32 (load addr:$a)), (i32 (imm):$v)),
+          (CP32ri (LD32rm addr:$a), imm:$v)>;
 
 //===----------------------------------------------------------------------===//
 // Multiply / Divide
@@ -1039,15 +1054,9 @@ def Log2Not_32 : SDNodeXForm<imm, [{
     (~N->getAPIntValue()).exactLogBase2(), SDLoc(N), MVT::i32);
 }]>;
 
-// SET: x | (1 << n) → set bit n
-def : Pat<(or GPR:$rs, IsPow2_32:$mask), (SET32 (Log2_32 $mask), GPR:$rs)>;
-
-// RES: x & ~(1 << n) → reset bit n
-def : Pat<(and GPR:$rs, IsNotPow2_32:$mask),
-          (RES32 (Log2Not_32 $mask), GPR:$rs)>;
-
-// CHG: x ^ (1 << n) → toggle bit n
-def : Pat<(xor GPR:$rs, IsPow2_32:$mask), (CHG32 (Log2_32 $mask), GPR:$rs)>;
+// Note: SET32/RES32/CHG32 are invalid in the E8 (32-bit) prefix table.
+// Power-of-2 OR/AND/XOR patterns will naturally select OR32ri/AND32ri/XOR32ri
+// which are valid 32-bit instructions.
 
 //===----------------------------------------------------------------------===//
 // Compare/Search Block Instructions
