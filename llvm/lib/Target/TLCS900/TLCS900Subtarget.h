@@ -26,6 +26,11 @@
 namespace llvm {
 class TLCS900Subtarget : public TLCS900GenSubtargetInfo {
 protected:
+  // Subtarget feature flags — set by ParseSubtargetFeatures (auto-generated).
+  bool HasHWMul = false;
+  bool HasMinMax = false;
+  bool HasMDMA = false;
+
   SelectionDAGTargetInfo TSInfo;
   TLCS900InstrInfo InstrInfo;
   TLCS900FrameLowering FrameLowering;
@@ -71,6 +76,11 @@ public:
   unsigned getMaxInlineSizeThreshold() const {
     return 64;
   }
+
+  // Feature queries.
+  bool hasHWMul() const { return HasHWMul; }
+  bool hasMinMax() const { return HasMinMax; }
+  bool hasMDMA() const { return HasMDMA; }
 };
 }
 
