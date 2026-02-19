@@ -58,6 +58,8 @@ bool TLCS900DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
       SDValue PossibleBase = Addr.getOperand(0);
       if (auto *FIN = dyn_cast<FrameIndexSDNode>(PossibleBase))
         Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i32);
+      else if (PossibleBase.getOpcode() == TLCS900ISD::Wrapper)
+        Base = PossibleBase.getOperand(0);
       else
         Base = PossibleBase;
       Offset =

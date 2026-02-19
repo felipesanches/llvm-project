@@ -6,16 +6,16 @@
 
 define i32 @hw_div(i32 %dividend, i32 %divisor) {
 ; CHECK-LABEL: hw_div:
-; CHECK:       div
+; CHECK:       div xwa, xbc
 ; CHECK:       ret
-  %result = call i32 asm "div $0, $1", "=r,r,0"(i32 %divisor, i32 %dividend)
+  %result = call i32 asm sideeffect "div xwa, xbc", "={xwa},{xwa},{xbc}"(i32 %dividend, i32 %divisor)
   ret i32 %result
 }
 
 define i32 @hw_divs(i32 %dividend, i32 %divisor) {
 ; CHECK-LABEL: hw_divs:
-; CHECK:       divs
+; CHECK:       divs xwa, xbc
 ; CHECK:       ret
-  %result = call i32 asm "divs $0, $1", "=r,r,0"(i32 %divisor, i32 %dividend)
+  %result = call i32 asm sideeffect "divs xwa, xbc", "={xwa},{xwa},{xbc}"(i32 %dividend, i32 %divisor)
   ret i32 %result
 }
