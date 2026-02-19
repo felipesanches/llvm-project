@@ -426,7 +426,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::Branch24: {
-    // 0x1C + 24-bit absolute address.
+    // 0x1B + 24-bit absolute address.
     CB.push_back(Opcode);
     const MCOperand &Target = MI.getOperand(0);
     if (Target.isImm()) {

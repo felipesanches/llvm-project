@@ -242,7 +242,7 @@ class MemALUInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
 // Branch and call instructions
 //===----------------------------------------------------------------------===//
 
-// Branch24Inst: 0x1C + 24-bit absolute address (JP nnn)
+// Branch24Inst: 0x1B + 24-bit absolute address (JP nnn)
 class Branch24Inst<bits<8> opc, dag outs, dag ins, string opcodestr,
                    string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {

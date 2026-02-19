@@ -518,9 +518,9 @@ def CP32ri : PrefixRegImmInst<0xCF, 6, (outs), (ins GPR:$rs1, i32imm:$imm),
 //===----------------------------------------------------------------------===//
 
 // JP target — Unconditional branch (absolute address)
-// Encoding: 0x1C, addr24 (4 bytes)
+// Encoding: 0x1B, addr24 (4 bytes)
 let isBranch = 1, isTerminator = 1, isBarrier = 1 in
-def JP : Branch24Inst<0x1C, (outs), (ins brtarget:$target),
+def JP : Branch24Inst<0x1B, (outs), (ins brtarget:$target),
                       "jp", "$target",
                       [(br bb:$target)]>,
          Sched<[WriteJmp]>;
