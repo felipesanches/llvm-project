@@ -98,11 +98,18 @@ public:
   void addMemriOperands(MCInst &Inst, unsigned N) const {
     assert(N == 2 && "Invalid number of operands!");
     assert(Kind == k_Memory);
-    Inst.addOperand(MCOperand::createReg(Mem.Base));
-    if (const auto *CE = dyn_cast<MCConstantExpr>(Mem.Disp))
-      Inst.addOperand(MCOperand::createImm(CE->getValue()));
-    else
+    if (Mem.Base) {
+      // Register-indirect: existing path
+      Inst.addOperand(MCOperand::createReg(Mem.Base));
+      if (const auto *CE = dyn_cast<MCConstantExpr>(Mem.Disp))
+        Inst.addOperand(MCOperand::createImm(CE->getValue()));
+      else
+        Inst.addOperand(MCOperand::createExpr(Mem.Disp));
+    } else {
+      // Direct memory: (addr_expr) — expression as base, 0 as disp
       Inst.addOperand(MCOperand::createExpr(Mem.Disp));
+      Inst.addOperand(MCOperand::createImm(0));
+    }
   }
 
   void addCondCodeOperands(MCInst &Inst, unsigned N) const {
@@ -269,7 +276,9 @@ ParseStatus TLCS900AsmParser::tryParseRegister(MCRegister &Reg,
   return ParseStatus::Success;
 }
 
-/// parseMemriOperand - Parse a memory operand: (reg), (reg+disp), (reg-disp)
+/// parseMemriOperand - Parse a memory operand:
+///   (reg), (reg+disp), (reg-disp) — register-indirect
+///   (symbol), (0x1234), (.equ_const) — direct memory addressing
 ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
   SMLoc S = getLexer().getLoc();
 
@@ -278,38 +287,47 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
 
   Parser.Lex(); // consume '('
 
-  // Parse base register
-  if (getLexer().isNot(AsmToken::Identifier))
-    return Error(getLexer().getLoc(), "expected register after '('");
+  // Try register-indirect: (reg) or (reg+disp)
+  MCRegister Reg;
+  if (getLexer().is(AsmToken::Identifier)) {
+    StringRef RegName = getLexer().getTok().getString();
+    Reg = MatchRegisterName(RegName.lower());
+    if (Reg) {
+      Parser.Lex(); // consume register
 
-  StringRef RegName = getLexer().getTok().getString();
-  MCRegister Reg = MatchRegisterName(RegName.lower());
-  if (!Reg)
-    return Error(getLexer().getLoc(), "expected register after '('");
+      const MCExpr *Disp = MCConstantExpr::create(0, getContext());
+      if (getLexer().is(AsmToken::Plus)) {
+        Parser.Lex(); // consume '+'
+        if (getParser().parseExpression(Disp))
+          return ParseStatus::Failure;
+      } else if (getLexer().is(AsmToken::Minus)) {
+        // parseExpression handles the negative sign
+        if (getParser().parseExpression(Disp))
+          return ParseStatus::Failure;
+      }
 
-  Parser.Lex(); // consume register
+      if (getLexer().isNot(AsmToken::RParen))
+        return Error(getLexer().getLoc(), "expected ')'");
 
-  // Parse optional displacement
-  const MCExpr *Disp = MCConstantExpr::create(0, getContext());
-
-  if (getLexer().is(AsmToken::Plus)) {
-    Parser.Lex(); // consume '+'
-    if (getParser().parseExpression(Disp))
-      return ParseStatus::Failure;
-  } else if (getLexer().is(AsmToken::Minus)) {
-    // parseExpression handles the negative sign
-    if (getParser().parseExpression(Disp))
-      return ParseStatus::Failure;
+      SMLoc E = SMLoc::getFromPointer(getLexer().getLoc().getPointer() + 1);
+      Parser.Lex(); // consume ')'
+      Operands.push_back(TLCS900Operand::createMem(Reg, Disp, S, E));
+      return ParseStatus::Success;
+    }
+    // Not a register — fall through to expression parsing
   }
 
-  // Expect closing ')'
+  // Direct memory: (symbol), (0x1234), (.equ_const)
+  const MCExpr *Addr;
+  if (getParser().parseExpression(Addr))
+    return ParseStatus::Failure;
+
   if (getLexer().isNot(AsmToken::RParen))
     return Error(getLexer().getLoc(), "expected ')'");
 
   SMLoc E = SMLoc::getFromPointer(getLexer().getLoc().getPointer() + 1);
   Parser.Lex(); // consume ')'
-
-  Operands.push_back(TLCS900Operand::createMem(Reg, Disp, S, E));
+  Operands.push_back(TLCS900Operand::createMem(MCRegister(), Addr, S, E));
   return ParseStatus::Success;
 }
 
