@@ -17,6 +17,7 @@
 
 #include "TLCS900MCCodeEmitter.h"
 #include "TLCS900BaseInfo.h"
+#include "TLCS900FixupKinds.h"
 #include "TLCS900MCTargetDesc.h"
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCInst.h"
@@ -105,8 +106,9 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     // Emit 24-bit address with fixup.  If there's a displacement (e.g.
     // global+offset), we'd need to fold it into the symbol expression,
     // but in practice the ISel folds offsets into the symbol operand.
-    Fixups.push_back(
-        MCFixup::create(CB.size(), BaseOp.getExpr(), FK_Data_4));
+    Fixups.push_back(MCFixup::create(
+        CB.size(), BaseOp.getExpr(),
+        (MCFixupKind)TLCS900::fixup_tlcs900_24));
     emitImmediate(Disp, 3, CB);
     return 4;
   }
@@ -400,7 +402,8 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm()) {
       emitImmediate(Target.getImm(), 3, CB);
     } else {
-      emitFixup(MI, Target, CB.size(), FK_Data_4, CB, Fixups);
+      emitFixup(MI, Target, CB.size(),
+                (MCFixupKind)TLCS900::fixup_tlcs900_24, CB, Fixups);
     }
     break;
   }
@@ -473,7 +476,8 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm()) {
       emitImmediate(Target.getImm(), 3, CB);
     } else {
-      emitFixup(MI, Target, CB.size(), FK_Data_4, CB, Fixups);
+      emitFixup(MI, Target, CB.size(),
+                (MCFixupKind)TLCS900::fixup_tlcs900_24, CB, Fixups);
     }
     break;
   }
