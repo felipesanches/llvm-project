@@ -31,6 +31,7 @@ enum NodeType {
   SELECT_CC,  // Conditional select (reads flags)
   SCC,        // Set condition code (reads flags, produces 0/1)
   MUL16,      // 16x16→32 unsigned multiply (hardware MUL instruction)
+  Wrapper,    // Wraps target-specific address nodes for materialization
 };
 }
 

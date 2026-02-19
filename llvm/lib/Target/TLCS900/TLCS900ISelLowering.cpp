@@ -150,6 +150,7 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case TLCS900ISD::SELECT_CC: return "TLCS900ISD::SELECT_CC";
   case TLCS900ISD::SCC:       return "TLCS900ISD::SCC";
   case TLCS900ISD::MUL16:     return "TLCS900ISD::MUL16";
+  case TLCS900ISD::Wrapper:   return "TLCS900ISD::Wrapper";
   default:                    return nullptr;
   }
 }
@@ -380,7 +381,8 @@ SDValue
 TLCS900TargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
   auto *N = cast<JumpTableSDNode>(Op);
-  return DAG.getTargetJumpTable(N->getIndex(), MVT::i32);
+  SDValue Result = DAG.getTargetJumpTable(N->getIndex(), MVT::i32);
+  return DAG.getNode(TLCS900ISD::Wrapper, DL, MVT::i32, Result);
 }
 
 //===----------------------------------------------------------------------===//

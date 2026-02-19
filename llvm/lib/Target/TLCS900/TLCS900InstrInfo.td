@@ -58,6 +58,9 @@ def SDT_TLCS900Mul16 : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
                                               SDTCisVT<2, i32>]>;
 def tlcs900_mul16 : SDNode<"TLCS900ISD::MUL16", SDT_TLCS900Mul16>;
 
+// Wrapper for materializing target-specific addresses into registers
+def tlcs900_wrapper : SDNode<"TLCS900ISD::Wrapper", SDTIntUnaryOp>;
+
 // Call sequence markers
 def SDT_CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>,
                                        SDTCisVT<1, i32>]>;
@@ -202,7 +205,7 @@ def LD8mr : MemStoreInst<0x40, 3, (outs), (ins MEMri:$addr, GPR_lo8:$rs),
 def : Pat<(i32 tglobaladdr:$addr), (LD32ri tglobaladdr:$addr)>;
 def : Pat<(i32 texternalsym:$addr), (LD32ri texternalsym:$addr)>;
 def : Pat<(i32 tblockaddress:$addr), (LD32ri tblockaddress:$addr)>;
-def : Pat<(i32 tjumptable:$addr), (LD32ri tjumptable:$addr)>;
+def : Pat<(tlcs900_wrapper tjumptable:$addr), (LD32ri tjumptable:$addr)>;
 
 //===----------------------------------------------------------------------===//
 // Arithmetic Instructions (two-address: rd = rd op rs)
