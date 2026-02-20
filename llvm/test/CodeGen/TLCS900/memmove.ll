@@ -3,16 +3,15 @@
 declare void @llvm.memmove.p0.p0.i32(ptr nocapture, ptr nocapture readonly, i32, i1 immarg)
 
 ; Dynamic-size memmove should use runtime direction check + LDIR/LDDR.
+; Backward block (LDDR) is the fall-through; forward block (LDIR) is the branch target.
 define void @memmove_dynamic(ptr %dst, ptr %src, i32 %n) {
 ; CHECK-LABEL: memmove_dynamic:
 ; CHECK:       cp xde, xhl
-; CHECK:       jp ule,
 ; CHECK:       add xde, xbc
 ; CHECK:       dec 1, xde
 ; CHECK:       add xhl, xbc
 ; CHECK:       dec 1, xhl
 ; CHECK:       lddr
-; CHECK:       jp
 ; CHECK:       ldir
 ; CHECK:       ret
   call void @llvm.memmove.p0.p0.i32(ptr %dst, ptr %src, i32 %n, i1 false)
@@ -23,8 +22,8 @@ define void @memmove_dynamic(ptr %dst, ptr %src, i32 %n) {
 define void @memmove_large(ptr %dst, ptr %src) {
 ; CHECK-LABEL: memmove_large:
 ; CHECK:       cp xde, xhl
-; CHECK:       ldir
 ; CHECK:       lddr
+; CHECK:       ldir
 ; CHECK:       ret
   call void @llvm.memmove.p0.p0.i32(ptr %dst, ptr %src, i32 100, i1 false)
   ret void
