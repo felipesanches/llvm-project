@@ -36,7 +36,7 @@ define i32 @and_imm(i32 %a) {
 
 define i32 @or_imm(i32 %a) {
 ; CHECK-LABEL: or_imm:
-; CHECK:       or xde, 128
+; CHECK:       set 7, de
 ; CHECK:       ret
   %c = or i32 %a, 128
   ret i32 %c

@@ -1323,6 +1323,25 @@ def RR16 : PrefixRotateInst<0xEB, (outs GR16:$rd), (ins GR16:$rs1),
 
 } // Constraints, Defs, Uses
 
+// --- Bit manipulation (for peephole optimization pass) ---
+
+// 16-bit SET/RES/CHG used by TLCS900BitManipOpt to replace 6-byte OR32ri/
+// AND32ri/XOR32ri with power-of-2 immediates with 3-byte bit instructions.
+// These do NOT set flags (no Defs = [SR]).
+let Constraints = "$rd = $rs1", hasSideEffects = 0, isCodeGenOnly = 1 in {
+def SET16 : PrefixBitInst<0x31, (outs GR16:$rd), (ins i32imm:$bit, GR16:$rs1),
+                           "set", "$bit, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+def RES16 : PrefixBitInst<0x30, (outs GR16:$rd), (ins i32imm:$bit, GR16:$rs1),
+                           "res", "$bit, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+def CHG16 : PrefixBitInst<0x32, (outs GR16:$rd), (ins i32imm:$bit, GR16:$rs1),
+                           "chg", "$bit, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+} // Constraints, hasSideEffects, isCodeGenOnly
+
 } // OpSize = OpSize16.Value
 
 //===----------------------------------------------------------------------===//

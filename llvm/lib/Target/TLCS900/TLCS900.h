@@ -24,6 +24,7 @@ namespace llvm {
   void initializeTLCS900DAGToDAGISelLegacyPass(PassRegistry &);
 
   FunctionPass *createTLCS900BranchShorteningPass();
+  FunctionPass *createTLCS900BitManipOptPass();
   FunctionPass *createTLCS900DJNZOptPass();
   FunctionPass *createTLCS900RedundantCmpElimPass();
 

@@ -21,12 +21,12 @@ define void @memcpy_dynamic(ptr %dst, ptr %src, i32 %n) {
   ret void
 }
 
-; Small constant-size (8 bytes = 2 stores) should be inlined, not LDIR.
+; Small aligned constant-size (8 bytes = 2 i32 stores) should be inlined, not LDIR.
 define void @memcpy_small(ptr %dst, ptr %src) {
 ; CHECK-LABEL: memcpy_small:
 ; CHECK-NOT:   ldir
 ; CHECK:       ret
-  call void @llvm.memcpy.p0.p0.i32(ptr %dst, ptr %src, i32 8, i1 false)
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %dst, ptr align 4 %src, i32 8, i1 false)
   ret void
 }
 

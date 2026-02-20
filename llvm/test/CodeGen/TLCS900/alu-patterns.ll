@@ -68,26 +68,26 @@ define i32 @zext_i16(i32 %a) {
   ret i32 %r
 }
 
-; SET bit: OR with power of 2 — uses OR32ri (SET32 invalid in E8 table)
+; SET bit: OR with power of 2, bit < 16 → SET16 via peephole
 define i32 @set_bit3(i32 %a) {
 ; CHECK-LABEL: set_bit3:
-; CHECK: or xde, 8
+; CHECK: set 3, de
   %r = or i32 %a, 8
   ret i32 %r
 }
 
-; RES bit: AND with ~(power of 2) — uses AND32ri (RES32 invalid in E8 table)
+; RES bit: AND with ~(power of 2), bit < 16 → RES16 via peephole
 define i32 @res_bit5(i32 %a) {
 ; CHECK-LABEL: res_bit5:
-; CHECK: and xde, -33
+; CHECK: res 5, de
   %r = and i32 %a, -33
   ret i32 %r
 }
 
-; CHG bit: XOR with power of 2 — uses XOR32ri (CHG32 invalid in E8 table)
+; CHG bit: XOR with power of 2, bit < 16 → CHG16 via peephole
 define i32 @chg_bit7(i32 %a) {
 ; CHECK-LABEL: chg_bit7:
-; CHECK: xor xde, 128
+; CHECK: chg 7, de
   %r = xor i32 %a, 128
   ret i32 %r
 }
