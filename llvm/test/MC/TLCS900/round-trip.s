@@ -169,16 +169,7 @@ and xwa, 255
 cp xde, 1000
 
 ; === 32-bit unary instructions ===
-
-; CHECK: neg xwa
-; CHECK-ENC: encoding: [0xe8,0x07]
-; CHECK-INST: neg xwa
-neg xwa
-
-; CHECK: cpl xbc
-; CHECK-ENC: encoding: [0xe9,0x06]
-; CHECK-INST: cpl xbc
-cpl xbc
+; Note: NEG32, CPL32, DAA32 are isCodeGenOnly and cannot be assembled.
 
 ; CHECK: exts xwa
 ; CHECK-ENC: encoding: [0xe8,0x13]
