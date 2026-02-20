@@ -448,8 +448,10 @@ TLCS900TargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
   if (Depth != 0)
     return SDValue(); // Only support depth 0 for now.
 
-  // Return the current stack pointer (no frame pointer on TLCS-900).
-  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, TLCS900::XSP, MVT::i32);
+  // Return the frame pointer (XIZ) if available, otherwise the stack pointer.
+  const TLCS900RegisterInfo *RegInfo = Subtarget.getRegisterInfo();
+  Register FrameReg = RegInfo->getFrameRegister(DAG.getMachineFunction());
+  return DAG.getCopyFromReg(DAG.getEntryNode(), DL, FrameReg, MVT::i32);
 }
 
 //===----------------------------------------------------------------------===//

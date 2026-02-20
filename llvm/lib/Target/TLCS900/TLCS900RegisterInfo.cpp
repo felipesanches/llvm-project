@@ -12,6 +12,7 @@
 
 #include "TLCS900RegisterInfo.h"
 #include "TLCS900BaseInfo.h"
+#include "TLCS900FrameLowering.h"
 #include "TLCS900Subtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -52,6 +53,12 @@ BitVector TLCS900RegisterInfo::getReservedRegs(const MachineFunction &MF) const 
   Reserved.set(TLCS900::SR);             // Status register (flags)
   Reserved.set(TLCS900::PC);             // Program counter (DWARF only)
 
+  // When using a frame pointer, XIZ and its sub-registers are reserved.
+  const auto *TFI = static_cast<const TLCS900FrameLowering *>(
+      MF.getSubtarget().getFrameLowering());
+  if (TFI->hasFP(MF))
+    markSuperRegs(Reserved, TLCS900::XIZ);
+
   return Reserved;
 }
 
@@ -66,17 +73,33 @@ bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   const TLCS900InstrInfo &TII =
       *static_cast<const TLCS900InstrInfo *>(Subtarget.getInstrInfo());
 
+  const auto *TFI = static_cast<const TLCS900FrameLowering *>(
+      MF.getSubtarget().getFrameLowering());
+  bool HasFP = TFI->hasFP(MF);
+
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
-  int Offset = MFI.getObjectOffset(FrameIndex) + MFI.getStackSize();
+  int Offset;
+
+  if (HasFP) {
+    // FP-relative: XIZ = entry_SP - CSRSize - 4 (after CSR pushes and PUSH XIZ).
+    // Objects are at entry_SP + ObjectOffset (ObjectOffset is negative).
+    // So FP-relative offset = ObjectOffset + CSRSize + 4.
+    uint64_t CSRSize = MFI.getCalleeSavedInfo().size() * 4;
+    Offset = MFI.getObjectOffset(FrameIndex) + CSRSize + 4;
+  } else {
+    Offset = MFI.getObjectOffset(FrameIndex) + MFI.getStackSize();
+  }
   Offset += MI.getOperand(FIOperandNum + 1).getImm();
   Offset += SPAdj;
+
+  Register BaseReg = HasFP ? TLCS900::XIZ : TLCS900::XSP;
 
   // Check if offset fits in 8-bit signed displacement (-128..127).
   bool FitsInD8 = (Offset >= -128 && Offset <= 127);
 
   if (FitsInD8 || Offset == 0) {
     // Simple case: offset fits in d8 or is zero — direct encoding.
-    MI.getOperand(FIOperandNum).ChangeToRegister(TLCS900::XSP, false);
+    MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
     MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
     return false;
   }
@@ -94,7 +117,7 @@ bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
   if (!NeedsSrcMemTable) {
     // MemStore/MemLoadDst: F3+d16 dispatches to B0/F0 table — correct.
-    MI.getOperand(FIOperandNum).ChangeToRegister(TLCS900::XSP, false);
+    MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
     MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
     return false;
   }
@@ -110,9 +133,9 @@ bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
   DebugLoc DL = MI.getDebugLoc();
 
-  // Emit: LDA ScratchReg, (XSP + Offset)
+  // Emit: LDA ScratchReg, (BaseReg + Offset)
   BuildMI(MBB, II, DL, TII.get(TLCS900::LDA32), ScratchReg)
-      .addReg(TLCS900::XSP)
+      .addReg(BaseReg)
       .addImm(Offset);
 
   // Rewrite original instruction to use (ScratchReg + 0).
@@ -147,5 +170,7 @@ TLCS900RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const
 }
 
 Register TLCS900RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return TLCS900::XSP;
+  const auto *TFI = static_cast<const TLCS900FrameLowering *>(
+      MF.getSubtarget().getFrameLowering());
+  return TFI->hasFP(MF) ? TLCS900::XIZ : TLCS900::XSP;
 }
