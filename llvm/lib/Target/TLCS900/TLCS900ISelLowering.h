@@ -32,6 +32,7 @@ enum NodeType {
   SCC,        // Set condition code (reads flags, produces 0/1)
   MUL16,      // 16x16→32 unsigned multiply (hardware MUL instruction)
   Wrapper,    // Wraps target-specific address nodes for materialization
+  LDIR,       // Block transfer: copy XBC bytes from (XHL) to (XDE), incrementing
 };
 }
 

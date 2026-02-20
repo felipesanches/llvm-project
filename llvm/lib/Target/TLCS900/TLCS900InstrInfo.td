@@ -1097,6 +1097,16 @@ def Log2Not_32 : SDNodeXForm<imm, [{
 // which are valid 32-bit instructions.
 
 //===----------------------------------------------------------------------===//
+// Block Transfer ISel: LDIR for memcpy
+//===----------------------------------------------------------------------===//
+
+// LDIR SDNode: no explicit operands; XDE/XHL/XBC set via CopyToReg + glue.
+def tlcs900_ldir : SDNode<"TLCS900ISD::LDIR", SDTNone,
+                           [SDNPHasChain, SDNPInGlue, SDNPOutGlue,
+                            SDNPMayStore, SDNPMayLoad]>;
+def : Pat<(tlcs900_ldir), (LDIR)>;
+
+//===----------------------------------------------------------------------===//
 // Compare/Search Block Instructions
 //===----------------------------------------------------------------------===//
 

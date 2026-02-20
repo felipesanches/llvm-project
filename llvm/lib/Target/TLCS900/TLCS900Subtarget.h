@@ -16,7 +16,7 @@
 #include "TLCS900FrameLowering.h"
 #include "TLCS900ISelLowering.h"
 #include "TLCS900InstrInfo.h"
-#include "llvm/CodeGen/SelectionDAGTargetInfo.h"
+#include "TLCS900SelectionDAGInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DataLayout.h"
 
@@ -31,7 +31,7 @@ protected:
   bool HasMinMax = false;
   bool HasMDMA = false;
 
-  SelectionDAGTargetInfo TSInfo;
+  TLCS900SelectionDAGInfo TSInfo;
   TLCS900InstrInfo InstrInfo;
   TLCS900FrameLowering FrameLowering;
   TLCS900TargetLowering TLInfo;

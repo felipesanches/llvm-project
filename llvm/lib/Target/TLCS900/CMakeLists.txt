@@ -21,6 +21,7 @@ add_llvm_target(TLCS900CodeGen
   TLCS900FrameLowering.cpp
   TLCS900InstrInfo.cpp
   TLCS900ISelLowering.cpp
+  TLCS900SelectionDAGInfo.cpp
   TLCS900MachineFunction.cpp
   TLCS900RegisterInfo.cpp
   TLCS900Subtarget.cpp

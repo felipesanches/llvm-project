@@ -143,6 +143,15 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::VACOPY,  MVT::Other, Expand);
   setOperationAction(ISD::VAEND,   MVT::Other, Expand);
 
+  // Inline memcpy/memmove/memset thresholds (in number of stores).
+  // Beyond these, EmitTargetCodeForMemcpy emits LDIR (or falls back to libcall).
+  MaxStoresPerMemcpy = 4;
+  MaxStoresPerMemcpyOptSize = 2;
+  MaxStoresPerMemmove = 4;
+  MaxStoresPerMemmoveOptSize = 2;
+  MaxStoresPerMemset = 8;
+  MaxStoresPerMemsetOptSize = 4;
+
   setMinFunctionAlignment(Align(1));
   setPrefFunctionAlignment(Align(1));
   setPrefLoopAlignment(Align(1));
@@ -159,6 +168,7 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case TLCS900ISD::SCC:       return "TLCS900ISD::SCC";
   case TLCS900ISD::MUL16:     return "TLCS900ISD::MUL16";
   case TLCS900ISD::Wrapper:   return "TLCS900ISD::Wrapper";
+  case TLCS900ISD::LDIR:      return "TLCS900ISD::LDIR";
   default:                    return nullptr;
   }
 }
