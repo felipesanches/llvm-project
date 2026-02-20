@@ -1106,6 +1106,16 @@ def tlcs900_ldir : SDNode<"TLCS900ISD::LDIR", SDTNone,
                             SDNPMayStore, SDNPMayLoad]>;
 def : Pat<(tlcs900_ldir), (LDIR)>;
 
+// MEMMOVE SDNode: runtime direction check + LDIR or LDDR.
+def tlcs900_memmove : SDNode<"TLCS900ISD::MEMMOVE", SDTNone,
+                              [SDNPHasChain, SDNPInGlue, SDNPOutGlue,
+                               SDNPMayStore, SDNPMayLoad]>;
+
+// MEMMOVE_PSEUDO: expanded by custom inserter into CP+branch+LDIR/LDDR.
+let usesCustomInserter = 1, Defs = [XDE, XHL, XBC, SR],
+    Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+def MEMMOVE_PSEUDO : Pseudo<(outs), (ins), [(tlcs900_memmove)]>;
+
 //===----------------------------------------------------------------------===//
 // Compare/Search Block Instructions
 //===----------------------------------------------------------------------===//

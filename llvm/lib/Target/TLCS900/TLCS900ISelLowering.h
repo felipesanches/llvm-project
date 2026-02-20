@@ -33,6 +33,7 @@ enum NodeType {
   MUL16,      // 16x16→32 unsigned multiply (hardware MUL instruction)
   Wrapper,    // Wraps target-specific address nodes for materialization
   LDIR,       // Block transfer: copy XBC bytes from (XHL) to (XDE), incrementing
+  MEMMOVE,    // Memmove: runtime direction check + LDIR or LDDR
 };
 }
 

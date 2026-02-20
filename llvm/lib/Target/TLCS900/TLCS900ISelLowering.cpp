@@ -169,6 +169,7 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case TLCS900ISD::MUL16:     return "TLCS900ISD::MUL16";
   case TLCS900ISD::Wrapper:   return "TLCS900ISD::Wrapper";
   case TLCS900ISD::LDIR:      return "TLCS900ISD::LDIR";
+  case TLCS900ISD::MEMMOVE:   return "TLCS900ISD::MEMMOVE";
   default:                    return nullptr;
   }
 }
@@ -288,12 +289,87 @@ SDValue TLCS900TargetLowering::LowerSETCC(SDValue Op,
 MachineBasicBlock *
 TLCS900TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                     MachineBasicBlock *BB) const {
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+
+  if (MI.getOpcode() == TLCS900::MEMMOVE_PSEUDO) {
+    // Expand MEMMOVE_PSEUDO into runtime direction check + LDIR or LDDR.
+    //
+    //  ThisMBB:
+    //   cp xde, xhl              ; compare dst with src
+    //   jp ule, ForwardMBB       ; if dst <= src, forward copy is safe
+    //  BackwardMBB:              ; (fall-through)
+    //   add xde, xbc             ; dst += count
+    //   dec 1, xde               ; dst-- (now at last byte)
+    //   add xhl, xbc             ; src += count
+    //   dec 1, xhl               ; src-- (now at last byte)
+    //   lddr                     ; backward copy
+    //   jp DoneMBB
+    //  ForwardMBB:
+    //   ldir                     ; forward copy
+    //  DoneMBB:                  ; (fall-through from ForwardMBB)
+    //   ...continues...
+
+    const BasicBlock *LLVM_BB = BB->getBasicBlock();
+    MachineFunction::iterator InsertPt = ++BB->getIterator();
+    MachineFunction *F = BB->getParent();
+
+    MachineBasicBlock *ThisMBB = BB;
+    MachineBasicBlock *BackwardMBB = F->CreateMachineBasicBlock(LLVM_BB);
+    MachineBasicBlock *ForwardMBB = F->CreateMachineBasicBlock(LLVM_BB);
+    MachineBasicBlock *DoneMBB = F->CreateMachineBasicBlock(LLVM_BB);
+    F->insert(InsertPt, BackwardMBB);
+    F->insert(InsertPt, ForwardMBB);
+    F->insert(InsertPt, DoneMBB);
+
+    // Transfer the remainder of BB and its successor edges to DoneMBB.
+    DoneMBB->splice(DoneMBB->begin(), BB,
+                    std::next(MachineBasicBlock::iterator(MI)), BB->end());
+    DoneMBB->transferSuccessorsAndUpdatePHIs(BB);
+
+    // ThisMBB → BackwardMBB (fall-through) or ForwardMBB (branch)
+    ThisMBB->addSuccessor(BackwardMBB);
+    ThisMBB->addSuccessor(ForwardMBB);
+    // BackwardMBB → DoneMBB (unconditional jump)
+    BackwardMBB->addSuccessor(DoneMBB);
+    // ForwardMBB → DoneMBB (fall-through)
+    ForwardMBB->addSuccessor(DoneMBB);
+
+    // ThisMBB: compare dst (XDE) with src (XHL), branch if dst <= src
+    BuildMI(BB, DL, TII.get(TLCS900::CP32rr))
+        .addReg(TLCS900::XDE)
+        .addReg(TLCS900::XHL);
+    BuildMI(BB, DL, TII.get(TLCS900::JPcc))
+        .addImm(TLCS900CC::COND_ULE)
+        .addMBB(ForwardMBB);
+
+    // BackwardMBB: adjust pointers to end, then LDDR
+    BuildMI(BackwardMBB, DL, TII.get(TLCS900::ADD32rr), TLCS900::XDE)
+        .addReg(TLCS900::XDE)
+        .addReg(TLCS900::XBC);
+    BuildMI(BackwardMBB, DL, TII.get(TLCS900::DEC32), TLCS900::XDE)
+        .addReg(TLCS900::XDE)
+        .addImm(1);
+    BuildMI(BackwardMBB, DL, TII.get(TLCS900::ADD32rr), TLCS900::XHL)
+        .addReg(TLCS900::XHL)
+        .addReg(TLCS900::XBC);
+    BuildMI(BackwardMBB, DL, TII.get(TLCS900::DEC32), TLCS900::XHL)
+        .addReg(TLCS900::XHL)
+        .addImm(1);
+    BuildMI(BackwardMBB, DL, TII.get(TLCS900::LDDR));
+    BuildMI(BackwardMBB, DL, TII.get(TLCS900::JP))
+        .addMBB(DoneMBB);
+
+    // ForwardMBB: just LDIR, falls through to DoneMBB
+    BuildMI(ForwardMBB, DL, TII.get(TLCS900::LDIR));
+
+    MI.eraseFromParent();
+    return DoneMBB;
+  }
+
   assert((MI.getOpcode() == TLCS900::Select32 ||
           MI.getOpcode() == TLCS900::SCC32) &&
          "Unexpected instr type to insert");
-
-  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
-  DebugLoc DL = MI.getDebugLoc();
 
   // Both Select32 and SCC32 are expanded into a diamond control-flow pattern:
   //  ThisMBB:
