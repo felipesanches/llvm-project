@@ -444,6 +444,17 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
     return MCDisassembler::Success;
   }
 
+  // LDA rd, (mem): 0x30-0x37 — Load effective address (B0 table)
+  if (OpByte >= 0x30 && OpByte <= 0x37) {
+    unsigned DstReg = decodeGPR(OpByte & 0x7);
+    MI.setOpcode(TLCS900::LDA32);
+    MI.addOperand(MCOperand::createReg(DstReg));
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
+
   // MemStore immediate: 0x08 = LD (mem), #imm32
   // Only supported for 32-bit (destination memory B0/F0 table).
   if (OpByte == 0x08 && MemSize == 2) {
@@ -458,25 +469,20 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
     return MCDisassembler::Success;
   }
 
-  // MemStore register: size-dependent sub-opcodes in B0/F0 table
-  //   0x40-0x47 = LD (mem), rs:byte   (only in B0 table)
-  //   0x50-0x57 = LD (mem), rs:word   (only in B0 table)
-  //   0x60-0x67 = LD (mem), rs:long   (only in B0 table)
-  // For source memory tables (80/90/A0), these sub-opcodes are different.
-  if (MemSize == 2) {
-    // 32-bit: store register at 0x60-0x67, but existing encoding uses 0x40-0x47
-    // for LD32mr (from the A0 source-memory table's perspective this is wrong,
-    // but these reach here only from B0 destination-memory path which is handled
-    // by existing callers that pass MemSize=2 for B0 prefix range).
-    if (OpByte >= 0x40 && OpByte <= 0x47) {
-      unsigned SrcReg = decodeGPR(OpByte & 0x7);
-      MI.setOpcode(TLCS900::LD32mr);
-      MI.addOperand(MCOperand::createReg(Base));
-      MI.addOperand(MCOperand::createImm(Disp));
-      MI.addOperand(MCOperand::createReg(SrcReg));
-      Size = PrefixSize + 1;
-      return MCDisassembler::Success;
-    }
+  // MemStore register: sub-opcodes in B0/F0 destination memory table
+  //   0x40-0x47 = LD (mem), rs:byte
+  //   0x50-0x57 = LD (mem), rs:word
+  //   0x60-0x67 = LD (mem), rs:long
+  // These sub-opcodes only exist in the B0 (destination memory) table.
+  // The A0 (source memory) table uses 0x40-0x5F for MUL/MULS/DIV/DIVS.
+  if (OpByte >= 0x60 && OpByte <= 0x67) {
+    unsigned SrcReg = decodeGPR(OpByte & 0x7);
+    MI.setOpcode(TLCS900::LD32mr);
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    MI.addOperand(MCOperand::createReg(SrcReg));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
   }
 
   // MemALU register-source operations (only 32-bit currently supported)
@@ -486,9 +492,9 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
       unsigned Opcode;
     };
     static const MemALURegEntry MemALURegOps[] = {
-        {0x80, TLCS900::ADD32mr}, {0xA0, TLCS900::SUB32mr},
-        {0xC0, TLCS900::AND32mr}, {0xD0, TLCS900::XOR32mr},
-        {0xE0, TLCS900::OR32mr},  {0xF0, TLCS900::CP32mr},
+        {0x88, TLCS900::ADD32mr}, {0xA8, TLCS900::SUB32mr},
+        {0xC8, TLCS900::AND32mr}, {0xD8, TLCS900::XOR32mr},
+        {0xE8, TLCS900::OR32mr},  {0xF8, TLCS900::CP32mr},
     };
     unsigned AluBase = OpByte & 0xF8;
     for (const auto &Op : MemALURegOps) {
@@ -503,29 +509,9 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
       }
     }
 
-    // MemALU immediate-source operations
-    struct MemALUImmEntry {
-      uint8_t Opc;
-      unsigned Opcode;
-    };
-    static const MemALUImmEntry MemALUImmOps[] = {
-        {0xC8, TLCS900::ADD32mi},
-        {0xCA, TLCS900::SUB32mi},
-        {0xCF, TLCS900::CP32mi},
-    };
-    for (const auto &Op : MemALUImmOps) {
-      if (OpByte == Op.Opc) {
-        if (Bytes.size() < OpByteIdx + 5)
-          return MCDisassembler::Fail;
-        uint32_t Imm = readU32LE(Bytes, OpByteIdx + 1);
-        MI.setOpcode(Op.Opcode);
-        MI.addOperand(MCOperand::createReg(Base));
-        MI.addOperand(MCOperand::createImm(Disp));
-        MI.addOperand(MCOperand::createImm(Imm));
-        Size = PrefixSize + 5;
-        return MCDisassembler::Success;
-      }
-    }
+    // Note: MemALU immediate operations (ADD/SUB/CP (mem), #imm) are invalid
+    // for 32-bit in the A0 source memory table. The sub-opcodes 0xC8/0xCA/0xCF
+    // are correctly decoded as AND/SUB/CP register operations above.
   }
 
   return MCDisassembler::Fail;
@@ -736,24 +722,39 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(MCInst &MI, uin
     return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, 2, /*MemSize=*/2);
   }
 
-  // === CALL/JP indirect: 0xB0+reg, opcode — 2 bytes ===
+  // === Destination memory prefix (no disp): 0xB0-0xB7 ===
+  // B0 table: stores (LD (mem),rs), LDA, CALL/JP indirect
   if (FirstByte >= 0xB0 && FirstByte <= 0xB7) {
     if (Bytes.size() < 2)
       return MCDisassembler::Fail;
-    unsigned Reg = decodeGPR(FirstByte & 0x7);
-    if (Bytes[1] == 0x1F) {
+    unsigned BaseReg = FirstByte & 0x7;
+    uint8_t SubOp = Bytes[1];
+
+    // CALL (reg): sub-opcode 0xE8
+    if (SubOp == 0xE8) {
       MI.setOpcode(TLCS900::CALL_r);
-      MI.addOperand(MCOperand::createReg(Reg));
+      MI.addOperand(MCOperand::createReg(decodeGPR(BaseReg)));
       Size = 2;
       return MCDisassembler::Success;
     }
-    if (Bytes[1] == 0x1C) {
+    // JP (reg): sub-opcode 0xD8
+    if (SubOp == 0xD8) {
       MI.setOpcode(TLCS900::JP_r);
-      MI.addOperand(MCOperand::createReg(Reg));
+      MI.addOperand(MCOperand::createReg(decodeGPR(BaseReg)));
       Size = 2;
       return MCDisassembler::Success;
     }
-    return MCDisassembler::Fail;
+    // Delegate stores, LDA, and store-immediate to decodeMemPrefix
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, 0, 1, /*MemSize=*/2);
+  }
+
+  // === Destination memory prefix (d8 disp): 0xB8-0xBF ===
+  if (FirstByte >= 0xB8 && FirstByte <= 0xBF) {
+    if (Bytes.size() < 2)
+      return MCDisassembler::Fail;
+    unsigned BaseReg = FirstByte & 0x7;
+    int8_t Disp = static_cast<int8_t>(Bytes[1]);
+    return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, 2, /*MemSize=*/2);
   }
 
   // === 16-bit register prefix: 0xD8-0xDF ===
