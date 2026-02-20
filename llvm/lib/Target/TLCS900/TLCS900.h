@@ -25,6 +25,7 @@ namespace llvm {
 
   FunctionPass *createTLCS900BranchShorteningPass();
   FunctionPass *createTLCS900BitManipOptPass();
+  FunctionPass *createTLCS900BitTestOptPass();
   FunctionPass *createTLCS900DJNZOptPass();
   FunctionPass *createTLCS900RedundantCmpElimPass();
 

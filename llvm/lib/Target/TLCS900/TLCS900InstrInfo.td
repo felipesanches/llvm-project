@@ -1342,6 +1342,12 @@ def CHG16 : PrefixBitInst<0x32, (outs GR16:$rd), (ins i32imm:$bit, GR16:$rs1),
             Sched<[WriteIALU, ReadIALU]>;
 } // Constraints, hasSideEffects, isCodeGenOnly
 
+// BIT16: test bit in 16-bit subreg, set Z flag (for BitTestOpt peephole pass)
+let Defs = [SR], hasSideEffects = 0, isCodeGenOnly = 1 in
+def BIT16 : PrefixBitInst<0x33, (outs), (ins i32imm:$bit, GR16:$rs),
+                           "bit", "$bit, $rs", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
 } // OpSize = OpSize16.Value
 
 //===----------------------------------------------------------------------===//

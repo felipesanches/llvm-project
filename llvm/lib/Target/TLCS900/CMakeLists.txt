@@ -16,6 +16,7 @@ add_public_tablegen_target(TLCS900CommonTableGen)
 add_llvm_target(TLCS900CodeGen
   TLCS900AsmPrinter.cpp
   TLCS900BitManipOpt.cpp
+  TLCS900BitTestOpt.cpp
   TLCS900BranchShortening.cpp
   TLCS900DJNZOpt.cpp
   TLCS900RedundantCmpElim.cpp
