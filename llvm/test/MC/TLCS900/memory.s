@@ -61,6 +61,40 @@ ld xwa, (xsp-4)
 ; CHECK: ld	(xsp-8), xde
 ld (xsp-8), xde
 
+; === 8-bit memory load/store ===
+
+; CHECK: ld	a, (xhl)
+ld a, (xhl)
+
+; CHECK: ld	c, (xde)
+ld c, (xde)
+
+; CHECK: ld	e, (xsp+4)
+ld e, (xsp+4)
+
+; CHECK: ld	(xhl), a
+ld (xhl), a
+
+; CHECK: ld	(xde), c
+ld (xde), c
+
+; CHECK: ld	(xsp+8), l
+ld (xsp+8), l
+
+; === 16-bit memory load/store ===
+
+; CHECK: ld	de, (xhl)
+ld de, (xhl)
+
+; CHECK: ld	wa, (xsp+4)
+ld wa, (xsp+4)
+
+; CHECK: ld	(xhl), bc
+ld (xhl), bc
+
+; CHECK: ld	(xsp+8), de
+ld (xsp+8), de
+
 ; === Direct memory addressing ===
 
 ; Store to absolute address

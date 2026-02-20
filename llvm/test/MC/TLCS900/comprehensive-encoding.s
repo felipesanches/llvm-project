@@ -395,6 +395,60 @@ lda xwa, (xsp+64)
 lda xde, (xsp+16)
 
 ; ==========================================================================
+; 8-bit memory load/store (0x80/0x88 source prefix + 0x20-0x27 for load,
+;                           B0/B8 dest prefix + 0x40-0x47 for store)
+; ==========================================================================
+
+; LD a, (XHL): 0x83 (byte src, base=XHL), 0x21 (LD, dst=A enc 1)
+; CHECK: ld a, (xhl)      ; encoding: [0x83,0x21]
+ld a, (xhl)
+
+; LD c, (XDE): 0x82 (byte src, base=XDE), 0x23 (LD, dst=C enc 3)
+; CHECK: ld c, (xde)      ; encoding: [0x82,0x23]
+ld c, (xde)
+
+; LD w, (XBC): 0x81 (byte src, base=XBC), 0x20 (LD, dst=W enc 0)
+; CHECK: ld w, (xbc)      ; encoding: [0x81,0x20]
+ld w, (xbc)
+
+; LD e, (XSP+4): 0x8F (byte src d8, base=XSP), 0x04, 0x25 (LD, dst=E enc 5)
+; CHECK: ld e, (xsp+4)    ; encoding: [0x8f,0x04,0x25]
+ld e, (xsp+4)
+
+; LD (XHL), a: 0xB3 (dst, base=XHL), 0x41 (byte store, src=A enc 1)
+; CHECK: ld (xhl), a      ; encoding: [0xb3,0x41]
+ld (xhl), a
+
+; LD (XDE), c: 0xB2 (dst, base=XDE), 0x43 (byte store, src=C enc 3)
+; CHECK: ld (xde), c      ; encoding: [0xb2,0x43]
+ld (xde), c
+
+; LD (XSP+8), l: 0xBF (dst d8, base=XSP), 0x08, 0x47 (byte store, src=L enc 7)
+; CHECK: ld (xsp+8), l    ; encoding: [0xbf,0x08,0x47]
+ld (xsp+8), l
+
+; ==========================================================================
+; 16-bit memory load/store (0x90/0x98 source prefix + 0x20-0x27 for load,
+;                            B0/B8 dest prefix + 0x50-0x57 for store)
+; ==========================================================================
+
+; LD de, (XHL): 0x93 (word src, base=XHL), 0x22 (LD, dst=DE enc 2)
+; CHECK: ld de, (xhl)     ; encoding: [0x93,0x22]
+ld de, (xhl)
+
+; LD wa, (XSP+4): 0x9F (word src d8, base=XSP), 0x04, 0x20 (LD, dst=WA enc 0)
+; CHECK: ld wa, (xsp+4)   ; encoding: [0x9f,0x04,0x20]
+ld wa, (xsp+4)
+
+; LD (XHL), bc: 0xB3 (dst, base=XHL), 0x51 (word store, src=BC enc 1)
+; CHECK: ld (xhl), bc     ; encoding: [0xb3,0x51]
+ld (xhl), bc
+
+; LD (XSP+8), de: 0xBF (dst d8, base=XSP), 0x08, 0x52 (word store, src=DE enc 2)
+; CHECK: ld (xsp+8), de   ; encoding: [0xbf,0x08,0x52]
+ld (xsp+8), de
+
+; ==========================================================================
 ; Direct memory addressing (F2 prefix for store, E2 prefix for load)
 ; ==========================================================================
 

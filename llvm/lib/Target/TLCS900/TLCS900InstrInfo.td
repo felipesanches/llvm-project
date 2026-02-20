@@ -1358,6 +1358,21 @@ def BIT16 : PrefixBitInst<0x33, (outs), (ins i32imm:$bit, GR16:$rs),
                            "bit", "$bit, $rs", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
+// --- Memory load/store (16-bit data, register-indirect addressing) ---
+
+// LD rd:16, (base+disp) — Load 16-bit from memory into 16-bit register.
+// Assembler-visible: uses GR16 register class directly.
+let mayLoad = 1 in
+def LD16rm_asm : MemLoadInst<0x20, 4, (outs GR16:$rd), (ins MEMri:$addr),
+                              "ld", "$rd, $addr", []>,
+                 Sched<[WriteLDW, ReadMemBase]>;
+
+// LD (base+disp), rs:16 — Store 16-bit register to memory.
+// Assembler-visible: uses GR16 register class directly.
+def LD16mr_asm : MemStoreInst<0x50, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                               "ld", "$addr, $rs", []>,
+                 Sched<[WriteSTW, ReadMemBase]>;
+
 } // OpSize = OpSize16.Value
 
 //===----------------------------------------------------------------------===//
@@ -1548,5 +1563,20 @@ def RR8 : PrefixRotateInst<0xEB, (outs GR8:$rd), (ins GR8:$rs1),
           Sched<[WriteShift, ReadIALU]>;
 
 } // Constraints, Defs, Uses
+
+// --- Memory load/store (8-bit data, register-indirect addressing) ---
+
+// LD rd:8, (base+disp) — Load 8-bit from memory into 8-bit register.
+// Assembler-visible: uses GR8 register class directly.
+let mayLoad = 1 in
+def LD8rm_asm : MemLoadInst<0x20, 3, (outs GR8:$rd), (ins MEMri:$addr),
+                             "ld", "$rd, $addr", []>,
+                Sched<[WriteLDW, ReadMemBase]>;
+
+// LD (base+disp), rs:8 — Store 8-bit register to memory.
+// Assembler-visible: uses GR8 register class directly.
+def LD8mr_asm : MemStoreInst<0x40, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                              "ld", "$addr, $rs", []>,
+                Sched<[WriteSTW, ReadMemBase]>;
 
 } // OpSize = OpSize8.Value

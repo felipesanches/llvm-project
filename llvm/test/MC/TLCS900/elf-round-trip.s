@@ -229,3 +229,37 @@ mul xwa, xde
 
 ; CHECK-NEXT: muls xde, xhl
 muls xde, xhl
+
+; === 8-bit memory load/store ===
+
+; CHECK-NEXT: ld a, (xhl)
+ld a, (xhl)
+
+; CHECK-NEXT: ld c, (xde)
+ld c, (xde)
+
+; CHECK-NEXT: ld e, (xsp+4)
+ld e, (xsp+4)
+
+; CHECK-NEXT: ld (xhl), a
+ld (xhl), a
+
+; CHECK-NEXT: ld (xde), c
+ld (xde), c
+
+; CHECK-NEXT: ld (xsp+8), l
+ld (xsp+8), l
+
+; === 16-bit memory load/store ===
+
+; CHECK-NEXT: ld de, (xhl)
+ld de, (xhl)
+
+; CHECK-NEXT: ld wa, (xsp+4)
+ld wa, (xsp+4)
+
+; CHECK-NEXT: ld (xhl), bc
+ld (xhl), bc
+
+; CHECK-NEXT: ld (xsp+8), de
+ld (xsp+8), de

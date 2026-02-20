@@ -55,13 +55,31 @@ private:
 
 } // end anonymous namespace
 
-// Map 3-bit register encoding to LLVM register number.
+// Map 3-bit register encoding to LLVM register number (32-bit GPR).
 static unsigned decodeGPR(unsigned Enc) {
   static const unsigned GPRDecoderTable[] = {
       TLCS900::XWA, TLCS900::XBC, TLCS900::XDE, TLCS900::XHL,
       TLCS900::XIX, TLCS900::XIY, TLCS900::XIZ, TLCS900::XSP};
   assert(Enc < 8 && "Invalid register encoding");
   return GPRDecoderTable[Enc];
+}
+
+// Map 3-bit register encoding to 8-bit GR8 register.
+static unsigned decodeGR8(unsigned Enc) {
+  static const unsigned GR8DecoderTable[] = {
+      TLCS900::W, TLCS900::A, TLCS900::B, TLCS900::C,
+      TLCS900::D, TLCS900::E, TLCS900::H, TLCS900::L};
+  assert(Enc < 8 && "Invalid register encoding");
+  return GR8DecoderTable[Enc];
+}
+
+// Map 3-bit register encoding to 16-bit GR16 register.
+static unsigned decodeGR16(unsigned Enc) {
+  static const unsigned GR16DecoderTable[] = {
+      TLCS900::WA, TLCS900::BC, TLCS900::DE, TLCS900::HL,
+      TLCS900::IX, TLCS900::IY, TLCS900::IZ, TLCS900::SP};
+  assert(Enc < 8 && "Invalid register encoding");
+  return GR16DecoderTable[Enc];
 }
 
 static uint16_t readU16LE(ArrayRef<uint8_t> Bytes, unsigned Offset) {
@@ -432,10 +450,19 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
 
   // MemLoad: 0x20-0x27 = LD rd, (mem) — size depends on prefix
   if (OpByte >= 0x20 && OpByte <= 0x27) {
-    unsigned DstReg = decodeGPR(OpByte & 0x7);
-    unsigned Opc = (MemSize == 0)   ? TLCS900::LD8rm
-                   : (MemSize == 1) ? TLCS900::LD16rm
-                                    : TLCS900::LD32rm;
+    unsigned RegEnc = OpByte & 0x7;
+    unsigned DstReg;
+    unsigned Opc;
+    if (MemSize == 0) {
+      DstReg = decodeGR8(RegEnc);
+      Opc = TLCS900::LD8rm_asm;
+    } else if (MemSize == 1) {
+      DstReg = decodeGR16(RegEnc);
+      Opc = TLCS900::LD16rm_asm;
+    } else {
+      DstReg = decodeGPR(RegEnc);
+      Opc = TLCS900::LD32rm;
+    }
     MI.setOpcode(Opc);
     MI.addOperand(MCOperand::createReg(DstReg));
     MI.addOperand(MCOperand::createReg(Base));
@@ -475,6 +502,24 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(MCInst &MI, ui
   //   0x60-0x67 = LD (mem), rs:long
   // These sub-opcodes only exist in the B0 (destination memory) table.
   // The A0 (source memory) table uses 0x40-0x5F for MUL/MULS/DIV/DIVS.
+  if (MemSize == 2 && OpByte >= 0x40 && OpByte <= 0x47) {
+    unsigned SrcReg = decodeGR8(OpByte & 0x7);
+    MI.setOpcode(TLCS900::LD8mr_asm);
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    MI.addOperand(MCOperand::createReg(SrcReg));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
+  if (MemSize == 2 && OpByte >= 0x50 && OpByte <= 0x57) {
+    unsigned SrcReg = decodeGR16(OpByte & 0x7);
+    MI.setOpcode(TLCS900::LD16mr_asm);
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    MI.addOperand(MCOperand::createReg(SrcReg));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
   if (OpByte >= 0x60 && OpByte <= 0x67) {
     unsigned SrcReg = decodeGPR(OpByte & 0x7);
     MI.setOpcode(TLCS900::LD32mr);
