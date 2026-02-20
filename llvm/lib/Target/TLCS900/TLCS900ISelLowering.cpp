@@ -335,6 +335,14 @@ TLCS900TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     // ForwardMBB → DoneMBB (fall-through)
     ForwardMBB->addSuccessor(DoneMBB);
 
+    // Physical registers XDE/XHL/XBC are live-in to the new blocks.
+    BackwardMBB->addLiveIn(TLCS900::XDE);
+    BackwardMBB->addLiveIn(TLCS900::XHL);
+    BackwardMBB->addLiveIn(TLCS900::XBC);
+    ForwardMBB->addLiveIn(TLCS900::XDE);
+    ForwardMBB->addLiveIn(TLCS900::XHL);
+    ForwardMBB->addLiveIn(TLCS900::XBC);
+
     // ThisMBB: compare dst (XDE) with src (XHL), branch if dst <= src
     BuildMI(BB, DL, TII.get(TLCS900::CP32rr))
         .addReg(TLCS900::XDE)

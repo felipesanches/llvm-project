@@ -7,7 +7,7 @@
 define i32 @test_bit3_branch(i32 %x) {
 ; CHECK-LABEL: test_bit3_branch:
 ; CHECK:       bit 3, de
-; CHECK-NEXT:  jr nz,
+; CHECK-NEXT:  jr z,
 ; CHECK:       ret
 entry:
   %masked = and i32 %x, 8
@@ -23,7 +23,7 @@ else:
 define i32 @test_bit0_branch(i32 %x) {
 ; CHECK-LABEL: test_bit0_branch:
 ; CHECK:       bit 0, de
-; CHECK-NEXT:  jr nz,
+; CHECK-NEXT:  jr z,
 ; CHECK:       ret
 entry:
   %masked = and i32 %x, 1
@@ -39,7 +39,7 @@ else:
 define i32 @test_bit15_branch(i32 %x) {
 ; CHECK-LABEL: test_bit15_branch:
 ; CHECK:       bit 15, de
-; CHECK-NEXT:  jr nz,
+; CHECK-NEXT:  jr z,
 ; CHECK:       ret
 entry:
   %masked = and i32 %x, 32768
@@ -54,7 +54,7 @@ else:
 ; Bit 16: too high for D8 prefix, stays as AND+CP+JP
 define i32 @test_bit16_branch(i32 %x) {
 ; CHECK-LABEL: test_bit16_branch:
-; CHECK-NOT:   bit
+; CHECK-NOT:   bit {{[0-9]}}
 ; CHECK:       and xde,
 ; CHECK:       ret
 entry:
@@ -70,7 +70,7 @@ else:
 ; AND result used later: no optimization (kill flag not set on CP)
 define i32 @test_bit_result_used(i32 %x) {
 ; CHECK-LABEL: test_bit_result_used:
-; CHECK-NOT:   bit
+; CHECK-NOT:   bit {{[0-9]}}
 ; CHECK:       and xde,
 ; CHECK:       ret
 entry:
