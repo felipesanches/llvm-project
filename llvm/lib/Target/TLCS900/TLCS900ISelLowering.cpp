@@ -55,6 +55,12 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
                                          const TLCS900Subtarget &STI)
     : TargetLowering(TM), Subtarget(STI)
 {
+  // Register only i32 as legal; i8/i16 are promoted to i32. This is the
+  // standard approach for 32-bit architectures (ARM, RISC-V, Lanai, etc.).
+  // Native 8/16-bit ops would save some code size but create worse register
+  // pressure (only 4 regs have 8-bit sub-regs) and require extensive
+  // sub-register liveness tracking. Extending loads and truncating stores
+  // already handle mixed-width memory access efficiently.
   addRegisterClass(MVT::i32, &TLCS900::GPRRegClass);
   computeRegisterProperties(Subtarget.getRegisterInfo());
 
@@ -128,6 +134,8 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   // Frame/stack pointer
   setOperationAction(ISD::FRAMEADDR,          MVT::i32, Custom);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
+  setOperationAction(ISD::STACKSAVE,          MVT::Other, Expand);
+  setOperationAction(ISD::STACKRESTORE,       MVT::Other, Expand);
 
   // Varargs
   setOperationAction(ISD::VASTART, MVT::Other, Custom);
