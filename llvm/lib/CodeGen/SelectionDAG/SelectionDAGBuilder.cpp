@@ -6874,7 +6874,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
 
     // Handle scalar types
     if (TLI.isCtSelectSupported(VT) && !CondVT.isVector()) {
-      SDValue Result = DAG.getNode(ISD::CTSELECT, DL, VT, Cond, A, B);
+      SDValue Result = DAG.getNode(ISD::CT_SELECT, DL, VT, Cond, A, B);
       setValue(&I, Result);
       return;
     }
