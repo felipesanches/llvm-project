@@ -6,77 +6,84 @@
 0x00
 
 # CHECK: halt
-0x06
+0x05
 
-# CHECK: di
+# CHECK: reti
 0x07
 
 # CHECK: ret
 0x0e
 
-# CHECK: reti
-0x0b
+# === EI / DI (0x06 + level byte) ===
 
-# === EI (interrupt enable with level) ===
+# DI is EI 0
+# CHECK: di
+0x06 0x00
 
-# CHECK: ei 0
-0x08
+# CHECK: ei 3
+0x06 0x03
 
-# CHECK: ei 1
-0x09
-
-# CHECK: ei 2
-0x0a
+# CHECK: ei 7
+0x06 0x07
 
 # === RETD (return and deallocate) ===
 
+# CHECK: retd 0
+0x0f 0x00 0x00
+
 # CHECK: retd 8
 0x0f 0x08 0x00
+
+# CHECK: retd 256
+0x0f 0x00 0x01
 
 # === SWI (software interrupt) ===
 
 # CHECK: swi 0
 0xf8
 
+# CHECK: swi 3
+0xfb
+
 # CHECK: swi 7
 0xff
 
-# === Block transfer instructions ===
+# === Block transfer instructions (0x80 prefix + sub-opcode) ===
 
 # CHECK: ldi
-0x10
+0x80 0x10
 
 # CHECK: ldir
-0x11
+0x80 0x11
 
 # CHECK: ldd
-0x12
+0x80 0x12
 
 # CHECK: lddr
-0x13
+0x80 0x13
 
 # CHECK: cpi
-0x14
+0x80 0x14
 
 # CHECK: cpir
-0x15
+0x80 0x15
 
 # CHECK: cpd
-0x16
+0x80 0x16
 
 # CHECK: cpdr
-0x17
+0x80 0x17
 
 # === PUSH/POP ===
 
 # CHECK: push xwa
-0x48
+0x38
 
 # CHECK: push xbc
-0x49
+0x39
 
 # CHECK: push xsp
-0x4f
+0x3f
 
 # CHECK: pop xwa
 0x58
@@ -95,7 +102,10 @@
 # CHECK: ld xde, 255
 0x42 0xff 0x00 0x00 0x00
 
-# === Prefix unary instructions ===
+# CHECK: ld xhl, 305419896
+0x43 0x78 0x56 0x34 0x12
+
+# === Prefix unary instructions (E8+r) ===
 
 # CHECK: neg xwa
 0xe8 0x07
@@ -112,7 +122,7 @@
 # CHECK: daa xwa
 0xe8 0x10
 
-# === Prefix reg-reg ALU ===
+# === Prefix reg-reg ALU (E8+src, opcode+dst) ===
 
 # CHECK: add xwa, xbc
 0xe9 0x80
@@ -141,7 +151,7 @@
 # CHECK: sbc xwa, xbc
 0xe9 0xb0
 
-# === Prefix reg-imm ALU ===
+# === Prefix reg-imm ALU (E8+dst, opcode, imm32) ===
 
 # CHECK: add xwa, 42
 0xe8 0xc8 0x2a 0x00 0x00 0x00
@@ -152,18 +162,37 @@
 # CHECK: cp xwa, 0
 0xe8 0xcf 0x00 0x00 0x00 0x00
 
-# === INC/DEC ===
+# CHECK: and xwa, 255
+0xe8 0xcc 0xff 0x00 0x00 0x00
+
+# CHECK: or xwa, 15
+0xe8 0xce 0x0f 0x00 0x00 0x00
+
+# CHECK: xor xwa, 65535
+0xe8 0xcd 0xff 0xff 0x00 0x00
+
+# === INC/DEC (E8+r, 0x60+(n&7) / 0x68+(n&7)) ===
+# I3 field: 1→0x61, 2→0x62, ..., 7→0x67, 8→0x60
 
 # CHECK: inc 1, xwa
-0xe8 0x60
+0xe8 0x61
 
-# CHECK: inc 3, xwa
-0xe8 0x62
+# CHECK: inc 4, xde
+0xea 0x64
+
+# CHECK: inc 8, xhl
+0xeb 0x60
 
 # CHECK: dec 1, xwa
-0xe8 0x68
+0xe8 0x69
 
-# === Shift instructions ===
+# CHECK: dec 3, xbc
+0xe9 0x6b
+
+# CHECK: dec 8, xde
+0xea 0x68
+
+# === Shift instructions (E8+r, opcode, amount) ===
 
 # CHECK: sla xwa, 1
 0xe8 0xec 0x01
@@ -174,7 +203,7 @@
 # CHECK: srl xwa, 8
 0xe8 0xef 0x08
 
-# === Rotate instructions ===
+# === Rotate instructions (E8+r, opcode, 0x01) ===
 
 # CHECK: rlc xwa
 0xe8 0xe8 0x01
@@ -188,7 +217,7 @@
 # CHECK: rr xhl
 0xeb 0xeb 0x01
 
-# === Bit manipulation ===
+# === Bit manipulation (E8+r, opcode, bit) ===
 
 # CHECK: set 3, xde
 0xea 0x31 0x03
@@ -205,11 +234,13 @@
 # CHECK: tset 1, xwa
 0xe8 0x34 0x01
 
-# === Memory load ===
+# === Memory load (A0+base[+d8], 0x20+dst) ===
 
+# ld xwa, (xsp): A0+7=A7, 0x20+0=20
 # CHECK: ld xwa, (xsp)
 0xa7 0x20
 
+# ld xde, (xhl): A0+3=A3, 0x20+2=22
 # CHECK: ld xde, (xhl)
 0xa3 0x22
 
@@ -217,53 +248,79 @@
 # CHECK: ld xde, (xsp+4)
 0xaf 0x04 0x22
 
-# === Memory store ===
+# ld xwa, (xsp-4): AF, d8=FC (signed), 0x20
+# CHECK: ld xwa, (xsp-4)
+0xaf 0xfc 0x20
 
+# === Memory store (B0+base[+d8], 0x60+src) ===
+
+# ld (xsp), xwa: B0+7=B7, 0x60+0=60
 # CHECK: ld (xsp), xwa
-0xa7 0x40
+0xb7 0x60
 
-# ld (xsp+8), xwa: A8+7=AF, d8=08, 0x40+0=40
+# ld (xhl), xde: B0+3=B3, 0x60+2=62
+# CHECK: ld (xhl), xde
+0xb3 0x62
+
+# ld (xsp+8), xwa: B8+7=BF, d8=08, 0x60+0=60
 # CHECK: ld (xsp+8), xwa
-0xaf 0x08 0x40
+0xbf 0x08 0x60
 
-# ld (xhl), 255: A0+3=A3, 08, imm32
-# CHECK: ld (xhl), 255
-0xa3 0x08 0xff 0x00 0x00 0x00
+# ld (xsp-8), xde: BF, d8=F8, 0x60+2=62
+# CHECK: ld (xsp-8), xde
+0xbf 0xf8 0x62
 
-# === Memory ALU ===
+# === LDA (B0+base[+d8], 0x30+dst) ===
 
+# lda xde, (xhl): B0+3=B3, 0x30+2=32
+# CHECK: lda xde, (xhl)
+0xb3 0x32
+
+# lda xwa, (xsp+64): B8+7=BF, d8=40, 0x30+0=30
+# CHECK: lda xwa, (xsp+64)
+0xbf 0x40 0x30
+
+# === Memory ALU (A0+base[+d8], opcode+src) ===
+
+# add (xhl), xwa: A0+3=A3, 0x88+0=88
 # CHECK: add (xhl), xwa
-0xa3 0x80
+0xa3 0x88
 
-# CHECK: add (xhl), 1
-0xa3 0xc8 0x01 0x00 0x00 0x00
-
-# sub (xsp+4), xde: A8+7=AF, d8=04, 0xA0+2=A2
+# sub (xsp+4), xde: A8+7=AF, d8=04, 0xA8+2=AA
 # CHECK: sub (xsp+4), xde
-0xaf 0x04 0xa2
+0xaf 0x04 0xaa
 
+# cp (xhl), xwa: A0+3=A3, 0xF8+0=F8
 # CHECK: cp (xhl), xwa
-0xa3 0xf0
+0xa3 0xf8
 
-# cp (xsp+4), 100: A8+7=AF, d8=04, CF, imm32
-# CHECK: cp (xsp+4), 100
-0xaf 0x04 0xcf 0x64 0x00 0x00 0x00
+# and (xix), xbc: A0+4=A4, 0xC8+1=C9
+# CHECK: and (xix), xbc
+0xa4 0xc9
 
-# === CALL indirect ===
+# or (xiy+8), xwa: A8+5=AD, d8=08, 0xE8+0=E8
+# CHECK: or (xiy+8), xwa
+0xad 0x08 0xe8
+
+# xor (xhl+2), xde: A8+3=AB, d8=02, 0xD8+2=DA
+# CHECK: xor (xhl+2), xde
+0xab 0x02 0xda
+
+# === CALL indirect (B0+reg, 0xE8) ===
 
 # CHECK: call (xwa)
-0xb0 0x1f
+0xb0 0xe8
 
 # CHECK: call (xhl)
-0xb3 0x1f
+0xb3 0xe8
 
-# === JP indirect ===
+# === JP indirect (B0+reg, 0xD8) ===
 
 # CHECK: jp (xwa)
-0xb0 0x1c
+0xb0 0xd8
 
 # CHECK: jp (xhl)
-0xb3 0x1c
+0xb3 0xd8
 
 # === CALL / CALR with immediate ===
 
@@ -276,7 +333,10 @@
 # === JP absolute ===
 
 # CHECK: jp 0
-0x1c 0x00 0x00 0x00
+0x1b 0x00 0x00 0x00
+
+# CHECK: jp 1193046
+0x1b 0x56 0x34 0x12
 
 # === JR (relative 8-bit) ===
 
@@ -290,11 +350,13 @@
 
 # === Conditional JR ===
 
+# nz = condition 14 = 0xE
 # CHECK: jr nz, 0
 0x6e 0x00
 
 # === Conditional JRL ===
 
+# c = condition 7
 # CHECK: jrl c, 0
 0x77 0x00 0x00
 
@@ -302,3 +364,13 @@
 
 # CHECK: djnz xwa, 0
 0xe8 0x1c 0x00
+
+# === MUL / MULS (D8+src, opcode+dst) ===
+
+# mul xwa, xbc: D8+1=D9, 0x40+0=40
+# CHECK: mul xwa, xbc
+0xd9 0x40
+
+# muls xwa, xbc: D8+1=D9, 0x48+0=48
+# CHECK: muls xwa, xbc
+0xd9 0x48
