@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **(A) Building is allowed.** Use `ninja -Cbuild` for incremental builds, or `ninja -Cbuild llc` for just the compiler. Reconfigure with `bash build_tlcs900.sh` only if CMake config changes. Run TLCS-900 tests with `build/bin/llvm-lit llvm/test/CodeGen/TLCS900/`.
 - **(B) Make frequent commits**, always keeping the working directory clean.
 - **(C) Store new policies** in both memory and this CLAUDE.md file. Use progressive disclosure when structuring information here.
-- **(D) Update the issue tracker after meaningful work.** Issues are tracked centrally using [Beads](https://github.com/beads-ai/beads) in `~/devel/kn5000-roms-disasm/.beads/issues.jsonl`. Use `~/devel/tools/bd` commands (never edit JSONL directly). After meaningful work: (1) update relevant issues with progress, (2) open new issues for next steps, (3) sync to website (`cd ~/devel/kn5000-roms-disasm && make issues`), (4) pick the next task. LLVM-related issue: `kn5000-raw` (TLCS-900/H2 backend tracking).
+- **(D) Update the issue tracker after meaningful work.** Issues are tracked centrally using [Beads](https://github.com/beads-ai/beads) in `/mnt/shared/kn5000_project/.beads/issues.jsonl`. Use `/mnt/shared/tools/bd` commands (never edit JSONL directly). After meaningful work: (1) update relevant issues with progress, (2) open new issues for next steps, (3) sync to website (`cd /mnt/shared/kn5000-roms-disasm && make issues`), (4) pick the next task. LLVM-related issue: `kn5000-raw` (TLCS-900/H2 backend tracking).
 
 ## Project Goal
 
@@ -15,10 +15,10 @@ LLVM backend for the TLCS-900 family, targeting the **TMP94C241** CPU variant us
 
 ## Reference Materials
 
-- **KN5000 docs**: `~/devel/kn5000-docs/` (cpu-subsystem.md, memory-map.md, hardware-architecture.md)
-- **ROM disassembly**: `~/devel/kn5000-roms-disasm/` (includes `tmp94c241.inc` with instruction encoding macros)
-- **Additional encoding macros**: `~/devel/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`
-- **ASL assembler**: `~/devel/asl-current/asl` (reference output, but encoding not always accurate)
+- **KN5000 docs**: `/mnt/shared/kn5000-docs/` (cpu-subsystem.md, memory-map.md, hardware-architecture.md)
+- **ROM disassembly**: `/mnt/shared/kn5000-roms-disasm/` (includes `tmp94c241.inc` with instruction encoding macros)
+- **Additional encoding macros**: `/mnt/shared/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`
+- **ASL assembler**: `/mnt/shared/asl-current/asl` (reference output, but encoding not always accurate)
 
 ## Repository Overview
 
