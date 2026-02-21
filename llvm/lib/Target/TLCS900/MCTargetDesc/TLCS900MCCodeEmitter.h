@@ -13,6 +13,7 @@
 #ifndef LLVM_LIB_TARGET_TLCS900_MCTARGETDESC_TLCS900MCCODEEMITTER_H
 #define LLVM_LIB_TARGET_TLCS900_MCTARGETDESC_TLCS900MCCODEEMITTER_H
 
+#include "TLCS900BaseInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInstrInfo.h"
