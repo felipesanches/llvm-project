@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Strict Policies
 
-- **(A) Never build the code.** The user builds manually.
+- **(A) Building is allowed.** Use `ninja -Cbuild` for incremental builds, or `ninja -Cbuild llc` for just the compiler. Reconfigure with `bash build_tlcs900.sh` only if CMake config changes. Run TLCS-900 tests with `build/bin/llvm-lit llvm/test/CodeGen/TLCS900/`.
 - **(B) Make frequent commits**, always keeping the working directory clean.
 - **(C) Store new policies** in both memory and this CLAUDE.md file. Use progressive disclosure when structuring information here.
 - **(D) Update the issue tracker after meaningful work.** Issues are tracked centrally using [Beads](https://github.com/beads-ai/beads) in `~/devel/kn5000-roms-disasm/.beads/issues.jsonl`. Use `~/devel/tools/bd` commands (never edit JSONL directly). After meaningful work: (1) update relevant issues with progress, (2) open new issues for next steps, (3) sync to website (`cd ~/devel/kn5000-roms-disasm && make issues`), (4) pick the next task. LLVM-related issue: `kn5000-raw` (TLCS-900/H2 backend tracking).
