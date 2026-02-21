@@ -154,3 +154,41 @@ Key registration points outside the target directory:
 - `Optional<T>` → `std::optional<T>`
 - Subtarget constructor needs `TuneCPU` parameter
 - `LLVMBuild.txt` files removed (CMake-only build system)
+
+## Recent Backend Improvements (Feb 2026)
+
+### New Features
+
+| Feature | Commit | Description |
+|---------|--------|-------------|
+| LDIR memcpy ISel | `459c1375` | `EmitTargetCodeForMemcpy` emits LDIR hardware block transfer (XDE←dst, XHL←src, XBC←count). Threshold: `MaxStoresPerMemcpy=4` stores, beyond that → LDIR. |
+| LDDR memmove ISel | `b61556b0` | `EmitTargetCodeForMemmove` emits LDDR with runtime direction check. Compares dst vs src; if dst≤src → LDIR (forward), else adjusts pointers to end and uses LDDR (backward). Expanded via `MEMMOVE_PSEUDO` in `EmitInstrWithCustomInserter`. |
+| BIT test peephole | `a548f04c` | MachineFunction pass converts AND+CP+JPcc → BIT+JPcc for single-bit tests. Matches AND with power-of-2 mask followed by compare-to-zero, replaces with BIT instruction. |
+| SET/RES/CHG peephole | `1fe1e9b7` | Converts OR/AND/XOR with power-of-2 immediate into SET/RES/CHG bit manipulation instructions. SET for OR, RES for AND with inverted mask, CHG for XOR. |
+| Frame pointer | `7b9d2122` | XIZ register used as frame pointer. Prologue emits `PUSH XIZ; LD XIZ,XSP`. `eliminateFrameIndex` rewrites frame indices to XIZ+offset (d8 range) or splits to LDA+register-indirect for large offsets. `hasFP()` returns true when needed (variable-sized alloca, `setjmp`, etc.). |
+| 8/16-bit asm support | `c172508d` | Assembler now accepts `ld (addr), reg` for 8-bit and 16-bit store operations, and `ld reg, (addr)` for byte/word loads from absolute addresses. |
+
+### Bug Fixes
+
+| Fix | Commit | Description |
+|-----|--------|-------------|
+| 8-bit register encoding | `4903b603` | Sub-register `HWEncoding` was returning the parent GPR's index instead of the 8-bit register's hardware encoding. Fixed by adding explicit `HWEncoding` to 8-bit register defs in `TLCS900RegisterInfo.td`. |
+| INC/DEC I3 field | `956f0580` | The 3-bit immediate field in INC/DEC used `n-1` instead of `n&7`. Value 8 must encode as 0 (not 7). |
+| Disassembler fixes (4) | `7f236c1b` | Fixed: (1) byte/word source memory prefix decoding, (2) incorrect opcode dispatch for certain prefix combinations, (3) register name printing for sub-registers, (4) displacement sign extension. |
+
+### Testing
+
+| Test | Commit | Description |
+|------|--------|-------------|
+| ELF round-trip | `12b686f3` | Assembles `.s` → `.o` → disassembles, verifies round-trip. Covers all major instruction categories. |
+| Asm/disasm round-trip | `5b3bb9c3` | Tests assembly encoding and disassembly for instruction coverage. |
+| Disassembler rewrite | `744fa35a` | Complete rewrite of disassembler test with encodings verified against MAME `unidasm`. |
+
+### Known Active Bugs
+
+| Bug | Severity | Description | Workaround |
+|-----|----------|-------------|------------|
+| #10 | Moderate | Register x/y swap when functions are inlined | `__attribute__((noinline))` on affected functions |
+| #11 | High | `for` loop with `uint16_t` counter exits after 1 iteration | Use `do-while` with `uint32_t` counter and `!= 0` termination |
+
+Full bug documentation: `/mnt/shared/Mines/LLVM_TLCS900_BUGS.md`
