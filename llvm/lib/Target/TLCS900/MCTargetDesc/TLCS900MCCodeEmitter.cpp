@@ -32,9 +32,26 @@ using namespace llvm;
 
 #define DEBUG_TYPE "tlcs900-mccodeemitter"
 
-unsigned TLCS900MCCodeEmitter::getRegEncoding(const MCOperand &MO) const {
+unsigned TLCS900MCCodeEmitter::getRegEncoding(const MCOperand &MO,
+                                               unsigned OpSize) const {
   assert(MO.isReg() && "Expected register operand");
-  return Ctx.getRegisterInfo()->getEncodingValue(MO.getReg()) & 0x7;
+  MCRegister Reg = MO.getReg();
+  const MCRegisterInfo *MRI = Ctx.getRegisterInfo();
+
+  // For 8-bit operations, the register operand may be a 32-bit register
+  // (from GPR_with_sub8 via RegisterOperand<GPR_lo8>), printed as its
+  // low-byte sub-register name by printGPRAsLoByte.  We need the actual
+  // 8-bit sub-register's HWEncoding (A=1, C=3, E=5, L=7), not the 32-bit
+  // parent's (XWA=0, XBC=1, XDE=2, XHL=3).
+  if (OpSize == TLCS900II::OpSize8) {
+    if (MCRegister Sub = MRI->getSubReg(Reg, TLCS900::sub_8bit))
+      Reg = Sub;
+  } else if (OpSize == TLCS900II::OpSize16) {
+    if (MCRegister Sub = MRI->getSubReg(Reg, TLCS900::sub_16bit))
+      Reg = Sub;
+  }
+
+  return MRI->getEncodingValue(Reg) & 0x7;
 }
 
 void TLCS900MCCodeEmitter::emitImmediate(int64_t Value, unsigned NumBytes,
@@ -391,7 +408,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // src_mem_prefix [+disp] + (opcode + dst_reg).
     // LD32rm: op 0 = dst, op 1 = base, op 2 = disp.
     // Uses source memory prefix (size-dependent) since data flows FROM memory.
-    unsigned DstEnc = getRegEncoding(MI.getOperand(0));
+    unsigned DstEnc = getRegEncoding(MI.getOperand(0), OpSize);
     emitMemPrefix(MI, 1, 2, /*IsDstMem=*/false, OpSize, StartByte, CB, Fixups);
     CB.push_back(Opcode + DstEnc);
     break;
@@ -415,7 +432,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
-      unsigned SrcEnc = getRegEncoding(SrcOp);
+      unsigned SrcEnc = getRegEncoding(SrcOp, OpSize);
       CB.push_back(Opcode + SrcEnc);
     } else {
       // Store immediate: opcode + immediate bytes.
@@ -436,7 +453,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, OpSize, StartByte, CB, Fixups);
     const MCOperand &SrcOp = MI.getOperand(2);
     if (SrcOp.isReg()) {
-      unsigned SrcEnc = getRegEncoding(SrcOp);
+      unsigned SrcEnc = getRegEncoding(SrcOp, OpSize);
       CB.push_back(Opcode + SrcEnc);
     } else {
       CB.push_back(Opcode);

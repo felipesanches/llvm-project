@@ -24,7 +24,11 @@ class TLCS900MCCodeEmitter : public MCCodeEmitter {
   MCContext &Ctx;
 
   /// Get the 3-bit hardware encoding for a register operand.
-  unsigned getRegEncoding(const MCOperand &MO) const;
+  /// For 8-bit operations (OpSize8), if the operand contains a 32-bit parent
+  /// register (from GPR_with_sub8), the sub_8bit sub-register's encoding is
+  /// used instead (e.g. XWA→A=1, not XWA=0).
+  unsigned getRegEncoding(const MCOperand &MO,
+                          unsigned OpSize = TLCS900II::OpSize32) const;
 
   /// Emit a little-endian immediate of the given byte size.
   void emitImmediate(int64_t Value, unsigned NumBytes,
