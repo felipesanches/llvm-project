@@ -3207,6 +3207,11 @@ def LDmm16_da16 : DirectMemToMemInst<0x19, 6, (outs),
 
 let hasSideEffects = 1, mayLoad = 1, mayStore = 1 in {
 
+def EXTPFX2 : ExtPrefixInst<2, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "extpfx2", "$b0, $b1", []>,
+    Sched<[WriteSTW]>;
+
 def EXTPFX3 : ExtPrefixInst<3, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "extpfx3", "$b0, $b1, $b2", []>,
@@ -3230,6 +3235,24 @@ def EXTPFX6 : ExtPrefixInst<6, (outs),
 def EXTPFX7 : ExtPrefixInst<7, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4, i32imm:$b5, i32imm:$b6),
     "extpfx7", "$b0, $b1, $b2, $b3, $b4, $b5, $b6", []>,
+    Sched<[WriteSTW]>;
+
+def EXTPFX8 : ExtPrefixInst<8, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3,
+         i32imm:$b4, i32imm:$b5, i32imm:$b6, i32imm:$b7),
+    "extpfx8", "$b0, $b1, $b2, $b3, $b4, $b5, $b6, $b7", []>,
+    Sched<[WriteSTW]>;
+
+def EXTPFX9 : ExtPrefixInst<9, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3,
+         i32imm:$b4, i32imm:$b5, i32imm:$b6, i32imm:$b7, i32imm:$b8),
+    "extpfx9", "$b0, $b1, $b2, $b3, $b4, $b5, $b6, $b7, $b8", []>,
+    Sched<[WriteSTW]>;
+
+def EXTPFX10 : ExtPrefixInst<10, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3,
+         i32imm:$b4, i32imm:$b5, i32imm:$b6, i32imm:$b7, i32imm:$b8, i32imm:$b9),
+    "extpfx10", "$b0, $b1, $b2, $b3, $b4, $b5, $b6, $b7, $b8, $b9", []>,
     Sched<[WriteSTW]>;
 
 } // hasSideEffects, mayLoad, mayStore
