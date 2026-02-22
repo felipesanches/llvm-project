@@ -708,7 +708,31 @@ def POP16 : PrefixPopInst<0x05, (outs GR16:$rd), (ins),
                            "pop", "$rd", []>,
             Sched<[WritePop]>;
 
+// PUSH rs16 — Short form: 0x28+r (1 byte)
+let mayStore = 1 in
+def PUSH16_short : SingleByteRegInst<0x28, (outs), (ins GR16:$rs),
+                                      "pushw", "$rs", []>,
+                   Sched<[WritePush]>;
+
+// POP rd16 — Short form: 0x48+r (1 byte)
+let mayLoad = 1 in
+def POP16_short : SingleByteRegInst<0x48, (outs GR16:$rd), (ins),
+                                     "popw", "$rd", []>,
+                  Sched<[WritePop]>;
+
 } // Defs = [XSP], Uses = [XSP], hasSideEffects
+
+// PUSH SR — Push status register (0x02, 1 byte)
+let Defs = [XSP], Uses = [XSP, SR], hasSideEffects = 0, mayStore = 1 in
+def PUSH_SR : SingleByteInst<0x02, (outs), (ins),
+                              "push_sr", "", []>,
+              Sched<[WritePush]>;
+
+// POP SR — Pop status register (0x03, 1 byte)
+let Defs = [XSP, SR], Uses = [XSP], hasSideEffects = 0, mayLoad = 1 in
+def POP_SR : SingleByteInst<0x03, (outs), (ins),
+                             "pop_sr", "", []>,
+             Sched<[WritePop]>;
 
 //===----------------------------------------------------------------------===//
 // Pseudo Instructions
