@@ -19,6 +19,7 @@
 #include "TLCS900BaseInfo.h"
 #include "TLCS900FixupKinds.h"
 #include "TLCS900MCTargetDesc.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
@@ -71,10 +72,17 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
     unsigned NumBytes = 0;
     switch (Kind) {
     case FK_Data_1:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_rel8:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_disp8:
       NumBytes = 1;
       break;
     case FK_Data_2:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_rel16:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_disp16:
       NumBytes = 2;
+      break;
+    case (MCFixupKind)TLCS900::fixup_tlcs900_24:
+      NumBytes = 3;
       break;
     case FK_Data_4:
       NumBytes = 4;
@@ -89,10 +97,17 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
     unsigned NumBytes = 0;
     switch (Kind) {
     case FK_Data_1:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_rel8:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_disp8:
       NumBytes = 1;
       break;
     case FK_Data_2:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_rel16:
+    case (MCFixupKind)TLCS900::fixup_tlcs900_disp16:
       NumBytes = 2;
+      break;
+    case (MCFixupKind)TLCS900::fixup_tlcs900_24:
+      NumBytes = 3;
       break;
     case FK_Data_4:
       NumBytes = 4;
@@ -101,7 +116,19 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
       NumBytes = 3;
       break;
     }
-    Fixups.push_back(MCFixup::create(FixupOffset, MO.getExpr(), Kind));
+    // For PC-relative fixups, adjust the expression to account for the
+    // displacement being measured from the END of the instruction, not from
+    // the displacement field. This ensures RELA addends are correct for
+    // absolute symbols (e.g., .set labels).
+    const MCExpr *Expr = MO.getExpr();
+    if (Kind == (MCFixupKind)TLCS900::fixup_tlcs900_rel8) {
+      Expr = MCBinaryExpr::createAdd(
+          Expr, MCConstantExpr::create(-1, Ctx), Ctx);
+    } else if (Kind == (MCFixupKind)TLCS900::fixup_tlcs900_rel16) {
+      Expr = MCBinaryExpr::createAdd(
+          Expr, MCConstantExpr::create(-2, Ctx), Ctx);
+    }
+    Fixups.push_back(MCFixup::create(FixupOffset, Expr, Kind));
     for (unsigned i = 0; i < NumBytes; ++i)
       CB.push_back(0);
   }
