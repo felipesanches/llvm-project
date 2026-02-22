@@ -351,6 +351,12 @@ def SRA32ri : PrefixShiftInst<0xED, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                               "sra", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
+// SLL rd, #imm — Shift Left Logical (same result as SLA, different flags)
+// Encoding: E8+rd, 0xEE, amt (3 bytes)
+def SLL32ri : PrefixShiftInst<0xEE, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
+                              "sll", "$rd, $imm", []>,
+              Sched<[WriteShift, ReadIALU]>;
+
 // SRL rd, rs — Shift Right Logical (affects S, Z, H=0, V, N=0, C)
 // Encoding: E8+rd, 0xFF (SRL A,R form)
 def SRL32rr : PrefixRegRegInst<0xFF, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
@@ -1298,6 +1304,11 @@ def SRA16ri : PrefixShiftInst<0xED, (outs GR16:$rd),
                                "sra", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
+def SLL16ri : PrefixShiftInst<0xEE, (outs GR16:$rd),
+                               (ins GR16:$rs1, i16imm:$imm),
+                               "sll", "$rd, $imm", []>,
+              Sched<[WriteShift, ReadIALU]>;
+
 def SRL16ri : PrefixShiftInst<0xEF, (outs GR16:$rd),
                                (ins GR16:$rs1, i16imm:$imm),
                                "srl", "$rd, $imm", []>,
@@ -1534,6 +1545,11 @@ def SLA8ri : PrefixShiftInst<0xEC, (outs GR8:$rd),
 def SRA8ri : PrefixShiftInst<0xED, (outs GR8:$rd),
                               (ins GR8:$rs1, i8imm:$imm),
                               "sra", "$rd, $imm", []>,
+             Sched<[WriteShift, ReadIALU]>;
+
+def SLL8ri : PrefixShiftInst<0xEE, (outs GR8:$rd),
+                              (ins GR8:$rs1, i8imm:$imm),
+                              "sll", "$rd, $imm", []>,
              Sched<[WriteShift, ReadIALU]>;
 
 def SRL8ri : PrefixShiftInst<0xEF, (outs GR8:$rd),
