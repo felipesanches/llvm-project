@@ -719,6 +719,18 @@ def POP32 : SingleByteRegInst<0x58, (outs GPR:$rd), (ins),
                               "pop", "$rd", []>,
             Sched<[WritePop]>;
 
+// PUSH rs8 — Push 8-bit register (prefix C8+r, opcode 0x04)
+let mayStore = 1, OpSize = OpSize8.Value in
+def PUSH8 : PrefixPushInst<0x04, (outs), (ins GR8:$rs),
+                            "push", "$rs", []>,
+            Sched<[WritePush]>;
+
+// POP rd8 — Pop 8-bit register (prefix C8+r, opcode 0x05)
+let mayLoad = 1, OpSize = OpSize8.Value in
+def POP8 : PrefixPopInst<0x05, (outs GR8:$rd), (ins),
+                          "pop", "$rd", []>,
+           Sched<[WritePop]>;
+
 // PUSH rs16 — Push 16-bit register (prefix D8+r, opcode 0x04)
 let mayStore = 1, OpSize = OpSize16.Value in
 def PUSH16 : PrefixPushInst<0x04, (outs), (ins GR16:$rs),
@@ -1357,12 +1369,24 @@ def LD16ri_short : SingleByteRegImmInst<0x30, 3, (outs GR16:$rd),
                                          "ldw", "$rd, $imm", []>,
                    Sched<[WriteIALU]>;
 
-// LD rd16, #(0-7) — Small immediate form: D8+r, 0xA8+val (2 bytes)
-let isReMaterializable = 1, isAsCheapAsAMove = 1 in
+// LD rd, #(0-7) — Small immediate form: prefix+r, 0xA8+val (2 bytes)
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
+let OpSize = OpSize8.Value in
+def LD8ri_small : PrefixSmallImmInst<0xA8, (outs GR8:$rd),
+                                      (ins i8imm:$imm),
+                                      "lds8", "$rd, $imm", []>,
+                  Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
 def LD16ri_small : PrefixSmallImmInst<0xA8, (outs GR16:$rd),
                                        (ins i16imm:$imm),
                                        "lds", "$rd, $imm", []>,
                    Sched<[WriteIALU]>;
+let OpSize = OpSize32.Value in
+def LD32ri_small : PrefixSmallImmInst<0xA8, (outs GPR:$rd),
+                                       (ins i32imm:$imm),
+                                       "lds32", "$rd, $imm", []>,
+                   Sched<[WriteIALU]>;
+}
 
 // --- Arithmetic (two-address: rd = rd op rs) ---
 let Constraints = "$rd = $rs1", Defs = [SR] in {
