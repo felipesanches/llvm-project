@@ -61,6 +61,7 @@ def InstFormatDirectDstImm : InstFormat<39>;
 def InstFormatDirectDstBitOp : InstFormat<40>;
 def InstFormatDirectMemToMem : InstFormat<41>;
 def InstFormatLdIoImm : InstFormat<42>;
+def InstFormatExtPrefix : InstFormat<43>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -530,4 +531,15 @@ class LdIoImmInst<bits<8> opc, dag outs, dag ins, string opcodestr,
   let InstFormat = InstFormatLdIoImm.Value;
   let Opcode = opc;
   let Size = 3;
+}
+
+// ExtPrefixInst: Generic extended-prefix instruction.
+// All operand bytes are emitted literally by MCCodeEmitter.
+// Used for addressing modes not yet fully modeled (C3/C5/C7/D3/D5/D7/
+// E3/E5/E7/F0/F3/F5 prefixes — register-indirect, indexed, previous bank).
+class ExtPrefixInst<int sz, dag outs, dag ins, string opcodestr,
+                     string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatExtPrefix.Value;
+  let Size = sz;
 }

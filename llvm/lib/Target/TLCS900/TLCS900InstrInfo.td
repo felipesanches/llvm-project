@@ -3189,4 +3189,47 @@ def LDmm16_da16 : DirectMemToMemInst<0x19, 6, (outs),
                                        (ins i32imm:$src_addr, i32imm:$dst_addr),
                                        "ldmm16", "$dst_addr, $src_addr", []>,
                   Sched<[WriteSTW]>;
-} // mayLoad, mayStore, hasSideEffects
+} // mayLoad, mayStore, hasSideEffects (DirectMemToMem)
+
+//===----------------------------------------------------------------------===//
+// Extended prefix instructions — generic byte-literal encoding
+//
+// These handle addressing modes not yet fully modeled semantically:
+//   C3/D3/E3 = source register-indirect (through 32-bit register)
+//   C5/D5/E5 = source indexed (base register + index register)
+//   C7/D7/E7 = previous bank register operations
+//   F0       = 8-bit destination direct (I/O registers)
+//   F3       = destination register-indirect
+//   F5       = destination indexed
+//
+// All operand bytes are emitted literally by MCCodeEmitter.
+//===----------------------------------------------------------------------===//
+
+let hasSideEffects = 1, mayLoad = 1, mayStore = 1 in {
+
+def EXTPFX3 : ExtPrefixInst<3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "extpfx3", "$b0, $b1, $b2", []>,
+    Sched<[WriteSTW]>;
+
+def EXTPFX4 : ExtPrefixInst<4, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "extpfx4", "$b0, $b1, $b2, $b3", []>,
+    Sched<[WriteSTW]>;
+
+def EXTPFX5 : ExtPrefixInst<5, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "extpfx5", "$b0, $b1, $b2, $b3, $b4", []>,
+    Sched<[WriteSTW]>;
+
+def EXTPFX6 : ExtPrefixInst<6, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4, i32imm:$b5),
+    "extpfx6", "$b0, $b1, $b2, $b3, $b4, $b5", []>,
+    Sched<[WriteSTW]>;
+
+def EXTPFX7 : ExtPrefixInst<7, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4, i32imm:$b5, i32imm:$b6),
+    "extpfx7", "$b0, $b1, $b2, $b3, $b4, $b5, $b6", []>,
+    Sched<[WriteSTW]>;
+
+} // hasSideEffects, mayLoad, mayStore

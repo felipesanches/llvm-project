@@ -873,6 +873,18 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0);
     break;
   }
+
+  case TLCS900II::ExtPrefix: {
+    // Generic extended prefix: emit all operands as literal bytes.
+    // Used for C3/C5/C7/D3/D5/D7/E3/E5/E7/F0/F3/F5 prefix instructions
+    // where the addressing mode is not yet fully modeled.
+    for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+      const MCOperand &MO = MI.getOperand(i);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
+    break;
+  }
   }
 }
 
