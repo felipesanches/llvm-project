@@ -708,6 +708,25 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(Opcode + (Imm & 0x7));
     break;
   }
+
+  case TLCS900II::MemIncDec: {
+    // src_mem_prefix [+disp] + (opcode + count%8).
+    // INC/DEC (mem): op 0 = base, op 1 = disp, op 2 = count.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, OpSize, StartByte, CB, Fixups);
+    unsigned Count =
+        MI.getOperand(2).isImm() ? MI.getOperand(2).getImm() : 1;
+    unsigned EncodedCount = Count & 0x7;
+    CB.push_back(Opcode + EncodedCount);
+    break;
+  }
+
+  case TLCS900II::MemPush: {
+    // src_mem_prefix [+disp] + opcode.
+    // PUSH (mem): op 0 = base, op 1 = disp.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, OpSize, StartByte, CB, Fixups);
+    CB.push_back(Opcode);
+    break;
+  }
   }
 }
 

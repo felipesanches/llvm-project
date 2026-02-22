@@ -15,8 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 // InstFormat values — must match TLCS900II::InstFormat enum in BaseInfo.h
-class InstFormat<bits<5> val> {
-  bits<5> Value = val;
+class InstFormat<bits<6> val> {
+  bits<6> Value = val;
 }
 def InstFormatPseudo        : InstFormat<0>;
 def InstFormatSingleByte    : InstFormat<1>;
@@ -50,6 +50,8 @@ def InstFormatPrefixSmallImm : InstFormat<28>;
 def InstFormatSingleByteCondRet : InstFormat<29>;
 def InstFormatPrefixCondCode : InstFormat<30>;
 def InstFormatMemStoreImm : InstFormat<31>;
+def InstFormatMemIncDec : InstFormat<32>;
+def InstFormatMemPush : InstFormat<33>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -67,14 +69,14 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   let Namespace = "TLCS900";
 
   // TSFlags fields — subclasses override these.
-  bits<5> InstFormat = InstFormatPseudo.Value;
+  bits<6> InstFormat = InstFormatPseudo.Value;
   bits<8> Opcode = 0;
   bits<2> OpSize = OpSize32.Value;
 
   // Wire TSFlags.
-  let TSFlags{4-0}   = InstFormat;
-  let TSFlags{12-5}  = Opcode;
-  let TSFlags{14-13} = OpSize;
+  let TSFlags{5-0}   = InstFormat;
+  let TSFlags{13-6}  = Opcode;
+  let TSFlags{15-14} = OpSize;
 
   let Size = 0; // Default; subclasses set correct size.
 
@@ -396,4 +398,23 @@ class PrefixCondCodeInst<bits<8> opc, dag outs, dag ins, string opcodestr,
   let InstFormat = InstFormatPrefixCondCode.Value;
   let Opcode = opc;
   let Size = 2;
+}
+
+// MemIncDecInst: src_mem_prefix [+disp] + (opcode + count%8)
+// INC/DEC on memory operand. Count (1-8) encoded in sub-opcode bits 0-2.
+class MemIncDecInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                    string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemIncDec.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// MemPushInst: src_mem_prefix [+disp] + opcode (PUSH from memory)
+class MemPushInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                  string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemPush.Value;
+  let Opcode = opc;
+  let Size = sz;
 }

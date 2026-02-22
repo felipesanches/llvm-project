@@ -1237,6 +1237,43 @@ def SBC32mr : MemALUInst<0xB8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 } // Defs, Uses, mayLoad, mayStore
 
+// Memory INC/DEC — register-indirect addressing.
+// Encoding: src_mem_prefix(base [+disp]) + (0x60 + count%8) for INC
+//           src_mem_prefix(base [+disp]) + (0x68 + count%8) for DEC
+// Count 1-8 encoded in sub-opcode bits 0-2 (8 wraps to 0).
+let Defs = [SR], mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+def INC8m : MemIncDecInst<0x60, 2, (outs),
+                           (ins MEMri:$addr, i32imm:$count),
+                           "incm8", "$count, $addr", []>,
+            Sched<[WriteSTW, ReadMemBase]>;
+def DEC8m : MemIncDecInst<0x68, 2, (outs),
+                           (ins MEMri:$addr, i32imm:$count),
+                           "decm8", "$count, $addr", []>,
+            Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def INC16m : MemIncDecInst<0x60, 2, (outs),
+                            (ins MEMri:$addr, i32imm:$count),
+                            "incm", "$count, $addr", []>,
+             Sched<[WriteSTW, ReadMemBase]>;
+def DEC16m : MemIncDecInst<0x68, 2, (outs),
+                            (ins MEMri:$addr, i32imm:$count),
+                            "decm", "$count, $addr", []>,
+             Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize16
+} // Defs, mayLoad, mayStore, hasSideEffects
+
+// Memory PUSH — read from memory and push to stack.
+// Encoding: src_mem_prefix(base [+disp]) + 0x04
+// 16-bit (PUSHW): uses 0x90-0x9F source memory prefix.
+let mayLoad = 1, mayStore = 1, hasSideEffects = 0, Uses = [XSP] in {
+let OpSize = OpSize16.Value in
+def PUSHW_m : MemPushInst<0x04, 2, (outs), (ins MEMri:$addr),
+                           "pushm", "$addr", []>,
+              Sched<[WritePush, ReadMemBase]>;
+} // mayLoad, mayStore, hasSideEffects, Uses
+
 // Compare memory with immediate: expand to LD + CP since CP32mi is invalid
 // in the 32-bit A0 table.
 def : Pat<(tlcs900_cmp (i32 (load addr:$a)), (i32 (imm):$v)),

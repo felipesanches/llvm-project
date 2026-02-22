@@ -20,10 +20,10 @@ namespace llvm {
 // TLCS900II - This namespace holds all of the target specific flags that
 // instruction info tracks.
 //
-// TSFlags layout (15 bits used):
-//   [4:0]   InstFormat   — encoding format class
-//   [12:5]  Opcode       — second byte (operation code within prefix group)
-//   [14:13] OperandSize  — 0=8bit, 1=16bit, 2=32bit
+// TSFlags layout (16 bits used):
+//   [5:0]   InstFormat   — encoding format class (6 bits, up to 64 formats)
+//   [13:6]  Opcode       — second byte (operation code within prefix group)
+//   [15:14] OperandSize  — 0=8bit, 1=16bit, 2=32bit
 namespace TLCS900II {
 
 // Instruction encoding format classes.
@@ -60,18 +60,20 @@ enum InstFormat : uint8_t {
   SingleByteCondRet, // 0xB0 + (opc+cc) — RETcc (2 bytes)
   PrefixCondCode,    // Reg prefix + (opc+cc) — SCC (2 bytes)
   MemStoreImm,       // Dst mem prefix + opc + immediate — LD (mem), #imm
+  MemIncDec,         // Src mem prefix + (opc + count%8) — INC/DEC (mem)
+  MemPush,           // Src mem prefix + 0x04 — PUSH (mem)
 };
 
 // TSFlags bit field positions and masks.
 enum : uint64_t {
   InstFormatShift = 0,
-  InstFormatMask = 0x1F, // 5 bits [4:0]
+  InstFormatMask = 0x3F, // 6 bits [5:0]
 
-  OpcodeShift = 5,
-  OpcodeMask = 0xFF << OpcodeShift, // 8 bits [12:5]
+  OpcodeShift = 6,
+  OpcodeMask = 0xFF << OpcodeShift, // 8 bits [13:6]
 
-  OpSizeShift = 13,
-  OpSizeMask = 0x3 << OpSizeShift, // 2 bits [14:13]
+  OpSizeShift = 14,
+  OpSizeMask = 0x3 << OpSizeShift, // 2 bits [15:14]
 };
 
 // Operand size encoding in TSFlags.
