@@ -168,16 +168,25 @@ def LD32mi : MemStoreInst<0x08, 8, (outs), (ins MEMri:$addr, i32imm:$val),
              Sched<[WriteSTW, ReadMemBase]>;
 
 // LD (mem), #imm8/16 — Store immediate to memory via B0/B8 prefix
-// 8-bit: B0+r [+d8] + 0x00 + imm8
-// 16-bit: B0+r [+d8] + 0x14 + imm16
+// The B0/B8 table has multiple sub-opcodes for immediate stores:
+//   0x00 = LD (mem), #imm8    0x02 = LDW (mem), #imm16
+//   0x14 = LD (mem), #imm8    0x16 = LDW (mem), #imm16
+// Both 0x00/0x14 produce identical 8-bit stores; 0x02/0x16 identical 16-bit.
 let OpSize = OpSize8.Value in
 def LD8mi_dst : MemStoreImmInst<0x00, 4, (outs), (ins MEMri:$addr, i8imm:$val),
                                  "ldmi8", "$addr, $val", []>,
                 Sched<[WriteSTW, ReadMemBase]>;
-let OpSize = OpSize16.Value in
+let OpSize = OpSize16.Value in {
 def LD16mi_dst : MemStoreImmInst<0x14, 5, (outs), (ins MEMri:$addr, i16imm:$val),
                                   "ldmi16", "$addr, $val", []>,
                  Sched<[WriteSTW, ReadMemBase]>;
+def LD16mi_dst_02 : MemStoreImmInst<0x02, 4, (outs), (ins MEMri:$addr, i16imm:$val),
+                                     "ldmw", "$addr, $val", []>,
+                    Sched<[WriteSTW, ReadMemBase]>;
+def LD16mi_dst_16 : MemStoreImmInst<0x16, 5, (outs), (ins MEMri:$addr, i16imm:$val),
+                                     "ldmw2", "$addr, $val", []>,
+                    Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize16
 
 // LD rd:lo16, (base+disp) — Load 16-bit from memory into low word of GPR
 // Note: upper 16 bits of the 32-bit register are UNCHANGED by hardware.
