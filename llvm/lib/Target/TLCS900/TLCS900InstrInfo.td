@@ -1047,6 +1047,67 @@ def SUB32mi : MemALUInst<0xCA, 8, (outs), (ins MEMri:$addr, i32imm:$imm),
 
 } // Defs = [SR], mayLoad, mayStore, isCodeGenOnly
 
+// Memory-immediate ALU (8-bit and 16-bit) — valid in 0x80/0x90 prefix tables.
+// Sub-opcodes: ADD=0x38, ADC=0x39, SUB=0x3A, SBC=0x3B,
+//              AND=0x3C, XOR=0x3D, OR=0x3E, CP=0x3F.
+let Defs = [SR], mayLoad = 1, hasSideEffects = 0 in {
+
+let OpSize = OpSize8.Value in {
+def CP8mi  : MemALUInst<0x3F, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "cpmi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+def AND8mi : MemALUInst<0x3C, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "andmi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+def OR8mi  : MemALUInst<0x3E, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "ormi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+def ADD8mi : MemALUInst<0x38, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "addmi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+def SUB8mi : MemALUInst<0x3A, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "submi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+def ADC8mi : MemALUInst<0x39, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "adcmi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+def SBC8mi : MemALUInst<0x3B, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "sbcmi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+def XOR8mi : MemALUInst<0x3D, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
+                         "xormi8", "$addr, $imm", []>,
+             Sched<[WriteLDW, ReadMemBase]>;
+}
+
+let OpSize = OpSize16.Value in {
+def CP16mi  : MemALUInst<0x3F, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "cpmi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+def AND16mi : MemALUInst<0x3C, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "andmi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+def OR16mi  : MemALUInst<0x3E, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "ormi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+def ADD16mi : MemALUInst<0x38, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "addmi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+def SUB16mi : MemALUInst<0x3A, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "submi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+def ADC16mi : MemALUInst<0x39, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "adcmi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+def SBC16mi : MemALUInst<0x3B, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "sbcmi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+def XOR16mi : MemALUInst<0x3D, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
+                          "xormi16", "$addr, $imm", []>,
+              Sched<[WriteLDW, ReadMemBase]>;
+}
+
+} // Defs = [SR], mayLoad, hasSideEffects
+
 // Memory-ALU isel patterns: fold load+op+store into CISC read-modify-write.
 // Matches (store (op (load addr), val), addr) → OP32mr addr, val.
 // Commutative ops (add, and, or, xor) auto-match both operand orderings.
