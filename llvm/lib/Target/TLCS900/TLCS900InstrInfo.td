@@ -1273,6 +1273,36 @@ def DEC16m : MemIncDecInst<0x68, 2, (outs),
 } // OpSize16
 } // Defs, mayLoad, mayStore, hasSideEffects
 
+// Memory BIT/SET/RES/LDCF/STCF — bit operations on memory via B0/B8 prefix.
+// Encoding: dst_mem_prefix(base [+disp]) + (base_opcode + bit_number)
+// BIT: 0xC8+n  SET: 0xB8+n  RES: 0xB0+n  LDCF: 0x98+n  STCF: 0xA0+n
+let mayLoad = 1, hasSideEffects = 0 in {
+def BITm : MemDstBitOpInst<0xC8, 2, (outs),
+                            (ins MEMri:$addr, i32imm:$bit),
+                            "bitm", "$bit, $addr", []>,
+           Sched<[WriteIALU, ReadMemBase]>;
+let Defs = [SR] in
+def LDCFm : MemDstBitOpInst<0x98, 2, (outs),
+                              (ins MEMri:$addr, i32imm:$bit),
+                              "ldcfm", "$bit, $addr", []>,
+            Sched<[WriteIALU, ReadMemBase]>;
+} // mayLoad, hasSideEffects
+let mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+def SETm : MemDstBitOpInst<0xB8, 2, (outs),
+                            (ins MEMri:$addr, i32imm:$bit),
+                            "setm", "$bit, $addr", []>,
+           Sched<[WriteSTW, ReadMemBase]>;
+def RESm : MemDstBitOpInst<0xB0, 2, (outs),
+                            (ins MEMri:$addr, i32imm:$bit),
+                            "resm", "$bit, $addr", []>,
+           Sched<[WriteSTW, ReadMemBase]>;
+let Uses = [SR] in
+def STCFm : MemDstBitOpInst<0xA0, 2, (outs),
+                              (ins MEMri:$addr, i32imm:$bit),
+                              "stcfm", "$bit, $addr", []>,
+            Sched<[WriteSTW, ReadMemBase]>;
+} // mayLoad, mayStore, hasSideEffects
+
 // Memory PUSH — read from memory and push to stack.
 // Encoding: src_mem_prefix(base [+disp]) + 0x04
 // 16-bit (PUSHW): uses 0x90-0x9F source memory prefix.

@@ -727,6 +727,16 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(Opcode);
     break;
   }
+
+  case TLCS900II::MemDstBitOp: {
+    // dst_mem_prefix [+disp] + (opcode + bit_number).
+    // BIT/SET/RES/LDCF/STCF (mem): op 0 = base, op 1 = disp, op 2 = bit.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
+    unsigned BitNum =
+        MI.getOperand(2).isImm() ? MI.getOperand(2).getImm() : 0;
+    CB.push_back(Opcode + (BitNum & 0x7));
+    break;
+  }
   }
 }
 

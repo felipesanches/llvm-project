@@ -52,6 +52,7 @@ def InstFormatPrefixCondCode : InstFormat<30>;
 def InstFormatMemStoreImm : InstFormat<31>;
 def InstFormatMemIncDec : InstFormat<32>;
 def InstFormatMemPush : InstFormat<33>;
+def InstFormatMemDstBitOp : InstFormat<34>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -415,6 +416,16 @@ class MemPushInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
                   string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatMemPush.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// MemDstBitOpInst: dst_mem_prefix [+disp] + (opcode + bit_number)
+// BIT/SET/RES/LDCF/STCF on memory. Bit number embedded in sub-opcode bits 0-2.
+class MemDstBitOpInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                      string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemDstBitOp.Value;
   let Opcode = opc;
   let Size = sz;
 }

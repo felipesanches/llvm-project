@@ -62,6 +62,7 @@ enum InstFormat : uint8_t {
   MemStoreImm,       // Dst mem prefix + opc + immediate — LD (mem), #imm
   MemIncDec,         // Src mem prefix + (opc + count%8) — INC/DEC (mem)
   MemPush,           // Src mem prefix + 0x04 — PUSH (mem)
+  MemDstBitOp,       // Dst mem prefix + (opc + bit%8) — BIT/SET/RES/LDCF/STCF (mem)
 };
 
 // TSFlags bit field positions and masks.
