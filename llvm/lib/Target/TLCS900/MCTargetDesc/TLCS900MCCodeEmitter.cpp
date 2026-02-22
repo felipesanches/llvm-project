@@ -186,6 +186,16 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     PrefixD8 = PrefixNoDisp + 0x08;
   }
 
+  // Sentinel: displacement of 256 means "force d8 form with displacement 0".
+  // Used by the assembly converter to reproduce exact ROM encoding where
+  // the original firmware used the 2-byte (Xrr+d8) prefix with d8=0x00
+  // instead of the shorter 1-byte (Xrr) prefix.
+  if (Disp == 256 && DispOp.isImm()) {
+    CB.push_back(PrefixD8 + BaseReg);
+    CB.push_back(0);
+    return 2;
+  }
+
   if (Disp == 0 && DispOp.isImm()) {
     // (Xrr) — no displacement, 1-byte prefix.
     CB.push_back(PrefixNoDisp + BaseReg);
