@@ -731,6 +731,13 @@ def POP16_short : SingleByteRegInst<0x48, (outs GR16:$rd), (ins),
                                      "popw", "$rd", []>,
                   Sched<[WritePop]>;
 
+// PUSHW #imm16 — Push 16-bit immediate to stack
+// Encoding: 0x0B, imm16_LE (3 bytes)
+let mayStore = 1 in
+def PUSHW_imm : SingleByteImm8Inst<0x0B, (outs), (ins i16imm:$imm),
+                                     "pushw", "$imm", []>,
+                Sched<[WritePush]>;
+
 } // Defs = [XSP], Uses = [XSP], hasSideEffects
 
 // PUSH SR — Push status register (0x02, 1 byte)
@@ -825,6 +832,13 @@ let isReturn = 1, isBarrier = 1, isTerminator = 1 in
 def RETD : SingleByteImm8Inst<0x0F, (outs), (ins i32imm:$imm),
                               "retd", "$imm", []>,
            Sched<[WriteJmp]>;
+
+// RETcc — Conditional return
+// Encoding: 0xB0, 0xF0+cc (2 bytes)
+let isReturn = 1, isTerminator = 1, Uses = [SR] in
+def RETcc : SingleByteCondRetInst<0xF0, (outs), (ins cc:$cc),
+                                   "ret", "$cc", []>,
+            Sched<[WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
 // Rotate Instructions (single-operand, in-place)

@@ -57,6 +57,7 @@ enum InstFormat : uint8_t {
   PrefixPop,         // Reg prefix + 0x05 (POP via prefix)
   BlockTransfer,     // 2-byte block transfer: 0x80 prefix + sub-opcode (LDI, LDIR, etc.)
   PrefixSmallImm,    // Reg prefix + (opcode + imm3) — LD r, 0-7 (2 bytes)
+  SingleByteCondRet, // 0xB0 + (opc+cc) — RETcc (2 bytes)
 };
 
 // TSFlags bit field positions and masks.

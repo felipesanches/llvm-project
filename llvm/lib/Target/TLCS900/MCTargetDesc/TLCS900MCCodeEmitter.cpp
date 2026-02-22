@@ -281,8 +281,8 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       // SWI num: immediate encoded in opcode bits 0-2.
       unsigned Imm = ImmOp.isImm() ? ImmOp.getImm() : 0;
       CB.push_back(Opcode + (Imm & 0x7));
-    } else if (Opcode == 0x0F) {
-      // RETD: opcode + 16-bit displacement.
+    } else if (Opcode == 0x0B || Opcode == 0x0F) {
+      // PUSHW/RETD: opcode + 16-bit immediate.
       CB.push_back(Opcode);
       if (ImmOp.isImm())
         emitImmediate(ImmOp.getImm(), 2, CB);
@@ -662,6 +662,14 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // 0x80 = byte-wide source memory prefix (register 0 = XWA, unused).
     CB.push_back(0x80);
     CB.push_back(Opcode);
+    break;
+  }
+
+  case TLCS900II::SingleByteCondRet: {
+    // RETcc: 0xB0, (Opcode + cc). Opcode = 0xF0 base.
+    unsigned CC = MI.getOperand(0).isImm() ? MI.getOperand(0).getImm() : 0;
+    CB.push_back(0xB0);
+    CB.push_back(Opcode + (CC & 0xF));
     break;
   }
 

@@ -47,6 +47,7 @@ def InstFormatPrefixPush    : InstFormat<25>;
 def InstFormatPrefixPop     : InstFormat<26>;
 def InstFormatBlockTransfer : InstFormat<27>;
 def InstFormatPrefixSmallImm : InstFormat<28>;
+def InstFormatSingleByteCondRet : InstFormat<29>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -361,6 +362,16 @@ class PrefixSmallImmInst<bits<8> opc, dag outs, dag ins, string opcodestr,
                          string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatPrefixSmallImm.Value;
+  let Opcode = opc;
+  let Size = 2;
+}
+
+// SingleByteCondRetInst: 2-byte, 0xB0 + (base_opc+cc)
+// Used for RETcc: 0xB0, 0xF0+cc
+class SingleByteCondRetInst<bits<8> opc, dag outs, dag ins, string opcodestr,
+                            string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSingleByteCondRet.Value;
   let Opcode = opc;
   let Size = 2;
 }
