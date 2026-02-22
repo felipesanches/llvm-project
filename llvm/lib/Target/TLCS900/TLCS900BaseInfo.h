@@ -72,6 +72,7 @@ enum InstFormat : uint8_t {
   DirectDstImm,      // Dst direct prefix + addr + opc + imm — LD (addr), #imm
   DirectDstBitOp,    // Dst direct prefix + addr + (opc + bit) — BIT/SET/RES (addr)
   DirectMemToMem,    // Src direct prefix + src_addr + 0x19 + dst_addr — LD (dst),(src)
+  LdIoImm,           // 0x08 + addr8 + imm8 — LD (n), #n (I/O register write)
 };
 
 // TSFlags bit field positions and masks.

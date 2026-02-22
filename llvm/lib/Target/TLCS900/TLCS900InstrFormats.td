@@ -60,6 +60,7 @@ def InstFormatDirectDstReg : InstFormat<38>;
 def InstFormatDirectDstImm : InstFormat<39>;
 def InstFormatDirectDstBitOp : InstFormat<40>;
 def InstFormatDirectMemToMem : InstFormat<41>;
+def InstFormatLdIoImm : InstFormat<42>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -520,4 +521,13 @@ class DirectMemToMemInst<bits<8> opc, int sz, dag outs, dag ins,
   let InstFormat = InstFormatDirectMemToMem.Value;
   let Opcode = opc;
   let Size = sz;
+}
+
+// LdIoImmInst: 3-byte I/O register write — 0x08 + addr8 + imm8
+class LdIoImmInst<bits<8> opc, dag outs, dag ins, string opcodestr,
+                   string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatLdIoImm.Value;
+  let Opcode = opc;
+  let Size = 3;
 }

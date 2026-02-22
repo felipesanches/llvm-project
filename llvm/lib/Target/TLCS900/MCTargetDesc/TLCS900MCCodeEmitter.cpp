@@ -865,6 +865,14 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       emitImmediate(DstAddr.getImm(), Is24Bit ? 3 : 2, CB);
     break;
   }
+
+  case TLCS900II::LdIoImm: {
+    // 0x08 + addr8 + imm8. op 0 = addr, op 1 = imm.
+    CB.push_back(Opcode);
+    CB.push_back(MI.getOperand(0).isImm() ? MI.getOperand(0).getImm() : 0);
+    CB.push_back(MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0);
+    break;
+  }
   }
 }
 

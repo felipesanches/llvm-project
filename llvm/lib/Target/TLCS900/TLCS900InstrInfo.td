@@ -922,6 +922,12 @@ def SWI : SingleByteImm8Inst<0xF8, (outs), (ins i32imm:$num),
                              "swi", "$num", []>,
           Sched<[WriteJmp]>;
 
+// LD (n), #n — I/O register write (3-byte: 0x08 + addr8 + imm8)
+let mayStore = 1, hasSideEffects = 1 in
+def LDIO : LdIoImmInst<0x08, (outs), (ins i32imm:$addr, i32imm:$val),
+                         "ldio", "$addr, $val", []>,
+           Sched<[WriteSTW]>;
+
 // RETI — Return from interrupt (pops SR then PC from stack)
 // Encoding: 0x07 (1 byte)
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in
@@ -2956,6 +2962,13 @@ def CALLCC_24 : DirectDstBitOpInst<0xE0, 5, (outs),
                                      (ins i32imm:$addr, i32imm:$cc),
                                      "callcc_24", "$cc, $addr", []>,
                 Sched<[WriteJmp]>;
+
+// F2 conditional JP: F2 + addr24 + (0xD0+cc) — 5 bytes
+let isBranch = 1, isTerminator = 1, hasSideEffects = 0, AddrWidth = 1 in
+def JPCC_24 : DirectDstBitOpInst<0xD0, 5, (outs),
+                                    (ins i32imm:$addr, i32imm:$cc),
+                                    "jpcc_24", "$cc, $addr", []>,
+              Sched<[WriteJmp]>;
 
 //--- Source direct: INC/DEC (addr) — sub-opcode 0x60+count / 0x68+count ---
 
