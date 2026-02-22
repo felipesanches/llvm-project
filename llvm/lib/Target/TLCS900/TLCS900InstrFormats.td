@@ -63,6 +63,7 @@ def InstFormatDirectMemToMem : InstFormat<41>;
 def InstFormatLdIoImm : InstFormat<42>;
 def InstFormatExtPrefix : InstFormat<43>;
 def InstFormatExtAddrMode : InstFormat<44>;
+def InstFormatExtAddrModeSuffix : InstFormat<45>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -85,6 +86,7 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   bits<2> OpSize = OpSize32.Value;
   bits<1> AddrWidth = 0; // 0=16-bit addr, 1=24-bit addr (direct addressing)
   bits<3> RegIdx = 0;    // Register index for block transfer prefix
+  bits<8> SubOpcode = 0; // Appended sub-opcode byte (ExtAddrModeSuffix)
 
   // Wire TSFlags.
   let TSFlags{5-0}   = InstFormat;
@@ -92,6 +94,7 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   let TSFlags{15-14} = OpSize;
   let TSFlags{16}    = AddrWidth;
   let TSFlags{19-17} = RegIdx;
+  let TSFlags{27-20} = SubOpcode;
 
   let Size = 0; // Default; subclasses set correct size.
 
@@ -559,5 +562,21 @@ class ExtAddrModeInst<int nbytes, dag outs, dag ins, string opcodestr,
                        string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatExtAddrMode.Value;
+  let Size = nbytes;
+}
+
+// ExtAddrModeSuffixInst: Like ExtAddrMode but appends a SubOpcode byte after
+// the operand bytes. Used for instructions where the operation is encoded as
+// the last byte after variable-length addressing mode bytes.
+//
+// Encoding: [computed_prefix, operand_bytes..., SubOpcode]
+//   - prefix computed from Opcode + OpSize * 0x10 (source) or Opcode (dest)
+//   - operand bytes emitted from immediate operands
+//   - SubOpcode appended from TSFlags
+class ExtAddrModeSuffixInst<int nbytes, bits<8> sub_opc, dag outs, dag ins,
+                             string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatExtAddrModeSuffix.Value;
+  let SubOpcode = sub_opc;
   let Size = nbytes;
 }

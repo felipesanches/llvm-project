@@ -902,6 +902,23 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     }
     break;
   }
+
+  case TLCS900II::ExtAddrModeSuffix: {
+    // Like ExtAddrMode but appends SubOpcode byte after operands.
+    // Encoding: [computed_prefix, operand_bytes..., SubOpcode]
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+      const MCOperand &MO = MI.getOperand(i);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
   }
 }
 

@@ -3310,6 +3310,127 @@ def SRIL7 : ExtAddrModeInst<8, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, 
 } // OpSize32
 } // Opcode = 0xC3
 
+// --- LD via Source Register-Indirect (C3/D3/E3) with embedded sub-opcode ---
+// Format: [prefix, addr_mode_bytes..., sub_opcode]
+// The sub-opcode (0x20-0x27) selects the destination register.
+// These convert sriX4 (3 addr bytes + sub_opc) to semantic LD mnemonics.
+// 8-bit: sub-opc 0x20=W, 0x21=A, 0x22=B, 0x23=C, 0x24=D, 0x25=E, 0x26=H, 0x27=L
+// 16-bit: 0x20=WA, 0x21=BC, 0x22=DE, 0x23=HL, 0x24=IX, 0x25=IY, 0x26=IZ, 0x27=SP
+// 32-bit: 0x20=XWA, 0x21=XBC, 0x22=XDE, 0x23=XHL, 0x24=XIX, 0x25=XIY, 0x26=XIZ, 0x27=XSP
+
+let Opcode = 0xC3 in {
+// 8-bit LD r8, (source register-indirect) — 3 addr bytes
+let OpSize = OpSize8.Value in {
+def LD_W_SRIB3 : ExtAddrModeSuffixInst<5, 0x20, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_w_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_A_SRIB3 : ExtAddrModeSuffixInst<5, 0x21, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_a_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_B_SRIB3 : ExtAddrModeSuffixInst<5, 0x22, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_b_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_C_SRIB3 : ExtAddrModeSuffixInst<5, 0x23, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_c_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_D_SRIB3 : ExtAddrModeSuffixInst<5, 0x24, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_d_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_E_SRIB3 : ExtAddrModeSuffixInst<5, 0x25, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_e_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_H_SRIB3 : ExtAddrModeSuffixInst<5, 0x26, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_h_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_L_SRIB3 : ExtAddrModeSuffixInst<5, 0x27, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_l_srib3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+// 1 addr byte form (rare — (r32) addressing with no displacement)
+def LD_W_SRIB1 : ExtAddrModeSuffixInst<3, 0x20, (outs), (ins i32imm:$b0),
+    "ld_w_srib1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_A_SRIB1 : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
+    "ld_a_srib1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_B_SRIB1 : ExtAddrModeSuffixInst<3, 0x22, (outs), (ins i32imm:$b0),
+    "ld_b_srib1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_C_SRIB1 : ExtAddrModeSuffixInst<3, 0x23, (outs), (ins i32imm:$b0),
+    "ld_c_srib1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_D_SRIB1 : ExtAddrModeSuffixInst<3, 0x24, (outs), (ins i32imm:$b0),
+    "ld_d_srib1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_E_SRIB1 : ExtAddrModeSuffixInst<3, 0x25, (outs), (ins i32imm:$b0),
+    "ld_e_srib1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_H_SRIB1 : ExtAddrModeSuffixInst<3, 0x26, (outs), (ins i32imm:$b0),
+    "ld_h_srib1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_L_SRIB1 : ExtAddrModeSuffixInst<3, 0x27, (outs), (ins i32imm:$b0),
+    "ld_l_srib1", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize8
+
+// 16-bit LD r16, (source register-indirect) — 3 addr bytes
+let OpSize = OpSize16.Value in {
+def LD_WA_SRIW3 : ExtAddrModeSuffixInst<5, 0x20, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_wa_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_BC_SRIW3 : ExtAddrModeSuffixInst<5, 0x21, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_bc_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_DE_SRIW3 : ExtAddrModeSuffixInst<5, 0x22, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_de_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_HL_SRIW3 : ExtAddrModeSuffixInst<5, 0x23, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_hl_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_IX_SRIW3 : ExtAddrModeSuffixInst<5, 0x24, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_ix_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_IY_SRIW3 : ExtAddrModeSuffixInst<5, 0x25, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_iy_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_IZ_SRIW3 : ExtAddrModeSuffixInst<5, 0x26, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_iz_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_SP_SRIW3 : ExtAddrModeSuffixInst<5, 0x27, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_sp_sriw3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+// 1 addr byte form
+def LD_WA_SRIW1 : ExtAddrModeSuffixInst<3, 0x20, (outs), (ins i32imm:$b0),
+    "ld_wa_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_BC_SRIW1 : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
+    "ld_bc_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_DE_SRIW1 : ExtAddrModeSuffixInst<3, 0x22, (outs), (ins i32imm:$b0),
+    "ld_de_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_HL_SRIW1 : ExtAddrModeSuffixInst<3, 0x23, (outs), (ins i32imm:$b0),
+    "ld_hl_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_IX_SRIW1 : ExtAddrModeSuffixInst<3, 0x24, (outs), (ins i32imm:$b0),
+    "ld_ix_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_IY_SRIW1 : ExtAddrModeSuffixInst<3, 0x25, (outs), (ins i32imm:$b0),
+    "ld_iy_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_IZ_SRIW1 : ExtAddrModeSuffixInst<3, 0x26, (outs), (ins i32imm:$b0),
+    "ld_iz_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_SP_SRIW1 : ExtAddrModeSuffixInst<3, 0x27, (outs), (ins i32imm:$b0),
+    "ld_sp_sriw1", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize16
+
+// 32-bit LD r32, (source register-indirect) — 3 addr bytes
+let OpSize = OpSize32.Value in {
+def LD_XWA_SRIL3 : ExtAddrModeSuffixInst<5, 0x20, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xwa_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_XBC_SRIL3 : ExtAddrModeSuffixInst<5, 0x21, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xbc_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_XDE_SRIL3 : ExtAddrModeSuffixInst<5, 0x22, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xde_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_XHL_SRIL3 : ExtAddrModeSuffixInst<5, 0x23, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xhl_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_XIX_SRIL3 : ExtAddrModeSuffixInst<5, 0x24, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xix_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_XIY_SRIL3 : ExtAddrModeSuffixInst<5, 0x25, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xiy_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_XIZ_SRIL3 : ExtAddrModeSuffixInst<5, 0x26, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xiz_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LD_XSP_SRIL3 : ExtAddrModeSuffixInst<5, 0x27, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ld_xsp_sril3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+// 1 addr byte form
+def LD_XWA_SRIL1 : ExtAddrModeSuffixInst<3, 0x20, (outs), (ins i32imm:$b0),
+    "ld_xwa_sril1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XBC_SRIL1 : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
+    "ld_xbc_sril1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XDE_SRIL1 : ExtAddrModeSuffixInst<3, 0x22, (outs), (ins i32imm:$b0),
+    "ld_xde_sril1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XHL_SRIL1 : ExtAddrModeSuffixInst<3, 0x23, (outs), (ins i32imm:$b0),
+    "ld_xhl_sril1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XIX_SRIL1 : ExtAddrModeSuffixInst<3, 0x24, (outs), (ins i32imm:$b0),
+    "ld_xix_sril1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XIY_SRIL1 : ExtAddrModeSuffixInst<3, 0x25, (outs), (ins i32imm:$b0),
+    "ld_xiy_sril1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XIZ_SRIL1 : ExtAddrModeSuffixInst<3, 0x26, (outs), (ins i32imm:$b0),
+    "ld_xiz_sril1", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XSP_SRIL1 : ExtAddrModeSuffixInst<3, 0x27, (outs), (ins i32imm:$b0),
+    "ld_xsp_sril1", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize32
+} // Opcode = 0xC3
+
 // --- Source Post-Increment (C5/D5/E5) ---
 // Format: C5/D5/E5 + reg_byte + sub_opcode [+ operand_bytes]
 
@@ -3388,6 +3509,86 @@ def DRI7 : ExtAddrModeInst<8, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i
     "dri7", "$b0, $b1, $b2, $b3, $b4, $b5, $b6", []>, Sched<[WriteSTW]>;
 def DRI8 : ExtAddrModeInst<9, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4, i32imm:$b5, i32imm:$b6, i32imm:$b7),
     "dri8", "$b0, $b1, $b2, $b3, $b4, $b5, $b6, $b7", []>, Sched<[WriteSTW]>;
+} // Opcode = 0xF3
+
+// --- LD/LDA via Destination Register-Indirect (F3) with embedded sub-opcode ---
+// Format: [F3, addr_mode_bytes..., sub_opcode]
+// F3 prefix is size-independent (no OpSize adjustment since Opcode >= 0xF0).
+// Sub-opcodes: 0x30-0x37=LD(mem),r8  0x40-0x47=LDA r32,mem
+//              0x50-0x57=LD(mem),r16  0x60-0x67=LD(mem),r32
+
+let Opcode = 0xF3 in {
+// LD (mem), r8 — store 8-bit register (sub-opc 0x30-0x37)
+def ST_W_DRI3 : ExtAddrModeSuffixInst<5, 0x30, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_w_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_A_DRI3 : ExtAddrModeSuffixInst<5, 0x31, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_a_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_B_DRI3 : ExtAddrModeSuffixInst<5, 0x32, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_b_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_C_DRI3 : ExtAddrModeSuffixInst<5, 0x33, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_c_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_D_DRI3 : ExtAddrModeSuffixInst<5, 0x34, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_d_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_E_DRI3 : ExtAddrModeSuffixInst<5, 0x35, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_e_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_H_DRI3 : ExtAddrModeSuffixInst<5, 0x36, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_h_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_L_DRI3 : ExtAddrModeSuffixInst<5, 0x37, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_l_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+
+// LDA r32, mem — load effective address (sub-opc 0x40-0x47)
+def LDA_XWA_DRI3 : ExtAddrModeSuffixInst<5, 0x40, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xwa_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LDA_XBC_DRI3 : ExtAddrModeSuffixInst<5, 0x41, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xbc_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LDA_XDE_DRI3 : ExtAddrModeSuffixInst<5, 0x42, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xde_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LDA_XHL_DRI3 : ExtAddrModeSuffixInst<5, 0x43, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xhl_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LDA_XIX_DRI3 : ExtAddrModeSuffixInst<5, 0x44, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xix_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LDA_XIY_DRI3 : ExtAddrModeSuffixInst<5, 0x45, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xiy_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LDA_XIZ_DRI3 : ExtAddrModeSuffixInst<5, 0x46, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xiz_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def LDA_XSP_DRI3 : ExtAddrModeSuffixInst<5, 0x47, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "lda_xsp_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+
+// LD (mem), r16 — store 16-bit register (sub-opc 0x50-0x57)
+def ST_WA_DRI3 : ExtAddrModeSuffixInst<5, 0x50, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_wa_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_BC_DRI3 : ExtAddrModeSuffixInst<5, 0x51, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_bc_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_DE_DRI3 : ExtAddrModeSuffixInst<5, 0x52, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_de_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_HL_DRI3 : ExtAddrModeSuffixInst<5, 0x53, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_hl_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_IX_DRI3 : ExtAddrModeSuffixInst<5, 0x54, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_ix_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_IY_DRI3 : ExtAddrModeSuffixInst<5, 0x55, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_iy_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_IZ_DRI3 : ExtAddrModeSuffixInst<5, 0x56, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_iz_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_SP_DRI3 : ExtAddrModeSuffixInst<5, 0x57, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_sp_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+
+// LD (mem), r32 — store 32-bit register (sub-opc 0x60-0x67)
+def ST_XWA_DRI3 : ExtAddrModeSuffixInst<5, 0x60, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xwa_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_XBC_DRI3 : ExtAddrModeSuffixInst<5, 0x61, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xbc_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_XDE_DRI3 : ExtAddrModeSuffixInst<5, 0x62, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xde_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_XHL_DRI3 : ExtAddrModeSuffixInst<5, 0x63, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xhl_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_XIX_DRI3 : ExtAddrModeSuffixInst<5, 0x64, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xix_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_XIY_DRI3 : ExtAddrModeSuffixInst<5, 0x65, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xiy_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_XIZ_DRI3 : ExtAddrModeSuffixInst<5, 0x66, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xiz_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ST_XSP_DRI3 : ExtAddrModeSuffixInst<5, 0x67, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "st_xsp_dri3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // Opcode = 0xF3
 
 // --- Destination Post-Increment (F5) ---
