@@ -3261,6 +3261,242 @@ def ERPL6 : ExtAddrModeInst<7, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, 
 } // OpSize32
 } // Opcode = 0xC7
 
+// --- Extended Register Prefix Suffix (C7/D7/E7 + reg_idx + SubOpcode) ---
+// Format: C7/D7/E7 prefix + reg_idx_byte + SubOpcode(from TSFlags)
+// These provide semantic mnemonics for erpb2/erpw2/erpl2 with known sub-opcodes.
+
+let Opcode = 0xC7 in {
+// B extended register prefix suffix instructions
+let OpSize = OpSize8.Value in {
+def XORCF_A_BERP : ExtAddrModeSuffixInst<3, 0x2A, (outs), (ins i32imm:$b0),
+    "xorcf_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def INC1_BERP : ExtAddrModeSuffixInst<3, 0x61, (outs), (ins i32imm:$b0),
+    "inc1_berp", "$b0", []>, Sched<[WriteSTW]>;
+def DEC1_BERP : ExtAddrModeSuffixInst<3, 0x69, (outs), (ins i32imm:$b0),
+    "dec1_berp", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_A_BERP : ExtAddrModeSuffixInst<3, 0x81, (outs), (ins i32imm:$b0),
+    "add_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_C_BERP : ExtAddrModeSuffixInst<3, 0x83, (outs), (ins i32imm:$b0),
+    "add_c_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_W_BERP : ExtAddrModeSuffixInst<3, 0x88, (outs), (ins i32imm:$b0),
+    "ldto_w_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_A_BERP : ExtAddrModeSuffixInst<3, 0x89, (outs), (ins i32imm:$b0),
+    "ldto_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_B_BERP : ExtAddrModeSuffixInst<3, 0x8A, (outs), (ins i32imm:$b0),
+    "ldto_b_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_C_BERP : ExtAddrModeSuffixInst<3, 0x8B, (outs), (ins i32imm:$b0),
+    "ldto_c_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_E_BERP : ExtAddrModeSuffixInst<3, 0x8D, (outs), (ins i32imm:$b0),
+    "ldto_e_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_L_BERP : ExtAddrModeSuffixInst<3, 0x8F, (outs), (ins i32imm:$b0),
+    "ldto_l_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_W_BERP : ExtAddrModeSuffixInst<3, 0x98, (outs), (ins i32imm:$b0),
+    "ldfr_w_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_A_BERP : ExtAddrModeSuffixInst<3, 0x99, (outs), (ins i32imm:$b0),
+    "ldfr_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_C_BERP : ExtAddrModeSuffixInst<3, 0x9B, (outs), (ins i32imm:$b0),
+    "ldfr_c_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_D_BERP : ExtAddrModeSuffixInst<3, 0x9C, (outs), (ins i32imm:$b0),
+    "ldfr_d_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_E_BERP : ExtAddrModeSuffixInst<3, 0x9D, (outs), (ins i32imm:$b0),
+    "ldfr_e_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_H_BERP : ExtAddrModeSuffixInst<3, 0x9E, (outs), (ins i32imm:$b0),
+    "ldfr_h_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_L_BERP : ExtAddrModeSuffixInst<3, 0x9F, (outs), (ins i32imm:$b0),
+    "ldfr_l_berp", "$b0", []>, Sched<[WriteSTW]>;
+def SUB_A_BERP : ExtAddrModeSuffixInst<3, 0xA1, (outs), (ins i32imm:$b0),
+    "sub_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def SUB_C_BERP : ExtAddrModeSuffixInst<3, 0xA3, (outs), (ins i32imm:$b0),
+    "sub_c_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI0_BERP : ExtAddrModeSuffixInst<3, 0xA8, (outs), (ins i32imm:$b0),
+    "ldi0_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI1_BERP : ExtAddrModeSuffixInst<3, 0xA9, (outs), (ins i32imm:$b0),
+    "ldi1_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI2_BERP : ExtAddrModeSuffixInst<3, 0xAA, (outs), (ins i32imm:$b0),
+    "ldi2_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI3_BERP : ExtAddrModeSuffixInst<3, 0xAB, (outs), (ins i32imm:$b0),
+    "ldi3_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI4_BERP : ExtAddrModeSuffixInst<3, 0xAC, (outs), (ins i32imm:$b0),
+    "ldi4_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI5_BERP : ExtAddrModeSuffixInst<3, 0xAD, (outs), (ins i32imm:$b0),
+    "ldi5_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI6_BERP : ExtAddrModeSuffixInst<3, 0xAE, (outs), (ins i32imm:$b0),
+    "ldi6_berp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI7_BERP : ExtAddrModeSuffixInst<3, 0xAF, (outs), (ins i32imm:$b0),
+    "ldi7_berp", "$b0", []>, Sched<[WriteSTW]>;
+def AND_A_BERP : ExtAddrModeSuffixInst<3, 0xC1, (outs), (ins i32imm:$b0),
+    "and_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI0_BERP : ExtAddrModeSuffixInst<3, 0xD8, (outs), (ins i32imm:$b0),
+    "cpi0_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI1_BERP : ExtAddrModeSuffixInst<3, 0xD9, (outs), (ins i32imm:$b0),
+    "cpi1_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI2_BERP : ExtAddrModeSuffixInst<3, 0xDA, (outs), (ins i32imm:$b0),
+    "cpi2_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI3_BERP : ExtAddrModeSuffixInst<3, 0xDB, (outs), (ins i32imm:$b0),
+    "cpi3_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI4_BERP : ExtAddrModeSuffixInst<3, 0xDC, (outs), (ins i32imm:$b0),
+    "cpi4_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI5_BERP : ExtAddrModeSuffixInst<3, 0xDD, (outs), (ins i32imm:$b0),
+    "cpi5_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI6_BERP : ExtAddrModeSuffixInst<3, 0xDE, (outs), (ins i32imm:$b0),
+    "cpi6_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI7_BERP : ExtAddrModeSuffixInst<3, 0xDF, (outs), (ins i32imm:$b0),
+    "cpi7_berp", "$b0", []>, Sched<[WriteSTW]>;
+def OR_W_BERP : ExtAddrModeSuffixInst<3, 0xE0, (outs), (ins i32imm:$b0),
+    "or_w_berp", "$b0", []>, Sched<[WriteSTW]>;
+def OR_A_BERP : ExtAddrModeSuffixInst<3, 0xE1, (outs), (ins i32imm:$b0),
+    "or_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def OR_C_BERP : ExtAddrModeSuffixInst<3, 0xE3, (outs), (ins i32imm:$b0),
+    "or_c_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CP_A_BERP : ExtAddrModeSuffixInst<3, 0xF1, (outs), (ins i32imm:$b0),
+    "cp_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CP_C_BERP : ExtAddrModeSuffixInst<3, 0xF3, (outs), (ins i32imm:$b0),
+    "cp_c_berp", "$b0", []>, Sched<[WriteSTW]>;
+def CP_L_BERP : ExtAddrModeSuffixInst<3, 0xF7, (outs), (ins i32imm:$b0),
+    "cp_l_berp", "$b0", []>, Sched<[WriteSTW]>;
+def SLL_A_BERP : ExtAddrModeSuffixInst<3, 0xFE, (outs), (ins i32imm:$b0),
+    "sll_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize8
+
+// W extended register prefix suffix instructions
+let OpSize = OpSize16.Value in {
+def PUSH_WERP : ExtAddrModeSuffixInst<3, 0x04, (outs), (ins i32imm:$b0),
+    "push_werp", "$b0", []>, Sched<[WriteSTW]>;
+def POP_WERP : ExtAddrModeSuffixInst<3, 0x05, (outs), (ins i32imm:$b0),
+    "pop_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CPL_WERP : ExtAddrModeSuffixInst<3, 0x06, (outs), (ins i32imm:$b0),
+    "cpl_werp", "$b0", []>, Sched<[WriteSTW]>;
+def XORCF_A_WERP : ExtAddrModeSuffixInst<3, 0x2A, (outs), (ins i32imm:$b0),
+    "xorcf_a_werp", "$b0", []>, Sched<[WriteSTW]>;
+def STCF_A_WERP : ExtAddrModeSuffixInst<3, 0x2C, (outs), (ins i32imm:$b0),
+    "stcf_a_werp", "$b0", []>, Sched<[WriteSTW]>;
+def MUL_XWA_WERP : ExtAddrModeSuffixInst<3, 0x40, (outs), (ins i32imm:$b0),
+    "mul_xwa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def MUL_XBC_WERP : ExtAddrModeSuffixInst<3, 0x41, (outs), (ins i32imm:$b0),
+    "mul_xbc_werp", "$b0", []>, Sched<[WriteSTW]>;
+def INC1_WERP : ExtAddrModeSuffixInst<3, 0x61, (outs), (ins i32imm:$b0),
+    "inc1_werp", "$b0", []>, Sched<[WriteSTW]>;
+def INC4_WERP : ExtAddrModeSuffixInst<3, 0x64, (outs), (ins i32imm:$b0),
+    "inc4_werp", "$b0", []>, Sched<[WriteSTW]>;
+def DEC1_WERP : ExtAddrModeSuffixInst<3, 0x69, (outs), (ins i32imm:$b0),
+    "dec1_werp", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_WA_WERP : ExtAddrModeSuffixInst<3, 0x80, (outs), (ins i32imm:$b0),
+    "add_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_BC_WERP : ExtAddrModeSuffixInst<3, 0x81, (outs), (ins i32imm:$b0),
+    "add_bc_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_WA_WERP : ExtAddrModeSuffixInst<3, 0x88, (outs), (ins i32imm:$b0),
+    "ldto_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_BC_WERP : ExtAddrModeSuffixInst<3, 0x89, (outs), (ins i32imm:$b0),
+    "ldto_bc_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_DE_WERP : ExtAddrModeSuffixInst<3, 0x8A, (outs), (ins i32imm:$b0),
+    "ldto_de_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_HL_WERP : ExtAddrModeSuffixInst<3, 0x8B, (outs), (ins i32imm:$b0),
+    "ldto_hl_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_IX_WERP : ExtAddrModeSuffixInst<3, 0x8C, (outs), (ins i32imm:$b0),
+    "ldto_ix_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_IY_WERP : ExtAddrModeSuffixInst<3, 0x8D, (outs), (ins i32imm:$b0),
+    "ldto_iy_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_IZ_WERP : ExtAddrModeSuffixInst<3, 0x8E, (outs), (ins i32imm:$b0),
+    "ldto_iz_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_WA_WERP : ExtAddrModeSuffixInst<3, 0x98, (outs), (ins i32imm:$b0),
+    "ldfr_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_BC_WERP : ExtAddrModeSuffixInst<3, 0x99, (outs), (ins i32imm:$b0),
+    "ldfr_bc_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_DE_WERP : ExtAddrModeSuffixInst<3, 0x9A, (outs), (ins i32imm:$b0),
+    "ldfr_de_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_HL_WERP : ExtAddrModeSuffixInst<3, 0x9B, (outs), (ins i32imm:$b0),
+    "ldfr_hl_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_IY_WERP : ExtAddrModeSuffixInst<3, 0x9D, (outs), (ins i32imm:$b0),
+    "ldfr_iy_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_IZ_WERP : ExtAddrModeSuffixInst<3, 0x9E, (outs), (ins i32imm:$b0),
+    "ldfr_iz_werp", "$b0", []>, Sched<[WriteSTW]>;
+def SUB_WA_WERP : ExtAddrModeSuffixInst<3, 0xA0, (outs), (ins i32imm:$b0),
+    "sub_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def SUB_BC_WERP : ExtAddrModeSuffixInst<3, 0xA1, (outs), (ins i32imm:$b0),
+    "sub_bc_werp", "$b0", []>, Sched<[WriteSTW]>;
+def SUB_DE_WERP : ExtAddrModeSuffixInst<3, 0xA2, (outs), (ins i32imm:$b0),
+    "sub_de_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI0_WERP : ExtAddrModeSuffixInst<3, 0xA8, (outs), (ins i32imm:$b0),
+    "ldi0_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI1_WERP : ExtAddrModeSuffixInst<3, 0xA9, (outs), (ins i32imm:$b0),
+    "ldi1_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI2_WERP : ExtAddrModeSuffixInst<3, 0xAA, (outs), (ins i32imm:$b0),
+    "ldi2_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI3_WERP : ExtAddrModeSuffixInst<3, 0xAB, (outs), (ins i32imm:$b0),
+    "ldi3_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI4_WERP : ExtAddrModeSuffixInst<3, 0xAC, (outs), (ins i32imm:$b0),
+    "ldi4_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI6_WERP : ExtAddrModeSuffixInst<3, 0xAE, (outs), (ins i32imm:$b0),
+    "ldi6_werp", "$b0", []>, Sched<[WriteSTW]>;
+def LDI7_WERP : ExtAddrModeSuffixInst<3, 0xAF, (outs), (ins i32imm:$b0),
+    "ldi7_werp", "$b0", []>, Sched<[WriteSTW]>;
+def EX_WA_WERP : ExtAddrModeSuffixInst<3, 0xB8, (outs), (ins i32imm:$b0),
+    "ex_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def EX_IZ_WERP : ExtAddrModeSuffixInst<3, 0xBE, (outs), (ins i32imm:$b0),
+    "ex_iz_werp", "$b0", []>, Sched<[WriteSTW]>;
+def AND_WA_WERP : ExtAddrModeSuffixInst<3, 0xC0, (outs), (ins i32imm:$b0),
+    "and_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def AND_DE_WERP : ExtAddrModeSuffixInst<3, 0xC2, (outs), (ins i32imm:$b0),
+    "and_de_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI0_WERP : ExtAddrModeSuffixInst<3, 0xD8, (outs), (ins i32imm:$b0),
+    "cpi0_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI1_WERP : ExtAddrModeSuffixInst<3, 0xD9, (outs), (ins i32imm:$b0),
+    "cpi1_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI3_WERP : ExtAddrModeSuffixInst<3, 0xDB, (outs), (ins i32imm:$b0),
+    "cpi3_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI4_WERP : ExtAddrModeSuffixInst<3, 0xDC, (outs), (ins i32imm:$b0),
+    "cpi4_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI6_WERP : ExtAddrModeSuffixInst<3, 0xDE, (outs), (ins i32imm:$b0),
+    "cpi6_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CPI7_WERP : ExtAddrModeSuffixInst<3, 0xDF, (outs), (ins i32imm:$b0),
+    "cpi7_werp", "$b0", []>, Sched<[WriteSTW]>;
+def OR_WA_WERP : ExtAddrModeSuffixInst<3, 0xE0, (outs), (ins i32imm:$b0),
+    "or_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CP_WA_WERP : ExtAddrModeSuffixInst<3, 0xF0, (outs), (ins i32imm:$b0),
+    "cp_wa_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CP_BC_WERP : ExtAddrModeSuffixInst<3, 0xF1, (outs), (ins i32imm:$b0),
+    "cp_bc_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CP_HL_WERP : ExtAddrModeSuffixInst<3, 0xF3, (outs), (ins i32imm:$b0),
+    "cp_hl_werp", "$b0", []>, Sched<[WriteSTW]>;
+def CP_IZ_WERP : ExtAddrModeSuffixInst<3, 0xF6, (outs), (ins i32imm:$b0),
+    "cp_iz_werp", "$b0", []>, Sched<[WriteSTW]>;
+def SLA_A_WERP : ExtAddrModeSuffixInst<3, 0xFC, (outs), (ins i32imm:$b0),
+    "sla_a_werp", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize16
+
+// L extended register prefix suffix instructions
+let OpSize = OpSize32.Value in {
+def PUSH_LERP : ExtAddrModeSuffixInst<3, 0x04, (outs), (ins i32imm:$b0),
+    "push_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def POP_LERP : ExtAddrModeSuffixInst<3, 0x05, (outs), (ins i32imm:$b0),
+    "pop_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def INC4_LERP : ExtAddrModeSuffixInst<3, 0x64, (outs), (ins i32imm:$b0),
+    "inc4_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_XWA_LERP : ExtAddrModeSuffixInst<3, 0x88, (outs), (ins i32imm:$b0),
+    "ldto_xwa_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_XHL_LERP : ExtAddrModeSuffixInst<3, 0x8B, (outs), (ins i32imm:$b0),
+    "ldto_xhl_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_XIX_LERP : ExtAddrModeSuffixInst<3, 0x8C, (outs), (ins i32imm:$b0),
+    "ldto_xix_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_XIY_LERP : ExtAddrModeSuffixInst<3, 0x8D, (outs), (ins i32imm:$b0),
+    "ldto_xiy_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDTO_XIZ_LERP : ExtAddrModeSuffixInst<3, 0x8E, (outs), (ins i32imm:$b0),
+    "ldto_xiz_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_XWA_LERP : ExtAddrModeSuffixInst<3, 0x98, (outs), (ins i32imm:$b0),
+    "ldfr_xwa_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_XBC_LERP : ExtAddrModeSuffixInst<3, 0x99, (outs), (ins i32imm:$b0),
+    "ldfr_xbc_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_XHL_LERP : ExtAddrModeSuffixInst<3, 0x9B, (outs), (ins i32imm:$b0),
+    "ldfr_xhl_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_XIX_LERP : ExtAddrModeSuffixInst<3, 0x9C, (outs), (ins i32imm:$b0),
+    "ldfr_xix_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_XIY_LERP : ExtAddrModeSuffixInst<3, 0x9D, (outs), (ins i32imm:$b0),
+    "ldfr_xiy_lerp", "$b0", []>, Sched<[WriteSTW]>;
+def LDFR_XIZ_LERP : ExtAddrModeSuffixInst<3, 0x9E, (outs), (ins i32imm:$b0),
+    "ldfr_xiz_lerp", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize32
+} // Opcode = 0xC7 (ERP suffix)
+
 // --- Source Register-Indirect Complex (C3/D3/E3) ---
 // Format: C3/D3/E3 + addressing_bytes + sub_opcode [+ operand_bytes]
 // Addressing modes: (R32), (R32+d16), (R32+R8/R16), (PC+d16)
