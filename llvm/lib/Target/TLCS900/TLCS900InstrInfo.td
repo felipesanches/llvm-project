@@ -850,6 +850,52 @@ let Defs = [SR], Uses = [SR], hasSideEffects = 1 in
 def EX_FF : SingleByteInst<0x16, (outs), (ins), "ex_ff", "", []>,
             Sched<[WriteNop]>;
 
+// RCF — Reset carry flag (0x10)
+let Defs = [SR], hasSideEffects = 0 in
+def RCF : SingleByteInst<0x10, (outs), (ins), "rcf", "", []>,
+          Sched<[WriteNop]>;
+
+// SCF — Set carry flag (0x11)
+let Defs = [SR], hasSideEffects = 0 in
+def SCF : SingleByteInst<0x11, (outs), (ins), "scf", "", []>,
+          Sched<[WriteNop]>;
+
+// CCF — Complement carry flag (0x12)
+let Defs = [SR], hasSideEffects = 0 in
+def CCF : SingleByteInst<0x12, (outs), (ins), "ccf", "", []>,
+          Sched<[WriteNop]>;
+
+// ZCF — Zero carry flag (set C=!Z) (0x13)
+let Defs = [SR], Uses = [SR], hasSideEffects = 0 in
+def ZCF : SingleByteInst<0x13, (outs), (ins), "zcf", "", []>,
+          Sched<[WriteNop]>;
+
+// INCF — Increment register bank (0x0C)
+let hasSideEffects = 1 in
+def INCF : SingleByteInst<0x0C, (outs), (ins), "incf", "", []>,
+           Sched<[WriteNop]>;
+
+// DECF — Decrement register bank (0x0D)
+let hasSideEffects = 1 in
+def DECF : SingleByteInst<0x0D, (outs), (ins), "decf", "", []>,
+           Sched<[WriteNop]>;
+
+// PUSH A (0x14), POP A (0x15) — Push/pop accumulator byte
+let mayStore = 1 in
+def PUSH_A : SingleByteInst<0x14, (outs), (ins), "push_a", "", []>,
+             Sched<[WritePush]>;
+let mayLoad = 1 in
+def POP_A : SingleByteInst<0x15, (outs), (ins), "pop_a", "", []>,
+            Sched<[WritePop]>;
+
+// PUSH F (0x18), POP F (0x19) — Push/pop flags
+let mayStore = 1, Uses = [SR] in
+def PUSH_F : SingleByteInst<0x18, (outs), (ins), "push_f", "", []>,
+             Sched<[WritePush]>;
+let mayLoad = 1, Defs = [SR] in
+def POP_F : SingleByteInst<0x19, (outs), (ins), "pop_f", "", []>,
+            Sched<[WritePop]>;
+
 // EI — Enable/disable interrupts (with level)
 // Encoding: 0x06, level (2 bytes — opcode then level byte)
 def EI : SingleByteImm8Inst<0x06, (outs), (ins i32imm:$level),
