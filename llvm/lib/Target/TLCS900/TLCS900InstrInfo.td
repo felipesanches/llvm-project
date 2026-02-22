@@ -1240,6 +1240,46 @@ def DIVS16rr : PrefixRegRegInst<0x58, (outs GPR:$rd),
                                  "divs", "$rd, $rs2", []>,
                Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
+// MUL/MULS/DIV/DIVS with 8-bit immediate (C8+r prefix, opc, imm8)
+let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize8.Value in {
+def MUL8ri : PrefixRegImmInst<0x08, 3, (outs GR8:$rd),
+                               (ins GR8:$src1, i8imm:$imm),
+                               "mul", "$rd, $imm", []>,
+             Sched<[WriteIMul, ReadIALU]>;
+def MULS8ri : PrefixRegImmInst<0x09, 3, (outs GR8:$rd),
+                                (ins GR8:$src1, i8imm:$imm),
+                                "muls", "$rd, $imm", []>,
+              Sched<[WriteIMul, ReadIALU]>;
+def DIV8ri : PrefixRegImmInst<0x0A, 3, (outs GR8:$rd),
+                               (ins GR8:$src1, i8imm:$imm),
+                               "div", "$rd, $imm", []>,
+             Sched<[WriteIMul, ReadIALU]>;
+def DIVS8ri : PrefixRegImmInst<0x0B, 3, (outs GR8:$rd),
+                                (ins GR8:$src1, i8imm:$imm),
+                                "divs", "$rd, $imm", []>,
+              Sched<[WriteIMul, ReadIALU]>;
+}
+
+// MUL/MULS/DIV/DIVS with 16-bit immediate (D8+r prefix, opc, imm16)
+let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in {
+def MUL16ri : PrefixRegImmInst<0x08, 4, (outs GR16:$rd),
+                                (ins GR16:$src1, i16imm:$imm),
+                                "mul", "$rd, $imm", []>,
+              Sched<[WriteIMul, ReadIALU]>;
+def MULS16ri : PrefixRegImmInst<0x09, 4, (outs GR16:$rd),
+                                 (ins GR16:$src1, i16imm:$imm),
+                                 "muls", "$rd, $imm", []>,
+               Sched<[WriteIMul, ReadIALU]>;
+def DIV16ri : PrefixRegImmInst<0x0A, 4, (outs GR16:$rd),
+                                (ins GR16:$src1, i16imm:$imm),
+                                "div", "$rd, $imm", []>,
+              Sched<[WriteIMul, ReadIALU]>;
+def DIVS16ri : PrefixRegImmInst<0x0B, 4, (outs GR16:$rd),
+                                 (ins GR16:$src1, i16imm:$imm),
+                                 "divs", "$rd, $imm", []>,
+               Sched<[WriteIMul, ReadIALU]>;
+}
+
 //===----------------------------------------------------------------------===//
 // Block Transfer Instructions (no isel patterns — for inline asm / builtins)
 //===----------------------------------------------------------------------===//
