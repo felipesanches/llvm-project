@@ -20,10 +20,11 @@ namespace llvm {
 // TLCS900II - This namespace holds all of the target specific flags that
 // instruction info tracks.
 //
-// TSFlags layout (16 bits used):
+// TSFlags layout (17 bits used):
 //   [5:0]   InstFormat   — encoding format class (6 bits, up to 64 formats)
 //   [13:6]  Opcode       — second byte (operation code within prefix group)
 //   [15:14] OperandSize  — 0=8bit, 1=16bit, 2=32bit
+//   [16]    AddrWidth    — 0=16-bit address, 1=24-bit address (direct addressing)
 namespace TLCS900II {
 
 // Instruction encoding format classes.
@@ -63,6 +64,12 @@ enum InstFormat : uint8_t {
   MemIncDec,         // Src mem prefix + (opc + count%8) — INC/DEC (mem)
   MemPush,           // Src mem prefix + 0x04 — PUSH (mem)
   MemDstBitOp,       // Dst mem prefix + (opc + bit%8) — BIT/SET/RES/LDCF/STCF (mem)
+  DirectSrcReg,      // Src direct prefix + addr + (opc | reg) — LD/CP/ALU reg, (addr)
+  DirectSrcImm,      // Src direct prefix + addr + opc + imm — CP/AND/OR (addr), #imm
+  DirectSrcIncDec,   // Src direct prefix + addr + (opc + count) — INC/DEC (addr)
+  DirectDstReg,      // Dst direct prefix + addr + (opc | reg) — LD (addr),reg / LDA reg,addr
+  DirectDstImm,      // Dst direct prefix + addr + opc + imm — LD (addr), #imm
+  DirectDstBitOp,    // Dst direct prefix + addr + (opc + bit) — BIT/SET/RES (addr)
 };
 
 // TSFlags bit field positions and masks.
@@ -75,6 +82,9 @@ enum : uint64_t {
 
   OpSizeShift = 14,
   OpSizeMask = 0x3 << OpSizeShift, // 2 bits [15:14]
+
+  AddrWidthShift = 16,
+  AddrWidthMask = 0x1 << AddrWidthShift, // 1 bit [16]
 };
 
 // Operand size encoding in TSFlags.
@@ -103,6 +113,25 @@ inline unsigned getOpSize(uint64_t TSFlags) {
 // 8-bit: 0xC8, 16-bit: 0xD8, 32-bit: 0xE8
 inline unsigned getRegPrefixBase(unsigned OpSize) {
   return 0xC8 + (OpSize * 0x10);
+}
+
+// Extract address width from TSFlags. 0=16-bit, 1=24-bit.
+inline unsigned getAddrWidth(uint64_t TSFlags) {
+  return (TSFlags >> AddrWidthShift) & 0x1;
+}
+
+// Get the source direct addressing prefix byte for a given operand size.
+// 8-bit: 0xC1 (16-bit addr), 0xC2 (24-bit addr)
+// 16-bit: 0xD1 / 0xD2
+// 32-bit: 0xE1 / 0xE2
+inline unsigned getSrcDirectPrefix(unsigned OpSize, bool Is24Bit) {
+  return (Is24Bit ? 0xC2 : 0xC1) + (OpSize * 0x10);
+}
+
+// Get the destination direct addressing prefix byte.
+// 0xF1 (16-bit addr), 0xF2 (24-bit addr) — size-independent.
+inline unsigned getDstDirectPrefix(bool Is24Bit) {
+  return Is24Bit ? 0xF2 : 0xF1;
 }
 
 // Get the source memory prefix base byte for a given operand size.

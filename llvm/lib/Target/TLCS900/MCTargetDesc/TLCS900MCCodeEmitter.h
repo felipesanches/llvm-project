@@ -53,6 +53,14 @@ class TLCS900MCCodeEmitter : public MCCodeEmitter {
                          uint64_t StartByte, SmallVectorImpl<char> &CB,
                          SmallVectorImpl<MCFixup> &Fixups) const;
 
+  /// Emit the direct addressing prefix bytes (prefix byte + address).
+  /// IsDstMem: true → F1/F2 prefix; false → C1/D1/E1 or C2/D2/E2.
+  /// OpSize: selects source prefix range (ignored for destination).
+  /// Is24Bit: true → 24-bit address (3 bytes), false → 16-bit (2 bytes).
+  void emitDirectAddrPrefix(const MCOperand &AddrOp, bool IsDstMem,
+                            unsigned OpSize, bool Is24Bit,
+                            SmallVectorImpl<char> &CB) const;
+
 public:
   TLCS900MCCodeEmitter(const MCInstrInfo &MCII, MCContext &Ctx)
       : MCII(MCII), Ctx(Ctx) {}

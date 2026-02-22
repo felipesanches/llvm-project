@@ -53,6 +53,12 @@ def InstFormatMemStoreImm : InstFormat<31>;
 def InstFormatMemIncDec : InstFormat<32>;
 def InstFormatMemPush : InstFormat<33>;
 def InstFormatMemDstBitOp : InstFormat<34>;
+def InstFormatDirectSrcReg : InstFormat<35>;
+def InstFormatDirectSrcImm : InstFormat<36>;
+def InstFormatDirectSrcIncDec : InstFormat<37>;
+def InstFormatDirectDstReg : InstFormat<38>;
+def InstFormatDirectDstImm : InstFormat<39>;
+def InstFormatDirectDstBitOp : InstFormat<40>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -73,11 +79,13 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   bits<6> InstFormat = InstFormatPseudo.Value;
   bits<8> Opcode = 0;
   bits<2> OpSize = OpSize32.Value;
+  bits<1> AddrWidth = 0; // 0=16-bit addr, 1=24-bit addr (direct addressing)
 
   // Wire TSFlags.
   let TSFlags{5-0}   = InstFormat;
   let TSFlags{13-6}  = Opcode;
   let TSFlags{15-14} = OpSize;
+  let TSFlags{16}    = AddrWidth;
 
   let Size = 0; // Default; subclasses set correct size.
 
@@ -426,6 +434,75 @@ class MemDstBitOpInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
                       string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatMemDstBitOp.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+//===----------------------------------------------------------------------===//
+// Direct addressing instructions (16-bit or 24-bit absolute address)
+//
+// Source direct: C1/D1/E1 (16-bit addr) or C2/D2/E2 (24-bit addr)
+//   — prefix byte depends on OpSize; dispatches to source memory sub-opcode table
+// Destination direct: F1 (16-bit addr) or F2 (24-bit addr)
+//   — size-independent; dispatches to destination memory sub-opcode table
+//===----------------------------------------------------------------------===//
+
+// DirectSrcRegInst: src_direct_prefix + addr + (opcode | reg_enc)
+// LD reg, (addr); CP/ADD/SUB/AND/OR/XOR reg, (addr)
+class DirectSrcRegInst<bits<8> opc, int sz, dag outs, dag ins,
+                       string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectSrcReg.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// DirectSrcImmInst: src_direct_prefix + addr + opcode + imm
+// CP/AND/OR/XOR/ADD/SUB (addr), #imm
+class DirectSrcImmInst<bits<8> opc, int sz, dag outs, dag ins,
+                       string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectSrcImm.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// DirectSrcIncDecInst: src_direct_prefix + addr + (opcode + count%8)
+// INC/DEC (addr), count
+class DirectSrcIncDecInst<bits<8> opc, int sz, dag outs, dag ins,
+                          string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectSrcIncDec.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// DirectDstRegInst: F1/F2 + addr + (opcode | reg_enc)
+// LD (addr), reg; LDA reg, addr
+class DirectDstRegInst<bits<8> opc, int sz, dag outs, dag ins,
+                       string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectDstReg.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// DirectDstImmInst: F1/F2 + addr + opcode + imm
+// LD (addr), #imm
+class DirectDstImmInst<bits<8> opc, int sz, dag outs, dag ins,
+                       string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectDstImm.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// DirectDstBitOpInst: F1/F2 + addr + (opcode + bit%8)
+// BIT/SET/RES (addr), bit
+class DirectDstBitOpInst<bits<8> opc, int sz, dag outs, dag ins,
+                         string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectDstBitOp.Value;
   let Opcode = opc;
   let Size = sz;
 }

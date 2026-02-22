@@ -223,6 +223,21 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
   }
 }
 
+void TLCS900MCCodeEmitter::emitDirectAddrPrefix(
+    const MCOperand &AddrOp, bool IsDstMem, unsigned OpSize, bool Is24Bit,
+    SmallVectorImpl<char> &CB) const {
+  int64_t Addr = AddrOp.isImm() ? AddrOp.getImm() : 0;
+  if (Is24Bit) {
+    CB.push_back(IsDstMem ? 0xF2
+                           : (0xC2 + OpSize * 0x10));
+    emitImmediate(Addr, 3, CB);
+  } else {
+    CB.push_back(IsDstMem ? 0xF1
+                           : (0xC1 + OpSize * 0x10));
+    emitImmediate(Addr, 2, CB);
+  }
+}
+
 void TLCS900MCCodeEmitter::encodeInstruction(
     const MCInst &MI, SmallVectorImpl<char> &CB,
     SmallVectorImpl<MCFixup> &Fixups, const MCSubtargetInfo &STI) const {
@@ -243,6 +258,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   unsigned Opcode = TLCS900II::getOpcode(TSFlags);
   unsigned OpSize = TLCS900II::getOpSize(TSFlags);
   unsigned PrefixBase = TLCS900II::getRegPrefixBase(OpSize);
+  bool Is24Bit = TLCS900II::getAddrWidth(TSFlags);
 
   // Immediate size in bytes based on operand size.
   unsigned ImmBytes = (OpSize == TLCS900II::OpSize8)    ? 1
@@ -734,6 +750,102 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
     unsigned BitNum =
         MI.getOperand(2).isImm() ? MI.getOperand(2).getImm() : 0;
+    CB.push_back(Opcode + (BitNum & 0x7));
+    break;
+  }
+
+  //=== Direct addressing instructions ===
+
+  case TLCS900II::DirectSrcReg: {
+    // src_direct_prefix + addr + (opcode | reg_enc).
+    // For loads/ALU-to-reg: op 0 = reg (dst), last op = addr.
+    // For ALU-to-mem (store direction): op 0 = addr, op 1 = reg (src).
+    unsigned RegIdx, AddrIdx;
+    if (Desc.getNumDefs() > 0) {
+      // Load or two-address ALU: register is op 0, addr is last operand.
+      RegIdx = 0;
+      AddrIdx = MI.getNumOperands() - 1;
+    } else if (MI.getNumOperands() >= 2 && MI.getOperand(0).isImm()) {
+      // Store direction (addr, reg): addr is op 0, reg is op 1.
+      AddrIdx = 0;
+      RegIdx = 1;
+    } else {
+      // Fallback: compare (reg, addr).
+      RegIdx = 0;
+      AddrIdx = MI.getNumOperands() - 1;
+    }
+    unsigned RegEnc = getRegEncoding(MI.getOperand(RegIdx), OpSize);
+    emitDirectAddrPrefix(MI.getOperand(AddrIdx), /*IsDstMem=*/false, OpSize,
+                         Is24Bit, CB);
+    CB.push_back(Opcode + RegEnc);
+    break;
+  }
+
+  case TLCS900II::DirectSrcImm: {
+    // src_direct_prefix + addr + opcode + imm.
+    // op 0 = addr, op 1 = imm.
+    emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
+                         Is24Bit, CB);
+    CB.push_back(Opcode);
+    const MCOperand &ImmOp = MI.getOperand(1);
+    if (ImmOp.isImm())
+      emitImmediate(ImmOp.getImm(), ImmBytes, CB);
+    else
+      emitFixup(MI, ImmOp, CB.size() - StartByte,
+                ImmBytes == 1 ? FK_Data_1 : FK_Data_2, CB, Fixups);
+    break;
+  }
+
+  case TLCS900II::DirectSrcIncDec: {
+    // src_direct_prefix + addr + (opcode + count%8).
+    // op 0 = addr, op 1 = count.
+    emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
+                         Is24Bit, CB);
+    unsigned Count =
+        MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 1;
+    CB.push_back(Opcode + (Count & 0x7));
+    break;
+  }
+
+  case TLCS900II::DirectDstReg: {
+    // F1/F2 + addr + (opcode | reg_enc).
+    // For LDA (output): op 0 = reg (dst), op 1 = addr.
+    // For LD store (no output): op 0 = addr, op 1 = reg (src).
+    unsigned RegIdx, AddrIdx;
+    if (Desc.getNumDefs() > 0) {
+      RegIdx = 0; AddrIdx = 1;
+    } else {
+      AddrIdx = 0; RegIdx = 1;
+    }
+    unsigned RegEnc = getRegEncoding(MI.getOperand(RegIdx), OpSize);
+    emitDirectAddrPrefix(MI.getOperand(AddrIdx), /*IsDstMem=*/true, OpSize,
+                         Is24Bit, CB);
+    CB.push_back(Opcode + RegEnc);
+    break;
+  }
+
+  case TLCS900II::DirectDstImm: {
+    // F1/F2 + addr + opcode + imm.
+    // op 0 = addr, op 1 = imm.
+    emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/true, OpSize,
+                         Is24Bit, CB);
+    CB.push_back(Opcode);
+    const MCOperand &ImmOp = MI.getOperand(1);
+    if (ImmOp.isImm())
+      emitImmediate(ImmOp.getImm(), ImmBytes, CB);
+    else
+      emitFixup(MI, ImmOp, CB.size() - StartByte,
+                ImmBytes == 1 ? FK_Data_1 : FK_Data_2, CB, Fixups);
+    break;
+  }
+
+  case TLCS900II::DirectDstBitOp: {
+    // F1/F2 + addr + (opcode + bit/count).
+    // op 0 = addr, op 1 = bit/count.
+    emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/true, OpSize,
+                         Is24Bit, CB);
+    unsigned BitNum =
+        MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0;
     CB.push_back(Opcode + (BitNum & 0x7));
     break;
   }
