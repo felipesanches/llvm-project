@@ -976,6 +976,63 @@ def RR32 : PrefixRotateInst<0xEB, (outs GPR:$rd), (ins GPR:$rs1),
 } // Constraints, Defs, Uses
 
 //===----------------------------------------------------------------------===//
+// Shift-by-A Instructions (2-byte: prefix + sub_opcode, count from register A)
+// Sub-opcodes: 0xF8=RLC, 0xF9=RRC, 0xFA=RL, 0xFB=RR, 0xFC=SLA, 0xFD=SRA,
+//              0xFE=SLL, 0xFF=SRL
+// Uses PrefixUnary format (2-byte encoding: prefix + opcode)
+//===----------------------------------------------------------------------===//
+
+let Constraints = "$rd = $rs1", Defs = [SR], Uses = [XWA], hasSideEffects = 0 in {
+
+// 32-bit shift-by-A
+def SLA_A_32 : PrefixUnaryInst<0xFC, (outs GPR:$rd), (ins GPR:$rs1),
+                                "slaa", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+def SRA_A_32 : PrefixUnaryInst<0xFD, (outs GPR:$rd), (ins GPR:$rs1),
+                                "sraa", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+def SLL_A_32 : PrefixUnaryInst<0xFE, (outs GPR:$rd), (ins GPR:$rs1),
+                                "slla", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+def SRL_A_32 : PrefixUnaryInst<0xFF, (outs GPR:$rd), (ins GPR:$rs1),
+                                "srla", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+
+// 16-bit shift-by-A
+let OpSize = OpSize16.Value in {
+def SLA_A_16 : PrefixUnaryInst<0xFC, (outs GR16:$rd), (ins GR16:$rs1),
+                                "slaa", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+def SRA_A_16 : PrefixUnaryInst<0xFD, (outs GR16:$rd), (ins GR16:$rs1),
+                                "sraa", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+def SLL_A_16 : PrefixUnaryInst<0xFE, (outs GR16:$rd), (ins GR16:$rs1),
+                                "slla", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+def SRL_A_16 : PrefixUnaryInst<0xFF, (outs GR16:$rd), (ins GR16:$rs1),
+                                "srla", "$rd", []>,
+               Sched<[WriteShift, ReadIALU]>;
+} // OpSize16
+
+// 8-bit shift-by-A
+let OpSize = OpSize8.Value in {
+def SLA_A_8 : PrefixUnaryInst<0xFC, (outs GR8:$rd), (ins GR8:$rs1),
+                               "slaa", "$rd", []>,
+              Sched<[WriteShift, ReadIALU]>;
+def SRA_A_8 : PrefixUnaryInst<0xFD, (outs GR8:$rd), (ins GR8:$rs1),
+                               "sraa", "$rd", []>,
+              Sched<[WriteShift, ReadIALU]>;
+def SLL_A_8 : PrefixUnaryInst<0xFE, (outs GR8:$rd), (ins GR8:$rs1),
+                               "slla", "$rd", []>,
+              Sched<[WriteShift, ReadIALU]>;
+def SRL_A_8 : PrefixUnaryInst<0xFF, (outs GR8:$rd), (ins GR8:$rs1),
+                               "srla", "$rd", []>,
+              Sched<[WriteShift, ReadIALU]>;
+} // OpSize8
+
+} // Constraints, Defs, Uses
+
+//===----------------------------------------------------------------------===//
 // Bit Manipulation Instructions
 //===----------------------------------------------------------------------===//
 
@@ -1052,6 +1109,14 @@ let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR],
 def DJNZ32 : PrefixDJNZInst<0x1C, (outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
                              "djnz", "$rd, $target", []>,
              Sched<[WriteIALU, WriteJmp]>;
+
+// DJNZ8 rd, target — 8-bit decrement and jump if not zero
+// Encoding: C8+rd, 0x1C, d8 (3 bytes) — uses 8-bit prefix (C8)
+let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR],
+    OpSize = OpSize8.Value in
+def DJNZ8 : PrefixDJNZInst<0x1C, (outs GR8:$rd), (ins GR8:$rs1, brtarget:$target),
+                            "djnz8", "$rd, $target", []>,
+            Sched<[WriteIALU, WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
 // Memory-register arithmetic (CISC: operates directly on memory)

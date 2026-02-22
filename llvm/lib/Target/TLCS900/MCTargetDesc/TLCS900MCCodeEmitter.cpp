@@ -652,7 +652,8 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     if (Target.isImm())
       CB.push_back(static_cast<char>(Target.getImm() & 0xFF));
     else
-      emitFixup(MI, Target, CB.size() - StartByte, FK_Data_1, CB, Fixups);
+      emitFixup(MI, Target, CB.size() - StartByte,
+                (MCFixupKind)TLCS900::fixup_tlcs900_rel8, CB, Fixups);
     break;
   }
 
