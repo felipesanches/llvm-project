@@ -564,6 +564,11 @@ def CP32ri : PrefixRegImmInst<0xCF, 6, (outs), (ins GPR:$rs1, i32imm:$imm),
                               [(tlcs900_cmp GPR:$rs1, (imm):$imm)]>,
              Sched<[WriteIALU, ReadIALU]>;
 
+// CP rd, #(0-7) — Compare with small immediate: E8+r, 0xD8+val (2 bytes)
+def CP32_small : PrefixSmallImmInst<0xD8, (outs), (ins GPR:$rs1, i32imm:$imm),
+                                     "cps", "$rs1, $imm", []>,
+                 Sched<[WriteIALU, ReadIALU]>;
+
 } // Defs = [SR]
 
 //===----------------------------------------------------------------------===//
@@ -1359,6 +1364,11 @@ def CP16ri : PrefixRegImmInst<0xCF, 4, (outs), (ins GR16:$rs1, i16imm:$imm),
                                "cp", "$rs1, $imm", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
+// CP rd16, #(0-7) — Compare with small immediate: D8+r, 0xD8+val (2 bytes)
+def CP16_small : PrefixSmallImmInst<0xD8, (outs), (ins GR16:$rs1, i16imm:$imm),
+                                     "cps", "$rs1, $imm", []>,
+                 Sched<[WriteIALU, ReadIALU]>;
+
 } // Defs = [SR]
 
 // --- Rotates (read AND write carry) ---
@@ -1387,7 +1397,7 @@ def RR16 : PrefixRotateInst<0xEB, (outs GR16:$rd), (ins GR16:$rs1),
 // 16-bit SET/RES/CHG used by TLCS900BitManipOpt to replace 6-byte OR32ri/
 // AND32ri/XOR32ri with power-of-2 immediates with 3-byte bit instructions.
 // These do NOT set flags (no Defs = [SR]).
-let Constraints = "$rd = $rs1", hasSideEffects = 0, isCodeGenOnly = 1 in {
+let Constraints = "$rd = $rs1", hasSideEffects = 0 in {
 def SET16 : PrefixBitInst<0x31, (outs GR16:$rd), (ins i32imm:$bit, GR16:$rs1),
                            "set", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
@@ -1399,10 +1409,10 @@ def RES16 : PrefixBitInst<0x30, (outs GR16:$rd), (ins i32imm:$bit, GR16:$rs1),
 def CHG16 : PrefixBitInst<0x32, (outs GR16:$rd), (ins i32imm:$bit, GR16:$rs1),
                            "chg", "$bit, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
-} // Constraints, hasSideEffects, isCodeGenOnly
+} // Constraints, hasSideEffects
 
-// BIT16: test bit in 16-bit subreg, set Z flag (for BitTestOpt peephole pass)
-let Defs = [SR], hasSideEffects = 0, isCodeGenOnly = 1 in
+// BIT16: test bit in 16-bit subreg, set Z flag
+let Defs = [SR], hasSideEffects = 0 in
 def BIT16 : PrefixBitInst<0x33, (outs), (ins i32imm:$bit, GR16:$rs),
                            "bit", "$bit, $rs", []>,
             Sched<[WriteIALU, ReadIALU]>;
@@ -1602,6 +1612,11 @@ def CP8ri : PrefixRegImmInst<0xCF, 3, (outs), (ins GR8:$rs1, i8imm:$imm),
                               "cp", "$rs1, $imm", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
+// CP rd8, #(0-7) — Compare with small immediate: C8+r, 0xD8+val (2 bytes)
+def CP8_small : PrefixSmallImmInst<0xD8, (outs), (ins GR8:$rs1, i8imm:$imm),
+                                    "cps", "$rs1, $imm", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+
 } // Defs = [SR]
 
 // --- Rotates ---
@@ -1624,6 +1639,23 @@ def RR8 : PrefixRotateInst<0xEB, (outs GR8:$rd), (ins GR8:$rs1),
           Sched<[WriteShift, ReadIALU]>;
 
 } // Constraints, Defs, Uses
+
+// --- Bit manipulation (8-bit registers) ---
+
+let Defs = [SR] in
+def BIT8 : PrefixBitInst<0x33, (outs), (ins i32imm:$bit, GR8:$rs),
+                           "bit", "$bit, $rs", []>,
+           Sched<[WriteIALU, ReadIALU]>;
+
+let Constraints = "$rd = $rs1" in {
+def SET8 : PrefixBitInst<0x31, (outs GR8:$rd), (ins i32imm:$bit, GR8:$rs1),
+                           "set", "$bit, $rd", []>,
+           Sched<[WriteIALU, ReadIALU]>;
+
+def RES8 : PrefixBitInst<0x30, (outs GR8:$rd), (ins i32imm:$bit, GR8:$rs1),
+                           "res", "$bit, $rd", []>,
+           Sched<[WriteIALU, ReadIALU]>;
+} // Constraints
 
 // --- Memory load/store (8-bit data, register-indirect addressing) ---
 
