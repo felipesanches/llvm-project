@@ -1158,11 +1158,25 @@ def LD16rr_asm : PrefixRegRegInst<0x88, (outs GR16:$rd), (ins GR16:$rs),
                                    "ld", "$rd, $rs", []>,
                  Sched<[WriteIALU]>;
 
-// LD rd16, #imm16: D8+rd, 0x03, imm16
+// LD rd16, #imm16: D8+rd, 0x03, imm16 (prefix form, 4 bytes)
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
 def LD16ri_asm : PrefixLDImmInst<0x03, 4, (outs GR16:$rd), (ins i16imm:$imm),
                                   "ld", "$rd, $imm", []>,
                  Sched<[WriteIALU]>;
+
+// LD rd16, #imm16 — Short form: 0x30+r, imm16 (3 bytes)
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in
+def LD16ri_short : SingleByteRegImmInst<0x30, 3, (outs GR16:$rd),
+                                         (ins i16imm:$imm),
+                                         "ldw", "$rd, $imm", []>,
+                   Sched<[WriteIALU]>;
+
+// LD rd16, #(0-7) — Small immediate form: D8+r, 0xA8+val (2 bytes)
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in
+def LD16ri_small : PrefixSmallImmInst<0xA8, (outs GR16:$rd),
+                                       (ins i16imm:$imm),
+                                       "lds", "$rd, $imm", []>,
+                   Sched<[WriteIALU]>;
 
 // --- Arithmetic (two-address: rd = rd op rs) ---
 let Constraints = "$rd = $rs1", Defs = [SR] in {
@@ -1395,6 +1409,13 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1 in
 def LD8ri_asm : PrefixLDImmInst<0x03, 3, (outs GR8:$rd), (ins i8imm:$imm),
                                  "ld", "$rd, $imm", []>,
                 Sched<[WriteIALU]>;
+
+// LD rd8, #imm8 — Short form: 0x20+r, imm8 (2 bytes)
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in
+def LD8ri_short : SingleByteRegImmInst<0x20, 2, (outs GR8:$rd),
+                                        (ins i8imm:$imm),
+                                        "ldb", "$rd, $imm", []>,
+                  Sched<[WriteIALU]>;
 
 // --- Arithmetic ---
 let Constraints = "$rd = $rs1", Defs = [SR] in {

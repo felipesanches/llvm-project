@@ -308,14 +308,20 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::SingleByteRegImm: {
-    // LD r32, #imm32: 0x40+r, then 32-bit immediate.
+    // opcode+r, then N-byte immediate (N depends on OpSize).
+    // LD r32, #imm32: 0x40+r, imm32 (5 bytes)
+    // LDW r16, #imm16: 0x30+r, imm16 (3 bytes)
+    // LDB r8, #imm8: 0x20+r, imm8 (2 bytes)
     unsigned RegEnc = getRegEncoding(MI.getOperand(0));
     CB.push_back(Opcode + RegEnc);
     const MCOperand &ImmOp = MI.getOperand(1);
     if (ImmOp.isImm()) {
       emitImmediate(ImmOp.getImm(), ImmBytes, CB);
     } else {
-      emitFixup(MI, ImmOp, CB.size() - StartByte, FK_Data_4, CB, Fixups);
+      MCFixupKind ImmFixupKind = (ImmBytes == 1)   ? FK_Data_1
+                                 : (ImmBytes == 2) ? FK_Data_2
+                                                    : FK_Data_4;
+      emitFixup(MI, ImmOp, CB.size() - StartByte, ImmFixupKind, CB, Fixups);
     }
     break;
   }
@@ -656,6 +662,17 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // 0x80 = byte-wide source memory prefix (register 0 = XWA, unused).
     CB.push_back(0x80);
     CB.push_back(Opcode);
+    break;
+  }
+
+  case TLCS900II::PrefixSmallImm: {
+    // reg_prefix(rd) + (opcode + imm3).
+    // LD r, 0-7: prefix + (0xA8 + value). Value 0-7 in bits 0-2.
+    // op 0 = rd, op 1 = imm(0-7).
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(PrefixBase + RegEnc);
+    unsigned Imm = MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0;
+    CB.push_back(Opcode + (Imm & 0x7));
     break;
   }
   }

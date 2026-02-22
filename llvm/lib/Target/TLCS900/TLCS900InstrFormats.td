@@ -46,6 +46,7 @@ def InstFormatPrefixLDImm   : InstFormat<24>;
 def InstFormatPrefixPush    : InstFormat<25>;
 def InstFormatPrefixPop     : InstFormat<26>;
 def InstFormatBlockTransfer : InstFormat<27>;
+def InstFormatPrefixSmallImm : InstFormat<28>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -351,6 +352,15 @@ class BlockTransferInst<bits<8> opc, dag outs, dag ins, string opcodestr,
                         string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatBlockTransfer.Value;
+  let Opcode = opc;
+  let Size = 2;
+}
+
+// PrefixSmallImmInst: reg_prefix + (opcode + imm3) — LD r, 0-7 in 2 bytes
+class PrefixSmallImmInst<bits<8> opc, dag outs, dag ins, string opcodestr,
+                         string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPrefixSmallImm.Value;
   let Opcode = opc;
   let Size = 2;
 }
