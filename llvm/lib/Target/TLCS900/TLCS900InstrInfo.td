@@ -3261,6 +3261,133 @@ def ERPL6 : ExtAddrModeInst<7, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, 
 } // OpSize32
 } // Opcode = 0xC7
 
+// --- Additional Register Prefix Instructions (C8-EF) ---
+// Instructions that use standard register prefix encoding but weren't covered
+// by the core instruction set definitions above.
+
+// UNLK r32 — Stack frame teardown (2 bytes: E8+reg, 0x0D)
+let hasSideEffects = 1, OpSize = OpSize32.Value in
+def UNLK32 : PrefixUnaryInst<0x0D, (outs), (ins GPR:$rs1),
+    "unlk32", "$rs1", []>, Sched<[WriteSTW]>;
+
+// LINK r32, d16 — Stack frame setup (4 bytes: E8+reg, 0x0C, d16)
+// Uses ExtPrefix because OpSize=32 would give ImmBytes=4 but LINK uses 16-bit.
+def LINK32 : ExtPrefixInst<4, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "link32", "$b0, $b1, $b2, $b3", []>, Sched<[WriteSTW]>;
+
+// XORCF A,r — XOR carry flag with A bit of register (2 bytes)
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def XORCF_A_8 : PrefixUnaryInst<0x2A, (outs), (ins GR8:$rs1),
+    "xorcf_a_8", "$rs1", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def XORCF_A_16 : PrefixUnaryInst<0x2A, (outs), (ins GR16:$rs1),
+    "xorcf_a_16", "$rs1", []>, Sched<[WriteIALU]>;
+}
+
+// STCF A,r — Store carry flag to bit A of register (2 bytes)
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def STCF_A_8 : PrefixUnaryInst<0x2C, (outs), (ins GR8:$rs1),
+    "stcf_a_8", "$rs1", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def STCF_A_16 : PrefixUnaryInst<0x2C, (outs), (ins GR16:$rs1),
+    "stcf_a_16", "$rs1", []>, Sched<[WriteIALU]>;
+}
+
+// MUL/MULS/DIV/DIVS register-register 8-bit (2 bytes: C8+src, opc+dst)
+let Defs = [SR], hasSideEffects = 0, OpSize = OpSize8.Value in {
+def MUL8rr : PrefixRegRegInst<0x40, (outs), (ins GR8:$rs1, GR8:$rs2),
+    "mul8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+def MULS8rr : PrefixRegRegInst<0x48, (outs), (ins GR8:$rs1, GR8:$rs2),
+    "muls8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+def DIV8rr : PrefixRegRegInst<0x50, (outs), (ins GR8:$rs1, GR8:$rs2),
+    "div8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+def DIVS8rr : PrefixRegRegInst<0x58, (outs), (ins GR8:$rs1, GR8:$rs2),
+    "divs8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+}
+
+// EX r,r — Exchange registers (2 bytes: prefix+src, 0xB8+dst)
+// Separate from EX32 which uses 4-operand tied form for codegen.
+let hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def EX8 : PrefixRegRegInst<0xB8, (outs), (ins GR8:$rs1, GR8:$rs2),
+    "ex8", "$rs1, $rs2", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def EX16 : PrefixRegRegInst<0xB8, (outs), (ins GR16:$rs1, GR16:$rs2),
+    "ex16", "$rs1, $rs2", []>, Sched<[WriteIALU]>;
+}
+
+// MINC1/MINC4 — Modular increment (4 bytes: D8+reg, 0x38/0x3A, imm16)
+let Defs = [SR], hasSideEffects = 0, OpSize = OpSize16.Value in {
+def MINC1_16 : PrefixRegImmInst<0x38, 4, (outs GR16:$rd),
+    (ins GR16:$src1, i16imm:$imm), "minc1_16", "$rd, $imm", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def MINC4_16 : PrefixRegImmInst<0x3A, 4, (outs GR16:$rd),
+    (ins GR16:$src1, i16imm:$imm), "minc4_16", "$rd, $imm", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+}
+
+// LDC — Load control register (3 bytes: prefix+reg, 0x2E/0x2F, cr_num)
+// Uses PrefixShift format (prefix + opcode + 1-byte operand).
+let hasSideEffects = 1 in {
+let OpSize = OpSize8.Value in {
+def LDC_CR8 : PrefixShiftInst<0x2E, (outs), (ins GR8:$rs1, i32imm:$cr),
+    "ldc_cr8", "$rs1, $cr", []>, Sched<[WriteSTW]>;
+def LDC_8_CR : PrefixShiftInst<0x2F, (outs), (ins GR8:$rs1, i32imm:$cr),
+    "ldc_8_cr", "$rs1, $cr", []>, Sched<[WriteSTW]>;
+}
+let OpSize = OpSize16.Value in {
+def LDC_CR16 : PrefixShiftInst<0x2E, (outs), (ins GR16:$rs1, i32imm:$cr),
+    "ldc_cr16", "$rs1, $cr", []>, Sched<[WriteSTW]>;
+def LDC_16_CR : PrefixShiftInst<0x2F, (outs), (ins GR16:$rs1, i32imm:$cr),
+    "ldc_16_cr", "$rs1, $cr", []>, Sched<[WriteSTW]>;
+}
+let OpSize = OpSize32.Value in {
+def LDC_CR32 : PrefixShiftInst<0x2E, (outs), (ins GPR:$rs1, i32imm:$cr),
+    "ldc_cr32", "$rs1, $cr", []>, Sched<[WriteSTW]>;
+def LDC_32_CR : PrefixShiftInst<0x2F, (outs), (ins GPR:$rs1, i32imm:$cr),
+    "ldc_32_cr", "$rs1, $cr", []>, Sched<[WriteSTW]>;
+}
+}
+
+// RLC/RRC with immediate count (3 bytes: prefix+reg, 0xE8/0xE9, count)
+// Uses PrefixShift format. Existing PrefixRotate hardcodes count=1.
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+def RLC_I_8 : PrefixShiftInst<0xE8, (outs GR8:$rd),
+    (ins GR8:$src1, i32imm:$cnt), "rlc_i_8", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RRC_I_8 : PrefixShiftInst<0xE9, (outs GR8:$rd),
+    (ins GR8:$src1, i32imm:$cnt), "rrc_i_8", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+}
+let OpSize = OpSize16.Value in {
+def RLC_I_16 : PrefixShiftInst<0xE8, (outs GR16:$rd),
+    (ins GR16:$src1, i32imm:$cnt), "rlc_i_16", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RRC_I_16 : PrefixShiftInst<0xE9, (outs GR16:$rd),
+    (ins GR16:$src1, i32imm:$cnt), "rrc_i_16", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+}
+let OpSize = OpSize32.Value in {
+def RLC_I_32 : PrefixShiftInst<0xE8, (outs GPR:$rd),
+    (ins GPR:$src1, i32imm:$cnt), "rlc_i_32", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RRC_I_32 : PrefixShiftInst<0xE9, (outs GPR:$rd),
+    (ins GPR:$src1, i32imm:$cnt), "rrc_i_32", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+}
+}
+
+// DJNZ16 — Decrement and jump if not zero, 16-bit register
+let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR],
+    OpSize = OpSize16.Value in
+def DJNZ16 : PrefixDJNZInst<0x1C, (outs GR16:$rd),
+    (ins GR16:$rs1, brtarget:$target), "djnz16", "$rd, $target", []>,
+    Sched<[WriteIALU, WriteJmp]>;
+
 // --- Extended Register Prefix Suffix (C7/D7/E7 + reg_idx + SubOpcode) ---
 // Format: C7/D7/E7 prefix + reg_idx_byte + SubOpcode(from TSFlags)
 // These provide semantic mnemonics for erpb2/erpw2/erpl2 with known sub-opcodes.
