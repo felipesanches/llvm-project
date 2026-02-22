@@ -2606,8 +2606,296 @@ def CP16_da24 : DirectSrcRegInst<0xF0, 5, (outs),
                                    (ins GPR:$src, i32imm:$addr),
                                    "cpda16_24", "$src, $addr", []>,
                 Sched<[WriteIALU, ReadIALU]>;
+// 16-bit additional load-direction
+let Constraints = "$dst = $src1" in {
+def AND16_da24 : DirectSrcRegInst<0xC0, 5, (outs GPR:$dst),
+                                    (ins GPR:$src1, i32imm:$addr),
+                                    "andda16_24", "$dst, $addr", []>,
+                 Sched<[WriteIALU, ReadIALU]>;
+def XOR16_da24 : DirectSrcRegInst<0xD0, 5, (outs GPR:$dst),
+                                    (ins GPR:$src1, i32imm:$addr),
+                                    "xorda16_24", "$dst, $addr", []>,
+                 Sched<[WriteIALU, ReadIALU]>;
+def OR16_da24 : DirectSrcRegInst<0xE0, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, i32imm:$addr),
+                                   "orda16_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+} // Constraints
+// 16-bit store-direction: ALU (addr24), reg
+let Constraints = "" in {
+def ADD16m_da24 : DirectSrcRegInst<0x88, 5, (outs),
+                                     (ins i32imm:$addr, GPR:$src),
+                                     "adddm16_24", "$addr, $src", []>,
+                  Sched<[WriteSTW]>;
+def SUB16m_da24 : DirectSrcRegInst<0xA8, 5, (outs),
+                                     (ins i32imm:$addr, GPR:$src),
+                                     "subdm16_24", "$addr, $src", []>,
+                  Sched<[WriteSTW]>;
+def AND16m_da24 : DirectSrcRegInst<0xC8, 5, (outs),
+                                     (ins i32imm:$addr, GPR:$src),
+                                     "anddm16_24", "$addr, $src", []>,
+                  Sched<[WriteSTW]>;
+def XOR16m_da24 : DirectSrcRegInst<0xD8, 5, (outs),
+                                     (ins i32imm:$addr, GPR:$src),
+                                     "xordm16_24", "$addr, $src", []>,
+                  Sched<[WriteSTW]>;
+def OR16m_da24 : DirectSrcRegInst<0xE8, 5, (outs),
+                                    (ins i32imm:$addr, GPR:$src),
+                                    "ordm16_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+def CP16m_da24 : DirectSrcRegInst<0xF8, 5, (outs),
+                                    (ins i32imm:$addr, GPR:$src),
+                                    "cpdm16_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+} // Constraints
+// 16-bit additional imm
+def AND16i_da24 : DirectSrcImmInst<0x3C, 7, (outs),
+                                     (ins i32imm:$addr, i16imm:$val),
+                                     "anddi16_24", "$addr, $val", []>,
+                  Sched<[WriteSTW]>;
+def OR16i_da24 : DirectSrcImmInst<0x3E, 7, (outs),
+                                    (ins i32imm:$addr, i16imm:$val),
+                                    "ordi16_24", "$addr, $val", []>,
+                 Sched<[WriteSTW]>;
 } // OpSize16, AddrWidth
 
+// 24-bit address: 32-bit store and additional load operations
+let OpSize = OpSize32.Value, AddrWidth = 1 in {
+let Constraints = "$dst = $src1" in {
+def AND32_da24 : DirectSrcRegInst<0xC0, 5, (outs GPR:$dst),
+                                    (ins GPR:$src1, i32imm:$addr),
+                                    "andda32_24", "$dst, $addr", []>,
+                 Sched<[WriteIALU, ReadIALU]>;
+def OR32_da24 : DirectSrcRegInst<0xE0, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, i32imm:$addr),
+                                   "orda32_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+} // Constraints
+// 32-bit store-direction
+let Constraints = "" in {
+def ADD32m_da24 : DirectSrcRegInst<0x88, 5, (outs),
+                                     (ins i32imm:$addr, GPR:$src),
+                                     "adddm32_24", "$addr, $src", []>,
+                  Sched<[WriteSTW]>;
+def SUB32m_da24 : DirectSrcRegInst<0xA8, 5, (outs),
+                                     (ins i32imm:$addr, GPR:$src),
+                                     "subdm32_24", "$addr, $src", []>,
+                  Sched<[WriteSTW]>;
+def AND32m_da24 : DirectSrcRegInst<0xC8, 5, (outs),
+                                     (ins i32imm:$addr, GPR:$src),
+                                     "anddm32_24", "$addr, $src", []>,
+                  Sched<[WriteSTW]>;
+def OR32m_da24 : DirectSrcRegInst<0xE8, 5, (outs),
+                                    (ins i32imm:$addr, GPR:$src),
+                                    "ordm32_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+def CP32m_da24 : DirectSrcRegInst<0xF8, 5, (outs),
+                                    (ins i32imm:$addr, GPR:$src),
+                                    "cpdm32_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+} // Constraints
+} // OpSize32, AddrWidth
+
+// 24-bit address: ALL ALU (addr24), #imm for C2 (8-bit)
+let OpSize = OpSize8.Value, AddrWidth = 1 in {
+def ADD8i_da24 : DirectSrcImmInst<0x38, 6, (outs),
+                                    (ins i32imm:$addr, i8imm:$val),
+                                    "adddi8_24", "$addr, $val", []>,
+                 Sched<[WriteSTW]>;
+def ADC8i_da24 : DirectSrcImmInst<0x39, 6, (outs),
+                                    (ins i32imm:$addr, i8imm:$val),
+                                    "addci8_24", "$addr, $val", []>,
+                 Sched<[WriteSTW]>;
+def SUB8i_da24 : DirectSrcImmInst<0x3A, 6, (outs),
+                                    (ins i32imm:$addr, i8imm:$val),
+                                    "subdi8_24", "$addr, $val", []>,
+                 Sched<[WriteSTW]>;
+def SBC8i_da24 : DirectSrcImmInst<0x3B, 6, (outs),
+                                    (ins i32imm:$addr, i8imm:$val),
+                                    "sbcdi8_24", "$addr, $val", []>,
+                 Sched<[WriteSTW]>;
+def AND8i_da24 : DirectSrcImmInst<0x3C, 6, (outs),
+                                    (ins i32imm:$addr, i8imm:$val),
+                                    "anddi8_24", "$addr, $val", []>,
+                 Sched<[WriteSTW]>;
+def XOR8i_da24 : DirectSrcImmInst<0x3D, 6, (outs),
+                                    (ins i32imm:$addr, i8imm:$val),
+                                    "xordi8_24", "$addr, $val", []>,
+                 Sched<[WriteSTW]>;
+def OR8i_da24 : DirectSrcImmInst<0x3E, 6, (outs),
+                                   (ins i32imm:$addr, i8imm:$val),
+                                   "ordi8_24", "$addr, $val", []>,
+                Sched<[WriteSTW]>;
+} // OpSize8, AddrWidth
+let isCompare = 1, mayStore = 0, OpSize = OpSize8.Value, AddrWidth = 1 in
+def CP8i_da24 : DirectSrcImmInst<0x3F, 6, (outs),
+                                   (ins i32imm:$addr, i8imm:$val),
+                                   "cpdi8_24", "$addr, $val", []>,
+                Sched<[WriteIALU]>;
+
+// 24-bit address: ALU reg, (addr24) — load direction for C2 (8-bit)
+let OpSize = OpSize8.Value, AddrWidth = 1 in {
+let Constraints = "$dst = $src1" in {
+def ADD8_da24 : DirectSrcRegInst<0x80, 5, (outs GR8:$dst),
+                                   (ins GR8:$src1, i32imm:$addr),
+                                   "addda8_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+def ADC8_da24 : DirectSrcRegInst<0x90, 5, (outs GR8:$dst),
+                                   (ins GR8:$src1, i32imm:$addr),
+                                   "addcda8_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+def SUB8_da24 : DirectSrcRegInst<0xA0, 5, (outs GR8:$dst),
+                                   (ins GR8:$src1, i32imm:$addr),
+                                   "subda8_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+def SBC8_da24 : DirectSrcRegInst<0xB0, 5, (outs GR8:$dst),
+                                   (ins GR8:$src1, i32imm:$addr),
+                                   "sbcda8_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+def AND8_da24 : DirectSrcRegInst<0xC0, 5, (outs GR8:$dst),
+                                   (ins GR8:$src1, i32imm:$addr),
+                                   "andda8_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+def XOR8_da24 : DirectSrcRegInst<0xD0, 5, (outs GR8:$dst),
+                                   (ins GR8:$src1, i32imm:$addr),
+                                   "xorda8_24", "$dst, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+def OR8_da24 : DirectSrcRegInst<0xE0, 5, (outs GR8:$dst),
+                                  (ins GR8:$src1, i32imm:$addr),
+                                  "orda8_24", "$dst, $addr", []>,
+               Sched<[WriteIALU, ReadIALU]>;
+} // Constraints
+def CP8_da24 : DirectSrcRegInst<0xF0, 5, (outs),
+                                  (ins GR8:$src, i32imm:$addr),
+                                  "cpda8_24", "$src, $addr", []>,
+               Sched<[WriteIALU, ReadIALU]>;
+// Store direction (result to memory): ALU (addr24), reg
+let Constraints = "" in {
+def ADD8m_da24 : DirectSrcRegInst<0x88, 5, (outs),
+                                    (ins i32imm:$addr, GR8:$src),
+                                    "adddm8_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+def SUB8m_da24 : DirectSrcRegInst<0xA8, 5, (outs),
+                                    (ins i32imm:$addr, GR8:$src),
+                                    "subdm8_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+def AND8m_da24 : DirectSrcRegInst<0xC8, 5, (outs),
+                                    (ins i32imm:$addr, GR8:$src),
+                                    "anddm8_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+def XOR8m_da24 : DirectSrcRegInst<0xD8, 5, (outs),
+                                    (ins i32imm:$addr, GR8:$src),
+                                    "xordm8_24", "$addr, $src", []>,
+                 Sched<[WriteSTW]>;
+def OR8m_da24 : DirectSrcRegInst<0xE8, 5, (outs),
+                                   (ins i32imm:$addr, GR8:$src),
+                                   "ordm8_24", "$addr, $src", []>,
+                Sched<[WriteSTW]>;
+def CP8m_da24 : DirectSrcRegInst<0xF8, 5, (outs),
+                                   (ins i32imm:$addr, GR8:$src),
+                                   "cpdm8_24", "$addr, $src", []>,
+                Sched<[WriteSTW]>;
+} // Constraints
+} // OpSize8, AddrWidth
+
+// 24-bit address: ALU reg, (addr24) — load direction for E2 (32-bit)
+let OpSize = OpSize32.Value, AddrWidth = 1 in {
+let Constraints = "$dst = $src1" in {
+def ADD32_da24 : DirectSrcRegInst<0x80, 5, (outs GPR:$dst),
+                                    (ins GPR:$src1, i32imm:$addr),
+                                    "addda32_24", "$dst, $addr", []>,
+                 Sched<[WriteIALU, ReadIALU]>;
+def SUB32_da24 : DirectSrcRegInst<0xA0, 5, (outs GPR:$dst),
+                                    (ins GPR:$src1, i32imm:$addr),
+                                    "subda32_24", "$dst, $addr", []>,
+                 Sched<[WriteIALU, ReadIALU]>;
+} // Constraints
+def CP32_da24 : DirectSrcRegInst<0xF0, 5, (outs),
+                                   (ins GPR:$src, i32imm:$addr),
+                                   "cpda32_24", "$src, $addr", []>,
+                Sched<[WriteIALU, ReadIALU]>;
+} // OpSize32, AddrWidth
+
+// 24-bit address: INC/DEC via C2/D2 prefix
+let AddrWidth = 1 in {
+let OpSize = OpSize8.Value in {
+def INC8_da24 : DirectSrcIncDecInst<0x60, 5, (outs),
+                                      (ins i32imm:$addr, i32imm:$count),
+                                      "incdi8_24", "$count, $addr", []>,
+                Sched<[WriteSTW]>;
+def DEC8_da24 : DirectSrcIncDecInst<0x68, 5, (outs),
+                                      (ins i32imm:$addr, i32imm:$count),
+                                      "decdi8_24", "$count, $addr", []>,
+                Sched<[WriteSTW]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def INC16_da24 : DirectSrcIncDecInst<0x60, 5, (outs),
+                                       (ins i32imm:$addr, i32imm:$count),
+                                       "incdi16_24", "$count, $addr", []>,
+                 Sched<[WriteSTW]>;
+def DEC16_da24 : DirectSrcIncDecInst<0x68, 5, (outs),
+                                       (ins i32imm:$addr, i32imm:$count),
+                                       "decdi16_24", "$count, $addr", []>,
+                 Sched<[WriteSTW]>;
+} // OpSize16
+} // AddrWidth
+
+} // Defs, mayLoad, mayStore, hasSideEffects
+
+// 24-bit address BIT/SET/RES/CHG/TSET via F2 prefix
+let mayLoad = 1, hasSideEffects = 0 in {
+let AddrWidth = 1 in
+def BIT_da24 : DirectDstBitOpInst<0xC8, 5, (outs),
+                                    (ins i32imm:$addr, i32imm:$bit),
+                                    "bitda_24", "$bit, $addr", []>,
+               Sched<[WriteIALU]>;
+} // mayLoad, hasSideEffects
+
+let mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let AddrWidth = 1 in {
+def SET_da24 : DirectDstBitOpInst<0xB8, 5, (outs),
+                                    (ins i32imm:$addr, i32imm:$bit),
+                                    "setda_24", "$bit, $addr", []>,
+               Sched<[WriteSTW]>;
+def RES_da24 : DirectDstBitOpInst<0xB0, 5, (outs),
+                                    (ins i32imm:$addr, i32imm:$bit),
+                                    "resda_24", "$bit, $addr", []>,
+               Sched<[WriteSTW]>;
+def CHG_da24 : DirectDstBitOpInst<0xC0, 5, (outs),
+                                    (ins i32imm:$addr, i32imm:$bit),
+                                    "chgda_24", "$bit, $addr", []>,
+               Sched<[WriteSTW]>;
+def TSET_da24 : DirectDstBitOpInst<0xA0, 5, (outs),
+                                     (ins i32imm:$addr, i32imm:$bit),
+                                     "tsetda_24", "$bit, $addr", []>,
+                Sched<[WriteSTW]>;
+} // AddrWidth
+} // mayLoad, mayStore, hasSideEffects
+
+// 24-bit address: INC/DEC/INCW/DECW via F2 prefix
+let Defs = [SR], mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let AddrWidth = 1 in {
+let OpSize = OpSize8.Value in {
+def INC8_dda24 : DirectDstBitOpInst<0x60, 5, (outs),
+                                      (ins i32imm:$addr, i32imm:$count),
+                                      "incdd8_24", "$count, $addr", []>,
+                 Sched<[WriteSTW]>;
+def DEC8_dda24 : DirectDstBitOpInst<0x68, 5, (outs),
+                                      (ins i32imm:$addr, i32imm:$count),
+                                      "decdd8_24", "$count, $addr", []>,
+                 Sched<[WriteSTW]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def INC16_dda24 : DirectDstBitOpInst<0x60, 5, (outs),
+                                       (ins i32imm:$addr, i32imm:$count),
+                                       "incdd16_24", "$count, $addr", []>,
+                  Sched<[WriteSTW]>;
+def DEC16_dda24 : DirectDstBitOpInst<0x68, 5, (outs),
+                                       (ins i32imm:$addr, i32imm:$count),
+                                       "decdd16_24", "$count, $addr", []>,
+                  Sched<[WriteSTW]>;
+} // OpSize16
+} // AddrWidth
 } // Defs, mayLoad, mayStore, hasSideEffects
 
 //--- Source direct: INC/DEC (addr) — sub-opcode 0x60+count / 0x68+count ---
