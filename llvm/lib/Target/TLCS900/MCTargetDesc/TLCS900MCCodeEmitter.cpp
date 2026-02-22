@@ -690,9 +690,11 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::BlockTransfer: {
-    // 2-byte block transfer: 0x80 prefix + sub-opcode.
-    // 0x80 = byte-wide source memory prefix (register 0 = XWA, unused).
-    CB.push_back(0x80);
+    // 2-byte block transfer: prefix + sub-opcode.
+    // Prefix = 0x80 + (OpSize * 16) + RegIdx
+    // Default: OpSize=0, RegIdx=0 → 0x80 (byte-wide, register 0)
+    unsigned RegIdx = TLCS900II::getRegIdx(TSFlags);
+    CB.push_back(0x80 + (OpSize << 4) + RegIdx);
     CB.push_back(Opcode);
     break;
   }
@@ -841,13 +843,14 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::DirectDstBitOp: {
-    // F1/F2 + addr + (opcode + bit/count).
-    // op 0 = addr, op 1 = bit/count.
+    // F1/F2 + addr + (opcode + value).
+    // op 0 = addr, op 1 = bit/count/cc.
+    // Used for BIT/SET/RES (3-bit), INC/DEC (3-bit), and CALL cc (4-bit).
     emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/true, OpSize,
                          Is24Bit, CB);
     unsigned BitNum =
         MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0;
-    CB.push_back(Opcode + (BitNum & 0x7));
+    CB.push_back(Opcode + (BitNum & 0xF));
     break;
   }
 

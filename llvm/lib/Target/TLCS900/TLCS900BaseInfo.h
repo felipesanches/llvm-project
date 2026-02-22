@@ -20,11 +20,12 @@ namespace llvm {
 // TLCS900II - This namespace holds all of the target specific flags that
 // instruction info tracks.
 //
-// TSFlags layout (17 bits used):
+// TSFlags layout (20 bits used):
 //   [5:0]   InstFormat   — encoding format class (6 bits, up to 64 formats)
 //   [13:6]  Opcode       — second byte (operation code within prefix group)
 //   [15:14] OperandSize  — 0=8bit, 1=16bit, 2=32bit
 //   [16]    AddrWidth    — 0=16-bit address, 1=24-bit address (direct addressing)
+//   [19:17] RegIdx       — register index for block transfer prefix byte
 namespace TLCS900II {
 
 // Instruction encoding format classes.
@@ -86,6 +87,9 @@ enum : uint64_t {
 
   AddrWidthShift = 16,
   AddrWidthMask = 0x1 << AddrWidthShift, // 1 bit [16]
+
+  RegIdxShift = 17,
+  RegIdxMask = 0x7 << RegIdxShift, // 3 bits [19:17]
 };
 
 // Operand size encoding in TSFlags.
@@ -119,6 +123,11 @@ inline unsigned getRegPrefixBase(unsigned OpSize) {
 // Extract address width from TSFlags. 0=16-bit, 1=24-bit.
 inline unsigned getAddrWidth(uint64_t TSFlags) {
   return (TSFlags >> AddrWidthShift) & 0x1;
+}
+
+// Extract register index from TSFlags (block transfer prefix).
+inline unsigned getRegIdx(uint64_t TSFlags) {
+  return (TSFlags >> RegIdxShift) & 0x7;
 }
 
 // Get the source direct addressing prefix byte for a given operand size.

@@ -1472,24 +1472,72 @@ def DIVS16ri : PrefixRegImmInst<0x0B, 4, (outs GR16:$rd),
 //===----------------------------------------------------------------------===//
 
 // LDI — Load and increment: (XDE) ← (XHL), XDE++, XHL++, XBC--
-let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize8.Value in
 def LDI : BlockTransferInst<0x10, (outs), (ins), "ldi", "", []>,
           Sched<[WriteSTW]>;
 
 // LDIR — Load, increment, repeat: LDI until XBC == 0
-let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize8.Value in
 def LDIR : BlockTransferInst<0x11, (outs), (ins), "ldir", "", []>,
            Sched<[WriteSTW]>;
 
 // LDD — Load and decrement: (XDE) ← (XHL), XDE--, XHL--, XBC--
-let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize8.Value in
 def LDD : BlockTransferInst<0x12, (outs), (ins), "ldd", "", []>,
           Sched<[WriteSTW]>;
 
 // LDDR — Load, decrement, repeat: LDD until XBC == 0
-let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1 in
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize8.Value in
 def LDDR : BlockTransferInst<0x13, (outs), (ins), "lddr", "", []>,
            Sched<[WriteSTW]>;
+
+// --- Block transfer variants with non-zero register index ---
+// The TLCS-900 hardware ignores the register index for block transfers,
+// but the ROM uses specific indices that we must byte-match.
+
+// Prefix 0x85 (8-bit, reg_idx=5): ldi85, ldir85, lddr85
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize8.Value in {
+def LDI85 : BlockTransferInst<0x10, (outs), (ins), "ldi85", "", [], 5>,
+            Sched<[WriteSTW]>;
+def LDIR85 : BlockTransferInst<0x11, (outs), (ins), "ldir85", "", [], 5>,
+             Sched<[WriteSTW]>;
+def LDDR85 : BlockTransferInst<0x13, (outs), (ins), "lddr85", "", [], 5>,
+             Sched<[WriteSTW]>;
+}
+
+// Prefix 0x83 (8-bit, reg_idx=3): ldir83, lddr83, cpir83
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize8.Value in {
+def LDIR83 : BlockTransferInst<0x11, (outs), (ins), "ldir83", "", [], 3>,
+             Sched<[WriteSTW]>;
+def LDDR83 : BlockTransferInst<0x13, (outs), (ins), "lddr83", "", [], 3>,
+             Sched<[WriteSTW]>;
+}
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1,
+    OpSize = OpSize8.Value in
+def CPIR83 : BlockTransferInst<0x15, (outs), (ins), "cpir83", "", [], 3>,
+             Sched<[WriteIALU]>;
+
+// --- 16-bit wide block transfers (prefix 0x90+ridx) ---
+// LDIW — Word-size LDI (prefix 0x95, reg_idx=5)
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize16.Value in {
+def LDIW : BlockTransferInst<0x10, (outs), (ins), "ldiw", "", [], 5>,
+           Sched<[WriteSTW]>;
+def LDIRW : BlockTransferInst<0x11, (outs), (ins), "ldirw", "", [], 5>,
+            Sched<[WriteSTW]>;
+}
+
+// LDIRW with reg_idx=3 (prefix 0x93)
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    OpSize = OpSize16.Value in
+def LDIRW93 : BlockTransferInst<0x11, (outs), (ins), "ldirw93", "", [], 3>,
+              Sched<[WriteSTW]>;
 
 //===----------------------------------------------------------------------===//
 // Bit manipulation isel patterns
@@ -1546,22 +1594,26 @@ def MEMMOVE_PSEUDO : Pseudo<(outs), (ins), [(tlcs900_memmove)]>;
 //===----------------------------------------------------------------------===//
 
 // CPI — Compare and increment: compare A with (XHL), XHL++, XBC--
-let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1,
+    OpSize = OpSize8.Value in
 def CPI : BlockTransferInst<0x14, (outs), (ins), "cpi", "", []>,
           Sched<[WriteIALU]>;
 
 // CPIR — Compare, increment, repeat: CPI until match or XBC == 0
-let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1,
+    OpSize = OpSize8.Value in
 def CPIR : BlockTransferInst<0x15, (outs), (ins), "cpir", "", []>,
            Sched<[WriteIALU]>;
 
 // CPD — Compare and decrement: compare A with (XHL), XHL--, XBC--
-let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1,
+    OpSize = OpSize8.Value in
 def CPD : BlockTransferInst<0x16, (outs), (ins), "cpd", "", []>,
           Sched<[WriteIALU]>;
 
 // CPDR — Compare, decrement, repeat: CPD until match or XBC == 0
-let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1 in
+let Defs = [XHL, XBC, SR], Uses = [XWA, XHL, XBC], mayLoad = 1,
+    OpSize = OpSize8.Value in
 def CPDR : BlockTransferInst<0x17, (outs), (ins), "cpdr", "", []>,
            Sched<[WriteIALU]>;
 
@@ -2897,6 +2949,13 @@ def DEC16_dda24 : DirectDstBitOpInst<0x68, 5, (outs),
 } // OpSize16
 } // AddrWidth
 } // Defs, mayLoad, mayStore, hasSideEffects
+
+// F2 conditional CALL: F2 + addr24 + (0xE0+cc) — 5 bytes
+let isCall = 1, Defs = [XSP], Uses = [XSP], hasSideEffects = 0, AddrWidth = 1 in
+def CALLCC_24 : DirectDstBitOpInst<0xE0, 5, (outs),
+                                     (ins i32imm:$addr, i32imm:$cc),
+                                     "callcc_24", "$cc, $addr", []>,
+                Sched<[WriteJmp]>;
 
 //--- Source direct: INC/DEC (addr) — sub-opcode 0x60+count / 0x68+count ---
 

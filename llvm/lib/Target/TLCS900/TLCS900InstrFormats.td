@@ -81,12 +81,14 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   bits<8> Opcode = 0;
   bits<2> OpSize = OpSize32.Value;
   bits<1> AddrWidth = 0; // 0=16-bit addr, 1=24-bit addr (direct addressing)
+  bits<3> RegIdx = 0;    // Register index for block transfer prefix
 
   // Wire TSFlags.
   let TSFlags{5-0}   = InstFormat;
   let TSFlags{13-6}  = Opcode;
   let TSFlags{15-14} = OpSize;
   let TSFlags{16}    = AddrWidth;
+  let TSFlags{19-17} = RegIdx;
 
   let Size = 0; // Default; subclasses set correct size.
 
@@ -362,12 +364,14 @@ class PrefixPopInst<bits<8> opc, dag outs, dag ins, string opcodestr,
 }
 
 // BlockTransferInst: 2-byte block operations (LDI, LDIR, etc.)
-// Encoding: 0x80 prefix (byte-wide source memory, register 0) + sub-opcode
+// Encoding: (0x80 + OpSize*16 + ridx) prefix + sub-opcode
+// Default: OpSize8, ridx=0 → prefix 0x80 (standard byte-wide, register 0)
 class BlockTransferInst<bits<8> opc, dag outs, dag ins, string opcodestr,
-                        string argstr, list<dag> pattern>
+                        string argstr, list<dag> pattern, bits<3> ridx = 0>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatBlockTransfer.Value;
   let Opcode = opc;
+  let RegIdx = ridx;
   let Size = 2;
 }
 
