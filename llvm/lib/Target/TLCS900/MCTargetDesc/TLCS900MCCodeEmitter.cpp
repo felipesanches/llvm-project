@@ -849,6 +849,18 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(Opcode + (BitNum & 0x7));
     break;
   }
+
+  case TLCS900II::DirectMemToMem: {
+    // src_direct_prefix + src_addr16 + opcode(0x19) + dst_addr16.
+    // op 0 = src_addr, op 1 = dst_addr.
+    emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
+                         Is24Bit, CB);
+    CB.push_back(Opcode);
+    const MCOperand &DstAddr = MI.getOperand(1);
+    if (DstAddr.isImm())
+      emitImmediate(DstAddr.getImm(), Is24Bit ? 3 : 2, CB);
+    break;
+  }
   }
 }
 

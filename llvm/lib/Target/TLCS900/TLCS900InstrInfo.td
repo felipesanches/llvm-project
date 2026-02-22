@@ -2695,3 +2695,22 @@ def DEC16_dda16 : DirectDstBitOpInst<0x68, 4, (outs),
                   Sched<[WriteSTW]>;
 } // OpSize16
 } // Defs, mayLoad, mayStore, hasSideEffects
+
+//--- Source direct: LD (dst_addr), (src_addr) — sub-opcode 0x19 ---
+// Memory-to-memory transfer via direct addressing.
+// Encoding: prefix + src_addr16 + 0x19 + dst_addr16 (6 bytes)
+
+let mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+// 8-bit mem-to-mem: C1 + src_addr + 0x19 + dst_addr
+let OpSize = OpSize8.Value in
+def LDmm8_da16 : DirectMemToMemInst<0x19, 6, (outs),
+                                      (ins i32imm:$src_addr, i32imm:$dst_addr),
+                                      "ldmm8", "$dst_addr, $src_addr", []>,
+                 Sched<[WriteSTW]>;
+// 16-bit mem-to-mem: D1 + src_addr + 0x19 + dst_addr
+let OpSize = OpSize16.Value in
+def LDmm16_da16 : DirectMemToMemInst<0x19, 6, (outs),
+                                       (ins i32imm:$src_addr, i32imm:$dst_addr),
+                                       "ldmm16", "$dst_addr, $src_addr", []>,
+                  Sched<[WriteSTW]>;
+} // mayLoad, mayStore, hasSideEffects

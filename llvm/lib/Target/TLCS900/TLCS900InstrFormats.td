@@ -59,6 +59,7 @@ def InstFormatDirectSrcIncDec : InstFormat<37>;
 def InstFormatDirectDstReg : InstFormat<38>;
 def InstFormatDirectDstImm : InstFormat<39>;
 def InstFormatDirectDstBitOp : InstFormat<40>;
+def InstFormatDirectMemToMem : InstFormat<41>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -503,6 +504,16 @@ class DirectDstBitOpInst<bits<8> opc, int sz, dag outs, dag ins,
                          string opcodestr, string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatDirectDstBitOp.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// DirectMemToMemInst: src_direct_prefix + src_addr + 0x19 + dst_addr
+// Memory-to-memory transfer: LD (dst_addr), (src_addr)
+class DirectMemToMemInst<bits<8> opc, int sz, dag outs, dag ins,
+                          string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectMemToMem.Value;
   let Opcode = opc;
   let Size = sz;
 }
