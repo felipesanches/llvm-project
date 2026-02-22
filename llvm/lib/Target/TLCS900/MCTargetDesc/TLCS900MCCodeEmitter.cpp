@@ -498,6 +498,21 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::MemStoreImm: {
+    // dst_mem_prefix [+disp] + opcode + immediate.
+    // LD (mem), #imm: op 0 = base, op 1 = disp, op 2 = imm.
+    // Uses destination memory prefix (B0/B8) regardless of data size.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
+    CB.push_back(Opcode);
+    const MCOperand &ImmOp = MI.getOperand(2);
+    if (ImmOp.isImm())
+      emitImmediate(ImmOp.getImm(), ImmBytes, CB);
+    else
+      emitFixup(MI, ImmOp, CB.size() - StartByte,
+                ImmBytes == 1 ? FK_Data_1 : FK_Data_2, CB, Fixups);
+    break;
+  }
+
   case TLCS900II::Branch24: {
     // 0x1B + 24-bit absolute address.
     CB.push_back(Opcode);

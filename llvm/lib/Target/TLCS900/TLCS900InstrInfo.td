@@ -167,6 +167,18 @@ def LD32mi : MemStoreInst<0x08, 8, (outs), (ins MEMri:$addr, i32imm:$val),
                           "ld", "$addr, $val", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 
+// LD (mem), #imm8/16 — Store immediate to memory via B0/B8 prefix
+// 8-bit: B0+r [+d8] + 0x00 + imm8
+// 16-bit: B0+r [+d8] + 0x14 + imm16
+let OpSize = OpSize8.Value in
+def LD8mi_dst : MemStoreImmInst<0x00, 4, (outs), (ins MEMri:$addr, i8imm:$val),
+                                 "ldmi8", "$addr, $val", []>,
+                Sched<[WriteSTW, ReadMemBase]>;
+let OpSize = OpSize16.Value in
+def LD16mi_dst : MemStoreImmInst<0x14, 5, (outs), (ins MEMri:$addr, i16imm:$val),
+                                  "ldmi16", "$addr, $val", []>,
+                 Sched<[WriteSTW, ReadMemBase]>;
+
 // LD rd:lo16, (base+disp) — Load 16-bit from memory into low word of GPR
 // Note: upper 16 bits of the 32-bit register are UNCHANGED by hardware.
 // This is used internally; zextloadi16/sextloadi16 patterns add explicit

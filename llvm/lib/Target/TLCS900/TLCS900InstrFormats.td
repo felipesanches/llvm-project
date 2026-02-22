@@ -49,6 +49,7 @@ def InstFormatBlockTransfer : InstFormat<27>;
 def InstFormatPrefixSmallImm : InstFormat<28>;
 def InstFormatSingleByteCondRet : InstFormat<29>;
 def InstFormatPrefixCondCode : InstFormat<30>;
+def InstFormatMemStoreImm : InstFormat<31>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -375,6 +376,16 @@ class SingleByteCondRetInst<bits<8> opc, dag outs, dag ins, string opcodestr,
   let InstFormat = InstFormatSingleByteCondRet.Value;
   let Opcode = opc;
   let Size = 2;
+}
+
+// MemStoreImmInst: dst_mem_prefix [+disp] + opcode + immediate
+// LD (mem), #imm: B0/B8 prefix + sub_opc + imm_data
+class MemStoreImmInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                      string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemStoreImm.Value;
+  let Opcode = opc;
+  let Size = sz;
 }
 
 // PrefixCondCodeInst: prefix(reg) + (base_opc + cc)

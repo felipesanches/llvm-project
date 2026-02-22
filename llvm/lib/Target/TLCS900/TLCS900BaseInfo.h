@@ -59,6 +59,7 @@ enum InstFormat : uint8_t {
   PrefixSmallImm,    // Reg prefix + (opcode + imm3) — LD r, 0-7 (2 bytes)
   SingleByteCondRet, // 0xB0 + (opc+cc) — RETcc (2 bytes)
   PrefixCondCode,    // Reg prefix + (opc+cc) — SCC (2 bytes)
+  MemStoreImm,       // Dst mem prefix + opc + immediate — LD (mem), #imm
 };
 
 // TSFlags bit field positions and masks.
