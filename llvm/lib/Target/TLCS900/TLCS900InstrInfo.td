@@ -788,6 +788,23 @@ def SCC32 : TLCS900Inst<(outs GPR:$rd), (ins cc:$cc),
                          [(set GPR:$rd, (tlcs900_scc (i32 imm:$cc)))]>,
             Sched<[WriteIALU]>;
 
+// SCC real encodable forms (for inline assembly / converter use)
+// Encoding: reg_prefix + 0x70+cc (2 bytes)
+let Uses = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def SCC8 : PrefixCondCodeInst<0x70, (outs GR8:$rd), (ins cc:$cc, GR8:$rs),
+                               "scc8", "$cc, $rd", []>,
+           Sched<[WriteIALU]> {
+  let Constraints = "$rd = $rs";
+}
+let OpSize = OpSize16.Value in
+def SCC16 : PrefixCondCodeInst<0x70, (outs GR16:$rd), (ins cc:$cc, GR16:$rs),
+                                "scc16", "$cc, $rd", []>,
+            Sched<[WriteIALU]> {
+  let Constraints = "$rd = $rs";
+}
+} // Uses = [SR]
+
 //===----------------------------------------------------------------------===//
 // System Instructions
 //===----------------------------------------------------------------------===//
@@ -802,6 +819,12 @@ def NOP : SingleByteInst<0x00, (outs), (ins), "nop", "", []>,
 // Encoding: 0x05 (1 byte)
 def HALT : SingleByteInst<0x05, (outs), (ins), "halt", "", []>,
            Sched<[WriteNop]>;
+
+// EX F, F' — Exchange flag registers
+// Encoding: 0x16 (1 byte)
+let Defs = [SR], Uses = [SR], hasSideEffects = 1 in
+def EX_FF : SingleByteInst<0x16, (outs), (ins), "ex_ff", "", []>,
+            Sched<[WriteNop]>;
 
 // EI — Enable/disable interrupts (with level)
 // Encoding: 0x06, level (2 bytes — opcode then level byte)

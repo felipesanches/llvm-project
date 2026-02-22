@@ -673,6 +673,16 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::PrefixCondCode: {
+    // SCC: prefix(rd) + (Opcode + cc). Opcode = 0x70 base.
+    // Operand 0 = rd (register), operand 1 = cc (condition code).
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0));
+    unsigned CC = MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0;
+    CB.push_back(PrefixBase + RegEnc);
+    CB.push_back(Opcode + (CC & 0xF));
+    break;
+  }
+
   case TLCS900II::PrefixSmallImm: {
     // reg_prefix(rd) + (opcode + imm3).
     // LD r, 0-7: prefix + (0xA8 + value). Value 0-7 in bits 0-2.
