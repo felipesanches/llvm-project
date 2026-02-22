@@ -876,8 +876,25 @@ void TLCS900MCCodeEmitter::encodeInstruction(
 
   case TLCS900II::ExtPrefix: {
     // Generic extended prefix: emit all operands as literal bytes.
-    // Used for C3/C5/C7/D3/D5/D7/E3/E5/E7/F0/F3/F5 prefix instructions
-    // where the addressing mode is not yet fully modeled.
+    for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+      const MCOperand &MO = MI.getOperand(i);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
+    break;
+  }
+
+  case TLCS900II::ExtAddrMode: {
+    // Computed prefix byte + literal operand bytes.
+    // Source modes (Opcode < 0xF0): prefix = Opcode + OpSize * 0x10
+    //   sd8(C0), sri(C3), spi(C5), erp(C7) → C/D/E depending on OpSize
+    // Dest modes (Opcode >= 0xF0): prefix = Opcode (no size adjustment)
+    //   dd8(F0), dri(F3), dpi(F5)
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    // Emit remaining operand bytes literally
     for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
       const MCOperand &MO = MI.getOperand(i);
       if (MO.isImm())

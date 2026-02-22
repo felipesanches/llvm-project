@@ -62,6 +62,7 @@ def InstFormatDirectDstBitOp : InstFormat<40>;
 def InstFormatDirectMemToMem : InstFormat<41>;
 def InstFormatLdIoImm : InstFormat<42>;
 def InstFormatExtPrefix : InstFormat<43>;
+def InstFormatExtAddrMode : InstFormat<44>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -535,11 +536,28 @@ class LdIoImmInst<bits<8> opc, dag outs, dag ins, string opcodestr,
 
 // ExtPrefixInst: Generic extended-prefix instruction.
 // All operand bytes are emitted literally by MCCodeEmitter.
-// Used for addressing modes not yet fully modeled (C3/C5/C7/D3/D5/D7/
-// E3/E5/E7/F0/F3/F5 prefixes — register-indirect, indexed, previous bank).
+// Used for addressing modes not yet fully modeled.
 class ExtPrefixInst<int sz, dag outs, dag ins, string opcodestr,
                      string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatExtPrefix.Value;
   let Size = sz;
+}
+
+// ExtAddrModeInst: Computed prefix + literal operand bytes.
+// The prefix byte is computed from Opcode and OpSize at encoding time:
+//   Source modes (Opcode < 0xF0): prefix = Opcode + OpSize * 0x10
+//   Dest modes (Opcode >= 0xF0): prefix = Opcode (no size adjustment)
+// Remaining operand bytes are emitted literally.
+//
+// Categories and their base Opcode values:
+//   sd8 (C0): source 8-bit direct address     erp (C7): extended register prefix
+//   sri (C3): source register-indirect         spi (C5): source post-increment
+//   dd8 (F0): dest 8-bit direct address        dri (F3): dest register-indirect
+//   dpi (F5): dest post-increment
+class ExtAddrModeInst<int nbytes, dag outs, dag ins, string opcodestr,
+                       string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatExtAddrMode.Value;
+  let Size = nbytes;
 }

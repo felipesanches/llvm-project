@@ -74,6 +74,7 @@ enum InstFormat : uint8_t {
   DirectMemToMem,    // Src direct prefix + src_addr + 0x19 + dst_addr — LD (dst),(src)
   LdIoImm,           // 0x08 + addr8 + imm8 — LD (n), #n (I/O register write)
   ExtPrefix,          // Generic extended prefix: all operand bytes emitted literally
+  ExtAddrMode,        // Computed prefix + literal bytes (C0/C3/C5/C7/D0/D3/D5/D7/E0/E3/E5/E7/F0/F3/F5)
 };
 
 // TSFlags bit field positions and masks.
