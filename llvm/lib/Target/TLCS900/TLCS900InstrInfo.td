@@ -2206,6 +2206,87 @@ def LD32_da24 : DirectSrcRegInst<0x20, 5, (outs GPR:$dst),
 
 } // mayLoad, hasSideEffects
 
+// GR8 variants for 8-bit LD reg8, (addr) — allows W, B, D, H (high-byte registers)
+let mayLoad = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def LD8_da16_r8 : DirectSrcRegInst<0x20, 4, (outs GR8:$dst),
+                                     (ins i32imm:$addr),
+                                     "ldda8", "$dst, $addr", []>,
+                  Sched<[WriteLDW]>;
+let OpSize = OpSize8.Value, AddrWidth = 1 in
+def LD8_da24_r8 : DirectSrcRegInst<0x20, 5, (outs GR8:$dst),
+                                     (ins i32imm:$addr),
+                                     "ldda8_24", "$dst, $addr", []>,
+                  Sched<[WriteLDW]>;
+} // mayLoad, hasSideEffects
+
+// GR8 variants for 8-bit ALU reg8, (addr16) — load direction
+let Defs = [SR], mayLoad = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+let Constraints = "$dst = $src1" in {
+def ADD8_da16_r8 : DirectSrcRegInst<0x80, 4, (outs GR8:$dst),
+                                      (ins GR8:$src1, i32imm:$addr),
+                                      "addda8", "$dst, $addr", []>,
+                   Sched<[WriteIALU, ReadIALU]>;
+def SUB8_da16_r8 : DirectSrcRegInst<0xA0, 4, (outs GR8:$dst),
+                                      (ins GR8:$src1, i32imm:$addr),
+                                      "subda8", "$dst, $addr", []>,
+                   Sched<[WriteIALU, ReadIALU]>;
+def AND8_da16_r8 : DirectSrcRegInst<0xC0, 4, (outs GR8:$dst),
+                                      (ins GR8:$src1, i32imm:$addr),
+                                      "andda8", "$dst, $addr", []>,
+                   Sched<[WriteIALU, ReadIALU]>;
+def XOR8_da16_r8 : DirectSrcRegInst<0xD0, 4, (outs GR8:$dst),
+                                      (ins GR8:$src1, i32imm:$addr),
+                                      "xorda8", "$dst, $addr", []>,
+                   Sched<[WriteIALU, ReadIALU]>;
+def OR8_da16_r8 : DirectSrcRegInst<0xE0, 4, (outs GR8:$dst),
+                                     (ins GR8:$src1, i32imm:$addr),
+                                     "orda8", "$dst, $addr", []>,
+                  Sched<[WriteIALU, ReadIALU]>;
+} // Constraints
+def CP8_da16_r8 : DirectSrcRegInst<0xF0, 4, (outs),
+                                     (ins GR8:$src, i32imm:$addr),
+                                     "cpda8", "$src, $addr", []>,
+                  Sched<[WriteIALU, ReadIALU]>;
+} // OpSize8
+} // Defs, mayLoad, hasSideEffects
+
+// GR8 variants for 8-bit ALU (addr16), reg8 — store direction
+let Defs = [SR], mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+def ADD8m_da16_r8 : DirectSrcRegInst<0x88, 4, (outs),
+                                       (ins i32imm:$addr, GR8:$src),
+                                       "adddm8", "$addr, $src", []>,
+                    Sched<[WriteSTW, ReadIALU]>;
+def SUB8m_da16_r8 : DirectSrcRegInst<0xA8, 4, (outs),
+                                       (ins i32imm:$addr, GR8:$src),
+                                       "subdm8", "$addr, $src", []>,
+                    Sched<[WriteSTW, ReadIALU]>;
+def AND8m_da16_r8 : DirectSrcRegInst<0xC8, 4, (outs),
+                                       (ins i32imm:$addr, GR8:$src),
+                                       "anddm8", "$addr, $src", []>,
+                    Sched<[WriteSTW, ReadIALU]>;
+def OR8m_da16_r8 : DirectSrcRegInst<0xE8, 4, (outs),
+                                      (ins i32imm:$addr, GR8:$src),
+                                      "orddm8", "$addr, $src", []>,
+                   Sched<[WriteSTW, ReadIALU]>;
+def XOR8m_da16_r8 : DirectSrcRegInst<0xD8, 4, (outs),
+                                       (ins i32imm:$addr, GR8:$src),
+                                       "xordm8", "$addr, $src", []>,
+                    Sched<[WriteSTW, ReadIALU]>;
+} // OpSize8
+} // Defs, mayLoad, mayStore, hasSideEffects
+
+// GR8 variants for 8-bit CP (addr16), reg8 — store direction compare
+let Defs = [SR], mayLoad = 1, isCompare = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def CP8m_da16_r8 : DirectSrcRegInst<0xF8, 4, (outs),
+                                      (ins i32imm:$addr, GR8:$src),
+                                      "cpdm8", "$addr, $src", []>,
+                   Sched<[WriteIALU, ReadIALU]>;
+} // Defs, mayLoad, isCompare, hasSideEffects
+
 //--- Source direct: ALU reg, (addr) — sub-opcode = ALU_base + reg ---
 // ADD=0x80, ADC=0x90, SUB=0xA0, SBC=0xB0, AND=0xC0, XOR=0xD0, OR=0xE0, CP=0xF0
 
@@ -2484,6 +2565,20 @@ def LD16m_da24 : DirectDstRegInst<0x50, 5, (outs),
                                    "stda16_24", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 
+} // mayStore, hasSideEffects
+
+// GR8 variants for 8-bit stores LD (addr), reg8 — allows W, B, D, H
+let mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def LD8m_da16_r8 : DirectDstRegInst<0x40, 4, (outs),
+                                      (ins i32imm:$addr, GR8:$src),
+                                      "stda8", "$addr, $src", []>,
+                   Sched<[WriteSTW]>;
+let OpSize = OpSize8.Value, AddrWidth = 1 in
+def LD8m_da24_r8 : DirectDstRegInst<0x40, 5, (outs),
+                                      (ins i32imm:$addr, GR8:$src),
+                                      "stda8_24", "$addr, $src", []>,
+                   Sched<[WriteSTW]>;
 } // mayStore, hasSideEffects
 
 //--- Destination direct: LD (addr), #imm — sub-opcode 0x00 (byte) / 0x02 (word) ---
