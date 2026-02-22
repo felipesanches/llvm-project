@@ -3497,6 +3497,64 @@ def LDFR_XIZ_LERP : ExtAddrModeSuffixInst<3, 0x9E, (outs), (ins i32imm:$b0),
 } // OpSize32
 } // Opcode = 0xC7 (ERP suffix)
 
+// --- Source Post-Increment Suffix (C5/D5/E5 + reg + SubOpcode) ---
+let Opcode = 0xC5 in {
+let OpSize = OpSize8.Value in {
+def LD_A_SPIB : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
+    "ld_a_spib", "$b0", []>, Sched<[WriteSTW]>;
+def LD_C_SPIB : ExtAddrModeSuffixInst<3, 0x23, (outs), (ins i32imm:$b0),
+    "ld_c_spib", "$b0", []>, Sched<[WriteSTW]>;
+def LD_E_SPIB : ExtAddrModeSuffixInst<3, 0x25, (outs), (ins i32imm:$b0),
+    "ld_e_spib", "$b0", []>, Sched<[WriteSTW]>;
+def LD_L_SPIB : ExtAddrModeSuffixInst<3, 0x27, (outs), (ins i32imm:$b0),
+    "ld_l_spib", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_C_SPIB : ExtAddrModeSuffixInst<3, 0x83, (outs), (ins i32imm:$b0),
+    "add_c_spib", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_E_SPIB : ExtAddrModeSuffixInst<3, 0x85, (outs), (ins i32imm:$b0),
+    "add_e_spib", "$b0", []>, Sched<[WriteSTW]>;
+def CP_A_SPIB : ExtAddrModeSuffixInst<3, 0xF1, (outs), (ins i32imm:$b0),
+    "cp_a_spib", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def LD_WA_SPIW : ExtAddrModeSuffixInst<3, 0x20, (outs), (ins i32imm:$b0),
+    "ld_wa_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def LD_BC_SPIW : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
+    "ld_bc_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def LD_DE_SPIW : ExtAddrModeSuffixInst<3, 0x22, (outs), (ins i32imm:$b0),
+    "ld_de_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def LD_IZ_SPIW : ExtAddrModeSuffixInst<3, 0x26, (outs), (ins i32imm:$b0),
+    "ld_iz_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_BC_SPIW : ExtAddrModeSuffixInst<3, 0x81, (outs), (ins i32imm:$b0),
+    "add_bc_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_DE_SPIW : ExtAddrModeSuffixInst<3, 0x82, (outs), (ins i32imm:$b0),
+    "add_de_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_HL_SPIW : ExtAddrModeSuffixInst<3, 0x83, (outs), (ins i32imm:$b0),
+    "add_hl_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def CP_DE_SPIW : ExtAddrModeSuffixInst<3, 0xF2, (outs), (ins i32imm:$b0),
+    "cp_de_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def CPM_BC_SPIW : ExtAddrModeSuffixInst<3, 0xF9, (outs), (ins i32imm:$b0),
+    "cpm_bc_spiw", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize16
+let OpSize = OpSize32.Value in {
+def LD_XWA_SPIL : ExtAddrModeSuffixInst<3, 0x20, (outs), (ins i32imm:$b0),
+    "ld_xwa_spil", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XBC_SPIL : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
+    "ld_xbc_spil", "$b0", []>, Sched<[WriteSTW]>;
+def LD_XHL_SPIL : ExtAddrModeSuffixInst<3, 0x23, (outs), (ins i32imm:$b0),
+    "ld_xhl_spil", "$b0", []>, Sched<[WriteSTW]>;
+def ADD_XHL_SPIL : ExtAddrModeSuffixInst<3, 0x83, (outs), (ins i32imm:$b0),
+    "add_xhl_spil", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize32
+} // Opcode = 0xC5 (SPI suffix)
+
+// --- Source Pre-Decrement Suffix (C4/D4/E4 + reg + SubOpcode) ---
+let Opcode = 0xC4 in {
+let OpSize = OpSize8.Value in {
+def CP_A_SPDB : ExtAddrModeSuffixInst<3, 0xF1, (outs), (ins i32imm:$b0),
+    "cp_a_spdb", "$b0", []>, Sched<[WriteSTW]>;
+} // OpSize8
+} // Opcode = 0xC4 (SPD suffix)
+
 // --- Source Register-Indirect Complex (C3/D3/E3) ---
 // Format: C3/D3/E3 + addressing_bytes + sub_opcode [+ operand_bytes]
 // Addressing modes: (R32), (R32+d16), (R32+R8/R16), (PC+d16)
