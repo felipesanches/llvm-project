@@ -1028,6 +1028,47 @@ def : Pat<(store (xor (load addr:$a), GPR:$v), addr:$a),
 // are invalid in the A0 (32-bit source memory) table. ISel will naturally
 // decompose these as: LD tmp,(mem); ADD/SUB tmp,#imm; ST (mem),tmp.
 
+// Memory ALU (reg, mem) direction — OP r32, (mem).
+// Uses MemLoad encoding: src_prefix + (opcode + reg_enc).
+let Defs = [SR], mayLoad = 1 in {
+def ADD32rm : MemLoadInst<0x80, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                          "add", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def ADC32rm : MemLoadInst<0x90, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                          "adc", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def SUB32rm : MemLoadInst<0xA0, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                          "sub", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def SBC32rm : MemLoadInst<0xB0, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                          "sbc", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def AND32rm : MemLoadInst<0xC0, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                          "and", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def XOR32rm : MemLoadInst<0xD0, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                          "xor", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def OR32rm : MemLoadInst<0xE0, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                         "or", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+} // Defs = [SR], mayLoad
+
+let Defs = [SR], isCompare = 1 in
+def CP32rm : MemLoadInst<0xF0, 4, (outs), (ins GPR:$rs, MEMri:$addr),
+                         "cp", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+
+// Memory ALU 32-bit: (mem), reg — ADC/SBC forms.
+let Defs = [SR], Uses = [SR], mayLoad = 1, mayStore = 1 in {
+def ADC32mr : MemALUInst<0x98, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                          "adc", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def SBC32mr : MemALUInst<0xB8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                          "sbc", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+} // Defs, Uses, mayLoad, mayStore
+
 // Compare memory with immediate: expand to LD + CP since CP32mi is invalid
 // in the 32-bit A0 table.
 def : Pat<(tlcs900_cmp (i32 (load addr:$a)), (i32 (imm):$v)),
@@ -1432,6 +1473,74 @@ def LD16mr_asm : MemStoreInst<0x50, 4, (outs), (ins MEMri:$addr, GR16:$rs),
                                "ld", "$addr, $rs", []>,
                  Sched<[WriteSTW, ReadMemBase]>;
 
+// --- Memory ALU (16-bit data, register-indirect addressing) ---
+
+// OP (mem), r16 — Read-modify-write memory with 16-bit register.
+let Defs = [SR], mayLoad = 1, mayStore = 1 in {
+def ADD16mr : MemALUInst<0x88, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                          "add", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def SUB16mr : MemALUInst<0xA8, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                          "sub", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def AND16mr : MemALUInst<0xC8, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                          "and", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def OR16mr : MemALUInst<0xE8, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                         "or", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def XOR16mr : MemALUInst<0xD8, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                          "xor", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+} // Defs, mayLoad, mayStore
+
+let Defs = [SR], Uses = [SR], mayLoad = 1, mayStore = 1 in {
+def ADC16mr : MemALUInst<0x98, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                          "adc", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def SBC16mr : MemALUInst<0xB8, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                          "sbc", "$addr, $rs", []>,
+              Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+} // Defs, Uses, mayLoad, mayStore
+
+let Defs = [SR], isCompare = 1 in
+def CP16mr : MemALUInst<0xF8, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                         "cp", "$addr, $rs", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+
+// OP r16, (mem) — ALU with register destination, memory source.
+let Defs = [SR], mayLoad = 1 in {
+def ADD16rm : MemLoadInst<0x80, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                           "add", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def SUB16rm : MemLoadInst<0xA0, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                           "sub", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def AND16rm : MemLoadInst<0xC0, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                           "and", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def OR16rm : MemLoadInst<0xE0, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                          "or", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def XOR16rm : MemLoadInst<0xD0, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                           "xor", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+} // Defs, mayLoad
+
+let Defs = [SR], Uses = [SR], mayLoad = 1 in {
+def ADC16rm : MemLoadInst<0x90, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                           "adc", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def SBC16rm : MemLoadInst<0xB0, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                           "sbc", "$rs, $addr", []>,
+              Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+} // Defs, Uses, mayLoad
+
+let Defs = [SR], isCompare = 1 in
+def CP16rm : MemLoadInst<0xF0, 4, (outs), (ins GR16:$rs, MEMri:$addr),
+                          "cp", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+
 } // OpSize = OpSize16.Value
 
 //===----------------------------------------------------------------------===//
@@ -1671,5 +1780,73 @@ def LD8rm_asm : MemLoadInst<0x20, 3, (outs GR8:$rd), (ins MEMri:$addr),
 def LD8mr_asm : MemStoreInst<0x40, 3, (outs), (ins MEMri:$addr, GR8:$rs),
                               "ld", "$addr, $rs", []>,
                 Sched<[WriteSTW, ReadMemBase]>;
+
+// --- Memory ALU (8-bit data, register-indirect addressing) ---
+
+// OP (mem), r8 — Read-modify-write memory with 8-bit register.
+let Defs = [SR], mayLoad = 1, mayStore = 1 in {
+def ADD8mr : MemALUInst<0x88, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                         "add", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def SUB8mr : MemALUInst<0xA8, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                         "sub", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def AND8mr : MemALUInst<0xC8, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                         "and", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def OR8mr : MemALUInst<0xE8, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                        "or", "$addr, $rs", []>,
+            Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def XOR8mr : MemALUInst<0xD8, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                         "xor", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+} // Defs, mayLoad, mayStore
+
+let Defs = [SR], Uses = [SR], mayLoad = 1, mayStore = 1 in {
+def ADC8mr : MemALUInst<0x98, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                         "adc", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+def SBC8mr : MemALUInst<0xB8, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                         "sbc", "$addr, $rs", []>,
+             Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
+} // Defs, Uses, mayLoad, mayStore
+
+let Defs = [SR], isCompare = 1 in
+def CP8mr : MemALUInst<0xF8, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                        "cp", "$addr, $rs", []>,
+            Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+
+// OP r8, (mem) — ALU with register destination, memory source.
+let Defs = [SR], mayLoad = 1 in {
+def ADD8rm : MemLoadInst<0x80, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                          "add", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def SUB8rm : MemLoadInst<0xA0, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                          "sub", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def AND8rm : MemLoadInst<0xC0, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                          "and", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def OR8rm : MemLoadInst<0xE0, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                         "or", "$rs, $addr", []>,
+            Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def XOR8rm : MemLoadInst<0xD0, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                          "xor", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+} // Defs, mayLoad
+
+let Defs = [SR], Uses = [SR], mayLoad = 1 in {
+def ADC8rm : MemLoadInst<0x90, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                          "adc", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+def SBC8rm : MemLoadInst<0xB0, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                          "sbc", "$rs, $addr", []>,
+             Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
+} // Defs, Uses, mayLoad
+
+let Defs = [SR], isCompare = 1 in
+def CP8rm : MemLoadInst<0xF0, 3, (outs), (ins GR8:$rs, MEMri:$addr),
+                         "cp", "$rs, $addr", []>,
+            Sched<[WriteLDW, ReadMemBase, ReadIALU]>;
 
 } // OpSize = OpSize8.Value
