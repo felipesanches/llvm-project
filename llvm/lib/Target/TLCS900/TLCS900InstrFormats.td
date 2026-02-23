@@ -61,9 +61,10 @@ def InstFormatDirectDstImm : InstFormat<39>;
 def InstFormatDirectDstBitOp : InstFormat<40>;
 def InstFormatDirectMemToMem : InstFormat<41>;
 def InstFormatLdIoImm : InstFormat<42>;
-def InstFormatExtPrefix : InstFormat<43>;
-def InstFormatExtAddrMode : InstFormat<44>;
-def InstFormatExtAddrModeSuffix : InstFormat<45>;
+def InstFormatLdIoImm16 : InstFormat<43>;
+def InstFormatExtPrefix : InstFormat<44>;
+def InstFormatExtAddrMode : InstFormat<45>;
+def InstFormatExtAddrModeSuffix : InstFormat<46>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -535,6 +536,15 @@ class LdIoImmInst<bits<8> opc, dag outs, dag ins, string opcodestr,
   let InstFormat = InstFormatLdIoImm.Value;
   let Opcode = opc;
   let Size = 3;
+}
+
+// LdIoImm16Inst: 4-byte I/O register write — 0x0A + addr8 + imm16
+class LdIoImm16Inst<bits<8> opc, dag outs, dag ins, string opcodestr,
+                     string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatLdIoImm16.Value;
+  let Opcode = opc;
+  let Size = 4;
 }
 
 // ExtPrefixInst: Generic extended-prefix instruction.

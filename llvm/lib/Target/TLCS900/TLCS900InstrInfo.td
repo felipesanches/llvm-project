@@ -928,6 +928,12 @@ def LDIO : LdIoImmInst<0x08, (outs), (ins i32imm:$addr, i32imm:$val),
                          "ldio", "$addr, $val", []>,
            Sched<[WriteSTW]>;
 
+// LDW (n), #nn — I/O register word write (4-byte: 0x0A + addr8 + imm16)
+let mayStore = 1, hasSideEffects = 1 in
+def LDWIO : LdIoImm16Inst<0x0A, (outs), (ins i32imm:$addr, i32imm:$val),
+                            "ldwio", "$addr, $val", []>,
+            Sched<[WriteSTW]>;
+
 // RETI — Return from interrupt (pops SR then PC from stack)
 // Encoding: 0x07 (1 byte)
 let isReturn = 1, isBarrier = 1, isTerminator = 1 in

@@ -884,6 +884,21 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::LdIoImm16: {
+    // 0x0A + addr8 + imm16_LE. op 0 = addr, op 1 = imm.
+    CB.push_back(Opcode);
+    CB.push_back(MI.getOperand(0).isImm() ? MI.getOperand(0).getImm() : 0);
+    if (MI.getOperand(1).isImm()) {
+      int64_t Val = MI.getOperand(1).getImm();
+      CB.push_back(static_cast<uint8_t>(Val & 0xFF));
+      CB.push_back(static_cast<uint8_t>((Val >> 8) & 0xFF));
+    } else {
+      CB.push_back(0);
+      CB.push_back(0);
+    }
+    break;
+  }
+
   case TLCS900II::ExtPrefix: {
     // Generic extended prefix: emit all operands as literal bytes.
     for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
