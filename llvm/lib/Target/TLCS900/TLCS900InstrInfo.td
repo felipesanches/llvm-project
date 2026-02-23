@@ -3642,6 +3642,76 @@ def X_ERPW2_S0F : ExtAddrModeSuffixInst<3, 0x0F, (outs),
   let Opcode = 0xC7;
   let OpSize = OpSize16.Value;
 }
+
+// --- Consolidated SRI ALU defs (C3/D3/E3) with register operand ---
+// Per-register ALU operations: sub_opc base + reg_enc
+// Source table: ADD=0x80/0x88, ADC=0x90/0x98, SUB=0xA0/0xA8, SBC=0xB0/0xB8,
+//              AND=0xC0/0xC8, XOR=0xD0/0xD8, OR=0xE0/0xE8, CP=0xF0/0xF8
+// _rm = ALU reg, (mem); _mr = ALU (mem), reg
+
+let Opcode = 0xC3 in {
+// --- Byte SRI ALU ---
+let OpSize = OpSize8.Value in {
+def ADD_SRIB_MR : RIRegInst<0xC3, 0x88, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "add_srib_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def SUB_SRIB_MR : RIRegInst<0xC3, 0xA8, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "sub_srib_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def AND_SRIB_RM : RIRegInst<0xC3, 0xC0, 5, (outs), (ins GR8:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "and_srib_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def AND_SRIB_MR : RIRegInst<0xC3, 0xC8, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "and_srib_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def XOR_SRIB_RM : RIRegInst<0xC3, 0xD0, 5, (outs), (ins GR8:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "xor_srib_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def OR_SRIB_RM : RIRegInst<0xC3, 0xE0, 5, (outs), (ins GR8:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "or_srib_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def OR_SRIB_MR : RIRegInst<0xC3, 0xE8, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "or_srib_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def CP_SRIB_RM : RIRegInst<0xC3, 0xF0, 5, (outs), (ins GR8:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "cp_srib_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def CP_SRIB_MR : RIRegInst<0xC3, 0xF8, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "cp_srib_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+} // OpSize8
+
+// --- Word SRI ALU ---
+let OpSize = OpSize16.Value in {
+def ADD_SRIW_RM : RIRegInst<0xC3, 0x80, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "add_sriw_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ADD_SRIW_MR : RIRegInst<0xC3, 0x88, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "add_sriw_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def SUB_SRIW_RM : RIRegInst<0xC3, 0xA0, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "sub_sriw_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def AND_SRIW_RM : RIRegInst<0xC3, 0xC0, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "and_sriw_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def AND_SRIW_MR : RIRegInst<0xC3, 0xC8, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "and_sriw_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def OR_SRIW_RM : RIRegInst<0xC3, 0xE0, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "or_sriw_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def OR_SRIW_MR : RIRegInst<0xC3, 0xE8, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "or_sriw_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def CP_SRIW_RM : RIRegInst<0xC3, 0xF0, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "cp_sriw_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def CP_SRIW_MR : RIRegInst<0xC3, 0xF8, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "cp_sriw_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+} // OpSize16
+
+// --- Long SRI ALU ---
+let OpSize = OpSize32.Value in {
+def ADD_SRIL_RM : RIRegInst<0xC3, 0x80, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "add_sril_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ADD_SRIL_MR : RIRegInst<0xC3, 0x88, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "add_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def SUB_SRIL_RM : RIRegInst<0xC3, 0xA0, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "sub_sril_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def SUB_SRIL_MR : RIRegInst<0xC3, 0xA8, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "sub_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def CP_SRIL_RM : RIRegInst<0xC3, 0xF0, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "cp_sril_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def CP_SRIL_MR : RIRegInst<0xC3, 0xF8, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "cp_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+} // OpSize32
+} // Opcode = 0xC3
+
+
 def X_ERPW3_O22_T1 : ExtAddrModeOpImmInst<4, 0x22, 1, (outs),
     (ins i32imm:$b0, i32imm:$b1),
     "x_erpw3_o22_t1", "$b0, $b1", []> {
@@ -3769,84 +3839,6 @@ def X_SRIW6_O3E_T2 : ExtAddrModeOpImmInst<7, 0x3E, 3, (outs),
     "x_sriw6_o3e_t2", "$b0, $b1, $b2, $b3, $b4", []> {
   let Opcode = 0xC3;
   let OpSize = OpSize16.Value;
-}
-def X_SRIW4_S82 : ExtAddrModeSuffixInst<5, 0x82, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_s82", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_S83 : ExtAddrModeSuffixInst<5, 0x83, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_s83", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_S86 : ExtAddrModeSuffixInst<5, 0x86, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_s86", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIL4_SA3 : ExtAddrModeSuffixInst<5, 0xA3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_sa3", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIW4_SC1 : ExtAddrModeSuffixInst<5, 0xC1, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sc1", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SC4 : ExtAddrModeSuffixInst<5, 0xC4, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sc4", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SCA : ExtAddrModeSuffixInst<5, 0xCA, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sca", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SCB : ExtAddrModeSuffixInst<5, 0xCB, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_scb", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIB4_SD7 : ExtAddrModeSuffixInst<5, 0xD7, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sd7", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIW4_SE3 : ExtAddrModeSuffixInst<5, 0xE3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_se3", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SEA : ExtAddrModeSuffixInst<5, 0xEA, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sea", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIB4_SED : ExtAddrModeSuffixInst<5, 0xED, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sed", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SF7 : ExtAddrModeSuffixInst<5, 0xF7, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sf7", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
 }
 
 // --- SPI (base opcode 0xC5) ---
@@ -4576,114 +4568,6 @@ def X_SRIB4_S69 : ExtAddrModeSuffixInst<5, 0x69, (outs),
   let Opcode = 0xC3;
   let OpSize = OpSize8.Value;
 }
-def X_SRIB4_S88 : ExtAddrModeSuffixInst<5, 0x88, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_s88", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_S89 : ExtAddrModeSuffixInst<5, 0x89, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_s89", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SA9 : ExtAddrModeSuffixInst<5, 0xA9, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sa9", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SC1 : ExtAddrModeSuffixInst<5, 0xC1, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sc1", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SC9 : ExtAddrModeSuffixInst<5, 0xC9, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sc9", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SD1 : ExtAddrModeSuffixInst<5, 0xD1, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sd1", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SE1 : ExtAddrModeSuffixInst<5, 0xE1, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_se1", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SE3 : ExtAddrModeSuffixInst<5, 0xE3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_se3", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SE9 : ExtAddrModeSuffixInst<5, 0xE9, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_se9", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SEB : ExtAddrModeSuffixInst<5, 0xEB, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_seb", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SF1 : ExtAddrModeSuffixInst<5, 0xF1, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sf1", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SF3 : ExtAddrModeSuffixInst<5, 0xF3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sf3", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SF5 : ExtAddrModeSuffixInst<5, 0xF5, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sf5", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SF8 : ExtAddrModeSuffixInst<5, 0xF8, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sf8", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SF9 : ExtAddrModeSuffixInst<5, 0xF9, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sf9", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SFB : ExtAddrModeSuffixInst<5, 0xFB, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sfb", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SFD : ExtAddrModeSuffixInst<5, 0xFD, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sfd", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
-def X_SRIB4_SFF : ExtAddrModeSuffixInst<5, 0xFF, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_srib4_sff", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize8.Value;
-}
 def X_SRIB5_O3A_T1 : ExtAddrModeOpImmInst<6, 0x3A, 3, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
     "x_srib5_o3a_t1", "$b0, $b1, $b2, $b3", []> {
@@ -4714,84 +4598,6 @@ def X_SRIB6_O19_T2 : ExtAddrModeOpImmInst<7, 0x19, 3, (outs),
   let Opcode = 0xC3;
   let OpSize = OpSize8.Value;
 }
-def X_SRIL4_S80 : ExtAddrModeSuffixInst<5, 0x80, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_s80", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_S82 : ExtAddrModeSuffixInst<5, 0x82, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_s82", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_S83 : ExtAddrModeSuffixInst<5, 0x83, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_s83", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_S84 : ExtAddrModeSuffixInst<5, 0x84, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_s84", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_S85 : ExtAddrModeSuffixInst<5, 0x85, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_s85", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_S86 : ExtAddrModeSuffixInst<5, 0x86, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_s86", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_S88 : ExtAddrModeSuffixInst<5, 0x88, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_s88", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_SAB : ExtAddrModeSuffixInst<5, 0xAB, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_sab", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_SF0 : ExtAddrModeSuffixInst<5, 0xF0, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_sf0", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_SF1 : ExtAddrModeSuffixInst<5, 0xF1, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_sf1", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_SF3 : ExtAddrModeSuffixInst<5, 0xF3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_sf3", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_SF8 : ExtAddrModeSuffixInst<5, 0xF8, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_sf8", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
-def X_SRIL4_SFE : ExtAddrModeSuffixInst<5, 0xFE, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sril4_sfe", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize32.Value;
-}
 def X_SRIW4_S04 : ExtAddrModeSuffixInst<5, 0x04, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "x_sriw4_s04", "$b0, $b1, $b2", []> {
@@ -4819,78 +4625,6 @@ def X_SRIW4_S68 : ExtAddrModeSuffixInst<5, 0x68, (outs),
 def X_SRIW4_S6A : ExtAddrModeSuffixInst<5, 0x6A, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "x_sriw4_s6a", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_S81 : ExtAddrModeSuffixInst<5, 0x81, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_s81", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_S84 : ExtAddrModeSuffixInst<5, 0x84, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_s84", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_S88 : ExtAddrModeSuffixInst<5, 0x88, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_s88", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SA0 : ExtAddrModeSuffixInst<5, 0xA0, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sa0", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SC0 : ExtAddrModeSuffixInst<5, 0xC0, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sc0", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SC2 : ExtAddrModeSuffixInst<5, 0xC2, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sc2", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SE0 : ExtAddrModeSuffixInst<5, 0xE0, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_se0", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SE2 : ExtAddrModeSuffixInst<5, 0xE2, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_se2", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SF0 : ExtAddrModeSuffixInst<5, 0xF0, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sf0", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SF2 : ExtAddrModeSuffixInst<5, 0xF2, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sf2", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SF6 : ExtAddrModeSuffixInst<5, 0xF6, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sf6", "$b0, $b1, $b2", []> {
-  let Opcode = 0xC3;
-  let OpSize = OpSize16.Value;
-}
-def X_SRIW4_SFB : ExtAddrModeSuffixInst<5, 0xFB, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_sriw4_sfb", "$b0, $b1, $b2", []> {
   let Opcode = 0xC3;
   let OpSize = OpSize16.Value;
 }
