@@ -1150,8 +1150,8 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::ExtImmMod: {
-    // [prefix, raw_addr_bytes..., SubOpc + op0_imm]
-    // Operand 0: immediate modifier, remaining: raw address bytes.
+    // [prefix, raw_addr_bytes..., SubOpc + op0_mod]
+    // Operand 0: modifier (immediate or register), remaining: raw address bytes.
     unsigned Prefix = Opcode;
     if (Opcode < 0xF0)
       Prefix += OpSize * 0x10;
@@ -1162,7 +1162,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
         CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
     }
     unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
-    unsigned Mod = MI.getOperand(0).getImm() & 0xFF;
+    const MCOperand &ModOp = MI.getOperand(0);
+    unsigned Mod = ModOp.isReg() ? getRegEncoding(ModOp, OpSize)
+                                 : (ModOp.getImm() & 0xFF);
     CB.push_back(static_cast<char>(SubOpc + Mod));
     break;
   }
