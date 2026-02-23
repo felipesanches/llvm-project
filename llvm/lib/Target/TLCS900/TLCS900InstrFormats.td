@@ -79,6 +79,8 @@ def InstFormatRIImmAfter : InstFormat<55>;
 def InstFormatD8Reg : InstFormat<56>;
 def InstFormatD8Unary : InstFormat<57>;
 def InstFormatD8ImmAfter : InstFormat<58>;
+def InstFormatExtImmMod : InstFormat<59>;
+def InstFormatRIImmMod : InstFormat<60>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -760,6 +762,30 @@ class D8ImmAfterInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
                       string opcodestr, string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatD8ImmAfter.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// ExtImmModInst: Extended addressing with immediate modifier added to sub-opcode.
+// Encoding: [prefix, raw_addr_bytes..., SubOpcode + op0_imm]
+// Operand 0: immediate modifier (bit#, cc, etc.), remaining: raw address bytes.
+class ExtImmModInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
+                     string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatExtImmMod.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// RIImmModInst: Register-Indirect Complex with immediate modifier.
+// Encoding: [prefix, MEMsri_bytes..., SubOpcode + op0_imm]
+// Operand 0: immediate modifier, Operands 1-3: MEMsri (mode, lo, hi).
+class RIImmModInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
+                    string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatRIImmMod.Value;
   let Opcode = opc;
   let SubOpcode = sub_opc;
   let Size = sz;

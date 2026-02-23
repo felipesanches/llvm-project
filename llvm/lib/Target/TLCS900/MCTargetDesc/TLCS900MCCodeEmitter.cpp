@@ -1148,6 +1148,44 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     }
     break;
   }
+
+  case TLCS900II::ExtImmMod: {
+    // [prefix, raw_addr_bytes..., SubOpc + op0_imm]
+    // Operand 0: immediate modifier, remaining: raw address bytes.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    for (unsigned i = 1, e = MI.getNumOperands(); i != e; ++i) {
+      const MCOperand &MO = MI.getOperand(i);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned Mod = MI.getOperand(0).getImm() & 0xFF;
+    CB.push_back(static_cast<char>(SubOpc + Mod));
+    break;
+  }
+
+  case TLCS900II::RIImmMod: {
+    // [prefix, MEMsri_bytes..., SubOpc + op0_imm]
+    // Operand 0: immediate modifier, Operands 1-3: MEMsri (mode, lo, hi).
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    unsigned Mode = MI.getOperand(1).getImm();
+    CB.push_back(static_cast<char>(Mode & 0xFF));
+    unsigned ModeType = Mode & 0x03;
+    if (ModeType != 0) {
+      CB.push_back(static_cast<char>(MI.getOperand(2).getImm() & 0xFF));
+      CB.push_back(static_cast<char>(MI.getOperand(3).getImm() & 0xFF));
+    }
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned Mod = MI.getOperand(0).getImm() & 0xFF;
+    CB.push_back(static_cast<char>(SubOpc + Mod));
+    break;
+  }
   }
 }
 

@@ -3516,6 +3516,131 @@ def CP_SPDB : ERPRegInst<0xF0, (outs), (ins GR8:$rd, i32imm:$base),
 let Opcode = 0xC3 in {
 } // Opcode = 0xC3
 
+// ====================================================================
+// Destination-table consolidated instruction defs
+// These replace per-sub-opcode ExtAddrModeSuffix/ExtAddrModeOpImm defs
+// with named instructions using native format classes.
+// ====================================================================
+
+// --- DD8 (prefix F0): bit/flag operations ---
+// Encoding: [F0, addr8, SubOpc + bit]  (3 bytes)
+// ExtImmMod: operand 0 = modifier (bit#), remaining = raw address bytes
+def RES_DD8 : ExtImmModInst<0xF0, 0xB0, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
+    "res_dd8", "$bit, $addr", []>;
+def SET_DD8 : ExtImmModInst<0xF0, 0xB8, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
+    "set_dd8", "$bit, $addr", []>;
+def BIT_DD8 : ExtImmModInst<0xF0, 0xC8, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
+    "bit_dd8", "$bit, $addr", []>;
+def LDCF_DD8 : ExtImmModInst<0xF0, 0x98, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
+    "ldcf_dd8", "$bit, $addr", []>;
+
+// --- DD8 (prefix F0): register operations ---
+// D8Reg: [F0, addr8, SubOpc + reg_enc]  (3 bytes)
+// Operand 0 = register, Operand 1 = addr8
+def ST_DD8B : D8RegInst<0xF0, 0x40, (outs), (ins GR8:$rs, i32imm:$addr),
+    "st_dd8b", "$rs, $addr", []>;
+def LDA_DD8L : D8RegInst<0xF0, 0x30, (outs), (ins GPR:$rd, i32imm:$addr),
+    "lda_dd8l", "$rd, $addr", []>;
+
+// --- DD16 (prefix F1): bit/flag operations ---
+// Encoding: [F1, addr_lo, addr_hi, SubOpc + bit]  (4 bytes)
+// ExtImmMod: operand 0 = modifier (bit#), remaining = raw address bytes
+def TSET_DD16 : ExtImmModInst<0xF1, 0xA8, 4, (outs), (ins i32imm:$bit, i32imm:$lo, i32imm:$hi),
+    "tset_dd16", "$bit, $lo, $hi", []>;
+def LDCF_DD16 : ExtImmModInst<0xF1, 0x98, 4, (outs), (ins i32imm:$bit, i32imm:$lo, i32imm:$hi),
+    "ldcf_dd16", "$bit, $lo, $hi", []>;
+
+// --- DD16 (prefix F1): fixed sub-opcode operations ---
+// ExtAddrModeSuffix: [F1, addr_lo, addr_hi, SubOpc]  (4 bytes)
+def STCFA_DD16 : ExtAddrModeSuffixInst<4, 0x2C, (outs),
+    (ins i32imm:$lo, i32imm:$hi),
+    "stcfa_dd16", "$lo, $hi", []> {
+  let Opcode = 0xF1;
+}
+def POPB_DD16 : ExtAddrModeSuffixInst<4, 0x04, (outs),
+    (ins i32imm:$lo, i32imm:$hi),
+    "popb_dd16", "$lo, $hi", []> {
+  let Opcode = 0xF1;
+}
+def POPW_DD16 : ExtAddrModeSuffixInst<4, 0x06, (outs),
+    (ins i32imm:$lo, i32imm:$hi),
+    "popw_dd16", "$lo, $hi", []> {
+  let Opcode = 0xF1;
+}
+
+// --- DD24 (prefix F2): memory-to-memory operations ---
+// ExtAddrModeOpImm: [F2, addr_lo, addr_mid, addr_hi, SubOpc, src_lo, src_hi]  (7 bytes)
+// 3 pre-ops (address bytes), then SubOpcode, then 2 trailing (source address)
+def LDMMB_DD24 : ExtAddrModeOpImmInst<7, 0x14, 3, (outs),
+    (ins i32imm:$a0, i32imm:$a1, i32imm:$a2, i32imm:$s0, i32imm:$s1),
+    "ldmmb_dd24", "$a0, $a1, $a2, $s0, $s1", []> {
+  let Opcode = 0xF2;
+}
+def LDMMW_DD24 : ExtAddrModeOpImmInst<7, 0x16, 3, (outs),
+    (ins i32imm:$a0, i32imm:$a1, i32imm:$a2, i32imm:$s0, i32imm:$s1),
+    "ldmmw_dd24", "$a0, $a1, $a2, $s0, $s1", []> {
+  let Opcode = 0xF2;
+}
+
+// --- DRI (prefix F3): bit/flag/JP operations ---
+// RIImmMod: [F3, MEMsri_bytes..., SubOpc + modifier]  (5 bytes for 3-byte MEMsri)
+// Operand 0 = modifier (bit# or cc), Operands 1-3 = MEMsri (mode, lo, hi)
+def RES_DRI : RIImmModInst<0xF3, 0xB0, 5, (outs), (ins i32imm:$bit, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "res_dri", "$bit, $b0, $b1, $b2", []>;
+def SET_DRI : RIImmModInst<0xF3, 0xB8, 5, (outs), (ins i32imm:$bit, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "set_dri", "$bit, $b0, $b1, $b2", []>;
+def BIT_DRI : RIImmModInst<0xF3, 0xC8, 5, (outs), (ins i32imm:$bit, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "bit_dri", "$bit, $b0, $b1, $b2", []>;
+def LDCF_DRI : RIImmModInst<0xF3, 0x98, 5, (outs), (ins i32imm:$bit, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ldcf_dri", "$bit, $b0, $b1, $b2", []>;
+def XORCF_DRI : RIImmModInst<0xF3, 0x90, 5, (outs), (ins i32imm:$bit, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "xorcf_dri", "$bit, $b0, $b1, $b2", []>;
+def JP_DRI : RIImmModInst<0xF3, 0xD0, 5, (outs), (ins i32imm:$cc, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "jp_dri", "$cc, $b0, $b1, $b2", []>;
+
+// --- DRI (prefix F3): store immediate ---
+// RIImmAfter: [F3, MEMsri_bytes..., SubOpc, imm_bytes...]
+// Operands 0-2 = MEMsri (mode, lo, hi), remaining = trailing immediate
+def STIB_DRI : RIImmAfterInst<0xF3, 0x00, 6, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$imm),
+    "stib_dri", "$b0, $b1, $b2, $imm", []>;
+def STIW_DRI : RIImmAfterInst<0xF3, 0x02, 7, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$lo, i32imm:$hi),
+    "stiw_dri", "$b0, $b1, $b2, $lo, $hi", []>;
+
+// --- DRI (prefix F3): memory-to-memory ---
+// RIImmAfter: [F3, MEMsri_bytes..., SubOpc, src_lo, src_hi]
+// Operands 0-2 = MEMsri (dest mode, lo, hi), 3-4 = source address bytes
+def LDMMB_DRI : RIImmAfterInst<0xF3, 0x14, 7, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$s0, i32imm:$s1),
+    "ldmmb_dri", "$b0, $b1, $b2, $s0, $s1", []>;
+def LDMMW_DRI : RIImmAfterInst<0xF3, 0x16, 7, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$s0, i32imm:$s1),
+    "ldmmw_dri", "$b0, $b1, $b2, $s0, $s1", []>;
+
+// --- DPD (prefix F4): store immediate ---
+// ExtAddrModeOpImm: [F4, addr_reg, SubOpc, imm...]
+// 1 pre-op (base register byte), then SubOpcode, then trailing imm
+def STIB_DPD : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
+    (ins i32imm:$reg, i32imm:$imm),
+    "stib_dpd", "$reg, $imm", []> {
+  let Opcode = 0xF4;
+}
+
+// --- DPI (prefix F5): store immediate ---
+// ExtAddrModeOpImm: [F5, addr_reg, SubOpc, imm...]
+// 1 pre-op (base register byte), then SubOpcode, then trailing imm
+def STIB_DPI : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
+    (ins i32imm:$reg, i32imm:$imm),
+    "stib_dpi", "$reg, $imm", []> {
+  let Opcode = 0xF5;
+}
+def STIW_DPI : ExtAddrModeOpImmInst<5, 0x02, 1, (outs),
+    (ins i32imm:$reg, i32imm:$lo, i32imm:$hi),
+    "stiw_dpi", "$reg, $lo, $hi", []> {
+  let Opcode = 0xF5;
+}
+
 // --- Consolidated SRI LD defs (C3/D3/E3) with register operand ---
 // Uses RIRegInst: [prefix, addr_bytes..., SubOpc + reg_enc]
 // Prefix = C3 + OpSize * 0x10 (C3=byte, D3=word, E3=long)
@@ -3862,77 +3987,6 @@ def X_SD8B2_SE9 : ExtAddrModeSuffixInst<3, 0xE9, (outs),
   let Opcode = 0xC0;
   let OpSize = OpSize8.Value;
 }
-
-// --- DRI (base opcode 0xF3) ---
-def X_DRI4_SB9 : ExtAddrModeSuffixInst<5, 0xB9, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sb9", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SBF : ExtAddrModeSuffixInst<5, 0xBF, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sbf", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-
-// --- DPI (base opcode 0xF5) ---
-
-// --- DD8 (base opcode 0xF0) ---
-def X_DD82_S47 : ExtAddrModeSuffixInst<3, 0x47, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s47", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_S98 : ExtAddrModeSuffixInst<3, 0x98, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s98", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_S99 : ExtAddrModeSuffixInst<3, 0x99, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s99", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB5 : ExtAddrModeSuffixInst<3, 0xB5, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb5", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB6 : ExtAddrModeSuffixInst<3, 0xB6, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb6", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB7 : ExtAddrModeSuffixInst<3, 0xB7, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb7", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SBC : ExtAddrModeSuffixInst<3, 0xBC, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sbc", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SBD : ExtAddrModeSuffixInst<3, 0xBD, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sbd", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SBE : ExtAddrModeSuffixInst<3, 0xBE, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sbe", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SBF : ExtAddrModeSuffixInst<3, 0xBF, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sbf", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SCC : ExtAddrModeSuffixInst<3, 0xCC, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_scc", "$b0", []> {
-  let Opcode = 0xF0;
-}
 // --- Memory Register-Indirect (80-BF) ---
 // Uses ExtPrefixInst (literal bytes) since prefix byte encodes register index.
 // mri = no displacement, mrd = with d8 displacement
@@ -4045,308 +4099,6 @@ def EXTPFX10 : ExtPrefixInst<10, (outs),
          i32imm:$b4, i32imm:$b5, i32imm:$b6, i32imm:$b7, i32imm:$b8, i32imm:$b9),
     "extpfx10", "$b0, $b1, $b2, $b3, $b4, $b5, $b6, $b7, $b8, $b9", []>,
     Sched<[WriteSTW]>;
-
-// === Auto-generated missing extended addressing mode instructions ===
-// Generated by scripts/gen_missing_instrs.py — 167 definitions
-// These x_ mnemonics are used in .s files but were missing from InstrInfo.td.
-
-// --- DD16 (base opcode 0xF1) ---
-def X_DD163_S04 : ExtAddrModeSuffixInst<4, 0x04, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_s04", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_S06 : ExtAddrModeSuffixInst<4, 0x06, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_s06", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_S2C : ExtAddrModeSuffixInst<4, 0x2C, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_s2c", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_S9C : ExtAddrModeSuffixInst<4, 0x9C, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_s9c", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_S9F : ExtAddrModeSuffixInst<4, 0x9F, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_s9f", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SA8 : ExtAddrModeSuffixInst<4, 0xA8, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_sa8", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SA9 : ExtAddrModeSuffixInst<4, 0xA9, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_sa9", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SAA : ExtAddrModeSuffixInst<4, 0xAA, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_saa", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SAB : ExtAddrModeSuffixInst<4, 0xAB, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_sab", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SAC : ExtAddrModeSuffixInst<4, 0xAC, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_sac", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SAD : ExtAddrModeSuffixInst<4, 0xAD, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_sad", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SAE : ExtAddrModeSuffixInst<4, 0xAE, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_sae", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-def X_DD163_SAF : ExtAddrModeSuffixInst<4, 0xAF, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dd163_saf", "$b0, $b1", []> {
-  let Opcode = 0xF1;
-}
-
-// --- DD24 (base opcode 0xF2) ---
-def X_DD246_O14_T2 : ExtAddrModeOpImmInst<7, 0x14, 3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
-    "x_dd246_o14_t2", "$b0, $b1, $b2, $b3, $b4", []> {
-  let Opcode = 0xF2;
-}
-def X_DD246_O16_T2 : ExtAddrModeOpImmInst<7, 0x16, 3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
-    "x_dd246_o16_t2", "$b0, $b1, $b2, $b3, $b4", []> {
-  let Opcode = 0xF2;
-}
-
-// --- DD8 (base opcode 0xF0) ---
-def X_DD82_S31 : ExtAddrModeSuffixInst<3, 0x31, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s31", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_S33 : ExtAddrModeSuffixInst<3, 0x33, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s33", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_S41 : ExtAddrModeSuffixInst<3, 0x41, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s41", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_S9C : ExtAddrModeSuffixInst<3, 0x9C, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s9c", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_S9E : ExtAddrModeSuffixInst<3, 0x9E, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_s9e", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB0 : ExtAddrModeSuffixInst<3, 0xB0, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb0", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB1 : ExtAddrModeSuffixInst<3, 0xB1, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb1", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB2 : ExtAddrModeSuffixInst<3, 0xB2, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb2", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB3 : ExtAddrModeSuffixInst<3, 0xB3, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb3", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB8 : ExtAddrModeSuffixInst<3, 0xB8, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb8", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SB9 : ExtAddrModeSuffixInst<3, 0xB9, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sb9", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SBA : ExtAddrModeSuffixInst<3, 0xBA, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sba", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SBB : ExtAddrModeSuffixInst<3, 0xBB, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sbb", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SC8 : ExtAddrModeSuffixInst<3, 0xC8, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sc8", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SC9 : ExtAddrModeSuffixInst<3, 0xC9, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sc9", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SCA : ExtAddrModeSuffixInst<3, 0xCA, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sca", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SCB : ExtAddrModeSuffixInst<3, 0xCB, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_scb", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SCD : ExtAddrModeSuffixInst<3, 0xCD, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_scd", "$b0", []> {
-  let Opcode = 0xF0;
-}
-def X_DD82_SCE : ExtAddrModeSuffixInst<3, 0xCE, (outs),
-    (ins i32imm:$b0),
-    "x_dd82_sce", "$b0", []> {
-  let Opcode = 0xF0;
-}
-
-// --- DPD (base opcode 0xF4) ---
-def X_DPD3_O00_T1 : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dpd3_o00_t1", "$b0, $b1", []> {
-  let Opcode = 0xF4;
-}
-
-// --- DPI (base opcode 0xF5) ---
-def X_DPI3_O00_T1 : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
-    (ins i32imm:$b0, i32imm:$b1),
-    "x_dpi3_o00_t1", "$b0, $b1", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI4_O02_T2 : ExtAddrModeOpImmInst<5, 0x02, 1, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dpi4_o02_t2", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF5;
-}
-
-// --- DRI (base opcode 0xF3) ---
-def X_DRI4_S98 : ExtAddrModeSuffixInst<5, 0x98, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_s98", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_S9A : ExtAddrModeSuffixInst<5, 0x9A, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_s9a", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_S9F : ExtAddrModeSuffixInst<5, 0x9F, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_s9f", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SB4 : ExtAddrModeSuffixInst<5, 0xB4, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sb4", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SB7 : ExtAddrModeSuffixInst<5, 0xB7, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sb7", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SBD : ExtAddrModeSuffixInst<5, 0xBD, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sbd", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SBE : ExtAddrModeSuffixInst<5, 0xBE, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sbe", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SC8 : ExtAddrModeSuffixInst<5, 0xC8, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sc8", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SC9 : ExtAddrModeSuffixInst<5, 0xC9, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sc9", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SCA : ExtAddrModeSuffixInst<5, 0xCA, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sca", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SCB : ExtAddrModeSuffixInst<5, 0xCB, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_scb", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SCC : ExtAddrModeSuffixInst<5, 0xCC, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_scc", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SCD : ExtAddrModeSuffixInst<5, 0xCD, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_scd", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SCE : ExtAddrModeSuffixInst<5, 0xCE, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sce", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SCF : ExtAddrModeSuffixInst<5, 0xCF, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_scf", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI4_SD8 : ExtAddrModeSuffixInst<5, 0xD8, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "x_dri4_sd8", "$b0, $b1, $b2", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI5_O00_T1 : ExtAddrModeOpImmInst<6, 0x00, 3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
-    "x_dri5_o00_t1", "$b0, $b1, $b2, $b3", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI6_O02_T2 : ExtAddrModeOpImmInst<7, 0x02, 3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
-    "x_dri6_o02_t2", "$b0, $b1, $b2, $b3, $b4", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI6_O14_T2 : ExtAddrModeOpImmInst<7, 0x14, 3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
-    "x_dri6_o14_t2", "$b0, $b1, $b2, $b3, $b4", []> {
-  let Opcode = 0xF3;
-}
-def X_DRI6_O16_T2 : ExtAddrModeOpImmInst<7, 0x16, 3, (outs),
-    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
-    "x_dri6_o16_t2", "$b0, $b1, $b2, $b3, $b4", []> {
-  let Opcode = 0xF3;
-}
-
 // --- ERP (base opcode 0xC7) ---
 def X_ERPB3_O03_T1 : ExtAddrModeOpImmInst<4, 0x03, 1, (outs),
     (ins i32imm:$b0, i32imm:$b1),

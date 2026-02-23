@@ -98,6 +98,9 @@ enum InstFormat : uint8_t {
   D8Reg,              // prefix + addr8 + (SubOpc + reg_enc)
   D8Unary,            // prefix + addr8 + SubOpc (no data register)
   D8ImmAfter,         // prefix + addr8 + SubOpc + trailing imm
+  // ImmMod: Sub-opcode + immediate modifier (bit#, cc, inc count)
+  ExtImmMod,          // prefix + raw addr_bytes + (SubOpc + op0_imm)
+  RIImmMod,           // prefix + MEMsri_bytes + (SubOpc + op0_imm)
 };
 
 // TSFlags bit field positions and masks.
