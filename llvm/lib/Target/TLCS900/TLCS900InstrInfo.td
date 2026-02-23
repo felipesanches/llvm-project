@@ -4143,6 +4143,10 @@ def MRDW3 : ExtPrefixInst<3, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
 def MRDW5 : ExtPrefixInst<5, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
     "mrdw5", "$b0, $b1, $b2, $b3, $b4", []>, Sched<[WriteSTW]>;
 
+// 32-bit source, no displacement (A0-A7)
+def MRIL2 : ExtPrefixInst<2, (outs), (ins i32imm:$b0, i32imm:$b1),
+    "mril2", "$b0, $b1", []>, Sched<[WriteSTW]>;
+
 // 32-bit source, d8 displacement (A8-AF)
 def MRDL3 : ExtPrefixInst<3, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "mrdl3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
