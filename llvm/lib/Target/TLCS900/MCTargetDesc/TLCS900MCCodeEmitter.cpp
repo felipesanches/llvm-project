@@ -954,6 +954,198 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     }
     break;
   }
+
+  //=== Extended addressing mode — native formats ===
+
+  case TLCS900II::ERPReg: {
+    // [prefix, bank_idx, SubOpc + reg_enc]
+    // Operand 0: data register, Operand 1: bank index.
+    unsigned Prefix = Opcode + OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpc + RegEnc));
+    break;
+  }
+
+  case TLCS900II::ERPSmallImm: {
+    // [prefix, bank_idx, SubOpc + imm3]
+    // Operand 0: bank index, Operand 1: small immediate (0-7).
+    unsigned Prefix = Opcode + OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned Imm = MI.getOperand(1).getImm() & 0x7;
+    CB.push_back(static_cast<char>(SubOpc + Imm));
+    break;
+  }
+
+  case TLCS900II::ERPUnary: {
+    // [prefix, bank_idx, SubOpc]
+    // Operand 0: bank index.
+    unsigned Prefix = Opcode + OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
+
+  case TLCS900II::ERPImmAfter: {
+    // [prefix, bank_idx, SubOpc, imm_bytes...]
+    // Operand 0: bank index, remaining operands: trailing immediate bytes.
+    unsigned Prefix = Opcode + OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    for (unsigned i = 1, e = MI.getNumOperands(); i != e; ++i) {
+      const MCOperand &MO = MI.getOperand(i);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
+    break;
+  }
+
+  case TLCS900II::PIReg: {
+    // [prefix, base_gpr_enc, SubOpc + data_reg_enc]
+    // Operand 0: data register, Operand 1: base GPR.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(getRegEncoding(MI.getOperand(1))));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpc + RegEnc));
+    break;
+  }
+
+  case TLCS900II::PIUnary: {
+    // [prefix, base_gpr_enc, SubOpc]
+    // Operand 0: base GPR.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(getRegEncoding(MI.getOperand(0))));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
+
+  case TLCS900II::RIReg: {
+    // [prefix, MEMsri_bytes..., SubOpc + reg_enc]
+    // Operand 0: data register, Operand 1-3: MEMsri (mode, lo, hi).
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    // Emit MEMsri addressing mode bytes.
+    unsigned Mode = MI.getOperand(1).getImm();
+    CB.push_back(static_cast<char>(Mode & 0xFF));
+    unsigned ModeType = Mode & 0x03;
+    if (ModeType != 0) {
+      // Modes 1 (Xrr+d16) and 3 (Xrr+Rn) and 0x13 (PC+d16) have 2 extra bytes.
+      CB.push_back(static_cast<char>(MI.getOperand(2).getImm() & 0xFF));
+      CB.push_back(static_cast<char>(MI.getOperand(3).getImm() & 0xFF));
+    }
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpc + RegEnc));
+    break;
+  }
+
+  case TLCS900II::RIUnary: {
+    // [prefix, MEMsri_bytes..., SubOpc]
+    // Operand 0-2: MEMsri (mode, lo, hi).
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    unsigned Mode = MI.getOperand(0).getImm();
+    CB.push_back(static_cast<char>(Mode & 0xFF));
+    unsigned ModeType = Mode & 0x03;
+    if (ModeType != 0) {
+      CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
+      CB.push_back(static_cast<char>(MI.getOperand(2).getImm() & 0xFF));
+    }
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
+
+  case TLCS900II::RIImmAfter: {
+    // [prefix, MEMsri_bytes..., SubOpc, imm_bytes...]
+    // Operand 0-2: MEMsri (mode, lo, hi), remaining: trailing imm.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    unsigned Mode = MI.getOperand(0).getImm();
+    CB.push_back(static_cast<char>(Mode & 0xFF));
+    unsigned ModeType = Mode & 0x03;
+    unsigned NextOp = 1;
+    if (ModeType != 0) {
+      CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
+      CB.push_back(static_cast<char>(MI.getOperand(2).getImm() & 0xFF));
+      NextOp = 3;
+    }
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    for (unsigned i = NextOp, e = MI.getNumOperands(); i != e; ++i) {
+      const MCOperand &MO = MI.getOperand(i);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
+    break;
+  }
+
+  case TLCS900II::D8Reg: {
+    // [prefix, addr8, SubOpc + reg_enc]
+    // Operand 0: data register, Operand 1: addr8.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpc + RegEnc));
+    break;
+  }
+
+  case TLCS900II::D8Unary: {
+    // [prefix, addr8, SubOpc]
+    // Operand 0: addr8.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
+
+  case TLCS900II::D8ImmAfter: {
+    // [prefix, addr8, SubOpc, imm_bytes...]
+    // Operand 0: addr8, remaining: trailing imm.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    for (unsigned i = 1, e = MI.getNumOperands(); i != e; ++i) {
+      const MCOperand &MO = MI.getOperand(i);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
+    break;
+  }
   }
 }
 

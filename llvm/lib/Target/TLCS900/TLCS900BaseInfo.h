@@ -79,6 +79,25 @@ enum InstFormat : uint8_t {
   ExtPrefix,          // Generic extended prefix: all operand bytes emitted literally
   ExtAddrModeSuffix,  // Computed prefix + literal bytes + appended SubOpcode byte
   ExtAddrModeOpImm,   // Computed prefix + pre-ops + SubOpcode + post-ops (middle insertion)
+
+  // Extended addressing mode native formats (typed operands).
+  // Prefix is computed as Opcode + (Opcode < 0xF0 ? OpSize*0x10 : 0).
+  // ERP: Extended Register Prefix (C7/D7/E7 bank access)
+  ERPReg,             // prefix + bank_imm + (SubOpc + reg_enc)
+  ERPSmallImm,        // prefix + bank_imm + (SubOpc + small_imm3)
+  ERPUnary,           // prefix + bank_imm + SubOpc (no data register)
+  ERPImmAfter,        // prefix + bank_imm + SubOpc + trailing imm bytes
+  // PI: Post-Increment/Pre-Decrement (C4/C5/D4/D5/E4/E5/F4/F5)
+  PIReg,              // prefix + base_gpr_enc + (SubOpc + data_reg_enc)
+  PIUnary,            // prefix + base_gpr_enc + SubOpc (no data register)
+  // RI: Register-Indirect Complex (C3/D3/E3/F3 + MEMsri)
+  RIReg,              // prefix + MEMsri_bytes + (SubOpc + reg_enc)
+  RIUnary,            // prefix + MEMsri_bytes + SubOpc (no data register)
+  RIImmAfter,         // prefix + MEMsri_bytes + SubOpc + trailing imm
+  // D8: 8-bit Direct Address (C0/D0/E0/F0)
+  D8Reg,              // prefix + addr8 + (SubOpc + reg_enc)
+  D8Unary,            // prefix + addr8 + SubOpc (no data register)
+  D8ImmAfter,         // prefix + addr8 + SubOpc + trailing imm
 };
 
 // TSFlags bit field positions and masks.

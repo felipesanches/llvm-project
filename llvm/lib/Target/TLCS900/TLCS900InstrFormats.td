@@ -63,8 +63,22 @@ def InstFormatDirectMemToMem : InstFormat<41>;
 def InstFormatLdIoImm : InstFormat<42>;
 def InstFormatLdIoImm16 : InstFormat<43>;
 def InstFormatExtPrefix : InstFormat<44>;
-def InstFormatExtAddrModeSuffix : InstFormat<46>;
-def InstFormatExtAddrModeOpImm : InstFormat<47>;
+def InstFormatExtAddrModeSuffix : InstFormat<45>;
+def InstFormatExtAddrModeOpImm : InstFormat<46>;
+
+// Extended addressing mode native formats (typed operands)
+def InstFormatERPReg : InstFormat<47>;
+def InstFormatERPSmallImm : InstFormat<48>;
+def InstFormatERPUnary : InstFormat<49>;
+def InstFormatERPImmAfter : InstFormat<50>;
+def InstFormatPIReg : InstFormat<51>;
+def InstFormatPIUnary : InstFormat<52>;
+def InstFormatRIReg : InstFormat<53>;
+def InstFormatRIUnary : InstFormat<54>;
+def InstFormatRIImmAfter : InstFormat<55>;
+def InstFormatD8Reg : InstFormat<56>;
+def InstFormatD8Unary : InstFormat<57>;
+def InstFormatD8ImmAfter : InstFormat<58>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -597,4 +611,156 @@ class ExtAddrModeOpImmInst<int nbytes, bits<8> sub_opc, int npreops,
   let SubOpcode = sub_opc;
   let NumPreOps = npreops;
   let Size = nbytes;
+}
+
+//===----------------------------------------------------------------------===//
+// Extended addressing mode — native format classes (typed operands)
+//
+// These replace ExtAddrModeSuffix/OpImm/ExtPrefix with proper register
+// operands and typed immediates.
+//
+// All use prefix = Opcode + (Opcode < 0xF0 ? OpSize*0x10 : 0).
+// SubOpcode stored in TSFlags encodes the sub-opcode BASE (low 3 bits
+// combined with register encoding at emit time for Reg variants).
+//===----------------------------------------------------------------------===//
+
+// ERPRegInst: Extended Register Prefix with data register operand.
+// Encoding: [prefix, bank_idx, SubOpcode + reg_enc]
+// reg_enc comes from operand 0 (the data register).
+// bank_idx comes from operand 1 (immediate).
+class ERPRegInst<bits<8> sub_opc, dag outs, dag ins, string opcodestr,
+                  string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatERPReg.Value;
+  let Opcode = 0xC7;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// ERPSmallImmInst: ERP with 3-bit immediate (LDI 0-7, CPI 0-7).
+// Encoding: [prefix, bank_idx, SubOpcode + imm3]
+// bank_idx from operand 0, imm3 from operand 1.
+class ERPSmallImmInst<bits<8> sub_opc, dag outs, dag ins, string opcodestr,
+                       string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatERPSmallImm.Value;
+  let Opcode = 0xC7;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// ERPUnaryInst: ERP with fixed sub-opcode (PUSH, POP, INC, DEC, CPL, etc.)
+// Encoding: [prefix, bank_idx, SubOpcode]
+// bank_idx from operand 0.
+class ERPUnaryInst<bits<8> sub_opc, dag outs, dag ins, string opcodestr,
+                    string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatERPUnary.Value;
+  let Opcode = 0xC7;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// ERPImmAfterInst: ERP with trailing immediate after SubOpcode.
+// Encoding: [prefix, bank_idx, SubOpcode, imm_bytes...]
+// bank_idx from operand 0, trailing imm from remaining operands.
+class ERPImmAfterInst<bits<8> sub_opc, int sz, dag outs, dag ins,
+                       string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatERPImmAfter.Value;
+  let Opcode = 0xC7;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// PIRegInst: Post-Increment/Pre-Decrement with GPR base and data register.
+// Encoding: [prefix, base_reg_enc, SubOpcode + data_reg_enc]
+// Operand 0: data register, Operand 1: base GPR.
+class PIRegInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                 string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPIReg.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// PIUnaryInst: Post-Increment/Pre-Decrement with fixed sub-opcode.
+// Encoding: [prefix, base_reg_enc, SubOpcode]
+// Operand 0: base GPR.
+class PIUnaryInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                   string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPIUnary.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// RIRegInst: Register-Indirect Complex (SRI/DRI) with data register.
+// Encoding: [prefix, MEMsri_bytes..., SubOpcode + reg_enc]
+// Operand 0: data register, Operand 1-3: MEMsri (mode, lo, hi).
+class RIRegInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
+                 string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatRIReg.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// RIUnaryInst: Register-Indirect Complex with fixed sub-opcode.
+// Encoding: [prefix, MEMsri_bytes..., SubOpcode]
+class RIUnaryInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
+                   string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatRIUnary.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// RIImmAfterInst: Register-Indirect Complex with trailing immediate.
+// Encoding: [prefix, MEMsri_bytes..., SubOpcode, imm_bytes...]
+class RIImmAfterInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
+                      string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatRIImmAfter.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// D8RegInst: 8-bit Direct Address (SD8/DD8) with data register.
+// Encoding: [prefix, addr8, SubOpcode + reg_enc]
+// Operand 0: data register, Operand 1: addr8.
+class D8RegInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                 string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatD8Reg.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// D8UnaryInst: 8-bit Direct Address with fixed sub-opcode.
+// Encoding: [prefix, addr8, SubOpcode]
+class D8UnaryInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                   string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatD8Unary.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// D8ImmAfterInst: 8-bit Direct Address with trailing immediate.
+// Encoding: [prefix, addr8, SubOpcode, imm_bytes...]
+class D8ImmAfterInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
+                      string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatD8ImmAfter.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
 }
