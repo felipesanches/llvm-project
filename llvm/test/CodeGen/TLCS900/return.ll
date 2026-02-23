@@ -11,7 +11,7 @@ define i32 @return_const() {
 
 define i32 @return_zero() {
 ; CHECK-LABEL: return_zero:
-; CHECK:       ld xde, 0
+; CHECK:       lds32 xde, 0
 ; CHECK-NEXT:  ret
   ret i32 0
 }

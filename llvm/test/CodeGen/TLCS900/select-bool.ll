@@ -17,9 +17,9 @@ define i32 @select_cc(i32 %a, i32 %b, i32 %x, i32 %y) {
 define i32 @bool_and(i32 %a, i32 %b, i32 %c, i32 %d) {
 ; CHECK-LABEL: bool_and:
 ; CHECK: cp
-; CHECK: ld {{.*}}, 1
+; CHECK: lds32 {{.*}}, 1
 ; CHECK: jr
-; CHECK: ld {{.*}}, 0
+; CHECK: lds32 {{.*}}, 0
 ; CHECK: and
   %c1 = icmp eq i32 %a, %b
   %c2 = icmp eq i32 %c, %d
@@ -33,9 +33,9 @@ define i32 @bool_or(i32 %a, i32 %b) {
 ; CHECK-LABEL: bool_or:
 ; CHECK: or
 ; CHECK: cp
-; CHECK: ld {{.*}}, 1
+; CHECK: lds32 {{.*}}, 1
 ; CHECK: jr
-; CHECK: ld {{.*}}, 0
+; CHECK: lds32 {{.*}}, 0
   %c1 = icmp ne i32 %a, 0
   %c2 = icmp ne i32 %b, 0
   %r = or i1 %c1, %c2

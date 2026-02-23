@@ -91,8 +91,9 @@ bool TLCS900DJNZOpt::runOnMachineFunction(MachineFunction &MF) {
     if (CmpI->isDebugInstr())
       continue;
 
-    // Match: CP32ri reg, 0
-    if (CmpI->getOpcode() != TLCS900::CP32ri)
+    // Match: CP32ri reg, 0 (or CP32_small reg, 0 after IncDecOpt)
+    if (CmpI->getOpcode() != TLCS900::CP32ri &&
+        CmpI->getOpcode() != TLCS900::CP32_small)
       continue;
     if (CmpI->getOperand(1).getImm() != 0)
       continue;
