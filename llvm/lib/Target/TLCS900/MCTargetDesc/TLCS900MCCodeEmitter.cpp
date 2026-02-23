@@ -960,7 +960,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   case TLCS900II::ERPReg: {
     // [prefix, bank_idx, SubOpc + reg_enc]
     // Operand 0: data register, Operand 1: bank index.
-    unsigned Prefix = Opcode + OpSize * 0x10;
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
     CB.push_back(static_cast<char>(Prefix));
     CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
     unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);

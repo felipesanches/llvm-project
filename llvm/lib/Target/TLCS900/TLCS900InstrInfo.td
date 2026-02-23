@@ -3578,9 +3578,25 @@ def ST_DRI3L : RIRegInst<0xF3, 0x60, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm
 } // Opcode = 0xF3
 
 
-// --- Destination Post-Increment (F5) ---
-// Format: F5 + reg_byte + sub_opcode [+ operand_bytes]
+// --- Destination Post-Increment (F5) — consolidated defs ---
+// Format: [F5, base_reg_addr_byte, SubOpc + data_reg_enc]
+// F5 prefix is size-independent (Opcode >= 0xF0, no OpSize adjustment).
+// Uses ERPRegInst: Operand 0 = data register, Operand 1 = base reg addr byte.
 
+let Opcode = 0xF5 in {
+let OpSize = OpSize8.Value in {
+def ST_DPIB : ERPRegInst<0x30, (outs), (ins GR8:$rs, i32imm:$base),
+    "st_dpib", "$rs, $base", []>, Sched<[WriteSTW]>;
+} // OpSize8
+def LDA_DPI : ERPRegInst<0x40, (outs), (ins GPR:$rd, i32imm:$base),
+    "lda_dpi", "$rd, $base", []>, Sched<[WriteSTW]>;
+let OpSize = OpSize16.Value in {
+def ST_DPIW : ERPRegInst<0x50, (outs), (ins GR16:$rs, i32imm:$base),
+    "st_dpiw", "$rs, $base", []>, Sched<[WriteSTW]>;
+} // OpSize16
+def ST_DPIL : ERPRegInst<0x60, (outs), (ins GPR:$rs, i32imm:$base),
+    "st_dpil", "$rs, $base", []>, Sched<[WriteSTW]>;
+} // Opcode = 0xF5
 
 // --- Destination 8-bit Direct Address (F0) ---
 // Format: F0 + addr8 + sub_opcode [+ operand_bytes]
@@ -3868,11 +3884,6 @@ def X_DRI4_SBF : ExtAddrModeSuffixInst<5, 0xBF, (outs),
 }
 
 // --- DPI (base opcode 0xF5) ---
-def X_DPI2_S30 : ExtAddrModeSuffixInst<3, 0x30, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s30", "$b0", []> {
-  let Opcode = 0xF5;
-}
 
 // --- DD8 (base opcode 0xF0) ---
 def X_DD82_S47 : ExtAddrModeSuffixInst<3, 0x47, (outs),
@@ -4231,106 +4242,6 @@ def X_DPD3_O00_T1 : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
 }
 
 // --- DPI (base opcode 0xF5) ---
-def X_DPI2_S31 : ExtAddrModeSuffixInst<3, 0x31, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s31", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S32 : ExtAddrModeSuffixInst<3, 0x32, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s32", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S33 : ExtAddrModeSuffixInst<3, 0x33, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s33", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S34 : ExtAddrModeSuffixInst<3, 0x34, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s34", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S35 : ExtAddrModeSuffixInst<3, 0x35, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s35", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S40 : ExtAddrModeSuffixInst<3, 0x40, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s40", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S41 : ExtAddrModeSuffixInst<3, 0x41, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s41", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S42 : ExtAddrModeSuffixInst<3, 0x42, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s42", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S43 : ExtAddrModeSuffixInst<3, 0x43, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s43", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S45 : ExtAddrModeSuffixInst<3, 0x45, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s45", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S47 : ExtAddrModeSuffixInst<3, 0x47, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s47", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S50 : ExtAddrModeSuffixInst<3, 0x50, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s50", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S51 : ExtAddrModeSuffixInst<3, 0x51, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s51", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S52 : ExtAddrModeSuffixInst<3, 0x52, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s52", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S54 : ExtAddrModeSuffixInst<3, 0x54, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s54", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S55 : ExtAddrModeSuffixInst<3, 0x55, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s55", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S60 : ExtAddrModeSuffixInst<3, 0x60, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s60", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S61 : ExtAddrModeSuffixInst<3, 0x61, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s61", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S63 : ExtAddrModeSuffixInst<3, 0x63, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s63", "$b0", []> {
-  let Opcode = 0xF5;
-}
-def X_DPI2_S64 : ExtAddrModeSuffixInst<3, 0x64, (outs),
-    (ins i32imm:$b0),
-    "x_dpi2_s64", "$b0", []> {
-  let Opcode = 0xF5;
-}
 def X_DPI3_O00_T1 : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
     (ins i32imm:$b0, i32imm:$b1),
     "x_dpi3_o00_t1", "$b0, $b1", []> {
