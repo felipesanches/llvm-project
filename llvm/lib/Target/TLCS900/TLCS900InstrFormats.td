@@ -63,8 +63,8 @@ def InstFormatDirectMemToMem : InstFormat<41>;
 def InstFormatLdIoImm : InstFormat<42>;
 def InstFormatLdIoImm16 : InstFormat<43>;
 def InstFormatExtPrefix : InstFormat<44>;
-def InstFormatExtAddrMode : InstFormat<45>;
 def InstFormatExtAddrModeSuffix : InstFormat<46>;
+def InstFormatExtAddrModeOpImm : InstFormat<47>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -75,7 +75,9 @@ def OpSize16 : OpSizeVal<1>;
 def OpSize32 : OpSizeVal<2>;
 
 // Base class for all TLCS900 instructions.
-// TSFlags layout: [4:0] InstFormat, [12:5] Opcode, [14:13] OpSize
+// TSFlags layout: [5:0] InstFormat, [13:6] Opcode, [15:14] OpSize,
+//                 [16] AddrWidth, [19:17] RegIdx, [27:20] SubOpcode,
+//                 [30:28] NumPreOps
 class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
                   list<dag> pattern>
     : Instruction {
@@ -87,7 +89,8 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   bits<2> OpSize = OpSize32.Value;
   bits<1> AddrWidth = 0; // 0=16-bit addr, 1=24-bit addr (direct addressing)
   bits<3> RegIdx = 0;    // Register index for block transfer prefix
-  bits<8> SubOpcode = 0; // Appended sub-opcode byte (ExtAddrModeSuffix)
+  bits<8> SubOpcode = 0; // Sub-opcode byte (ExtAddrModeSuffix/OpImm)
+  bits<3> NumPreOps = 0; // Operands before SubOpcode (ExtAddrModeOpImm)
 
   // Wire TSFlags.
   let TSFlags{5-0}   = InstFormat;
@@ -96,6 +99,7 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   let TSFlags{16}    = AddrWidth;
   let TSFlags{19-17} = RegIdx;
   let TSFlags{27-20} = SubOpcode;
+  let TSFlags{30-28} = NumPreOps;
 
   let Size = 0; // Default; subclasses set correct size.
 
@@ -557,25 +561,7 @@ class ExtPrefixInst<int sz, dag outs, dag ins, string opcodestr,
   let Size = sz;
 }
 
-// ExtAddrModeInst: Computed prefix + literal operand bytes.
-// The prefix byte is computed from Opcode and OpSize at encoding time:
-//   Source modes (Opcode < 0xF0): prefix = Opcode + OpSize * 0x10
-//   Dest modes (Opcode >= 0xF0): prefix = Opcode (no size adjustment)
-// Remaining operand bytes are emitted literally.
-//
-// Categories and their base Opcode values:
-//   sd8 (C0): source 8-bit direct address     erp (C7): extended register prefix
-//   sri (C3): source register-indirect         spi (C5): source post-increment
-//   dd8 (F0): dest 8-bit direct address        dri (F3): dest register-indirect
-//   dpi (F5): dest post-increment
-class ExtAddrModeInst<int nbytes, dag outs, dag ins, string opcodestr,
-                       string argstr, list<dag> pattern>
-    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
-  let InstFormat = InstFormatExtAddrMode.Value;
-  let Size = nbytes;
-}
-
-// ExtAddrModeSuffixInst: Like ExtAddrMode but appends a SubOpcode byte after
+// ExtAddrModeSuffixInst: Computed prefix + operand bytes + appended SubOpcode byte.
 // the operand bytes. Used for instructions where the operation is encoded as
 // the last byte after variable-length addressing mode bytes.
 //
@@ -588,5 +574,27 @@ class ExtAddrModeSuffixInst<int nbytes, bits<8> sub_opc, dag outs, dag ins,
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatExtAddrModeSuffix.Value;
   let SubOpcode = sub_opc;
+  let Size = nbytes;
+}
+
+// ExtAddrModeOpImmInst: Like ExtAddrModeSuffix but inserts SubOpcode in the
+// MIDDLE of the operand stream, between addressing bytes and trailing operands
+// (immediates, register indices, etc.).
+//
+// Encoding: [computed_prefix, pre_operands..., SubOpcode, post_operands...]
+//   - prefix computed from Opcode + OpSize * 0x10 (source) or Opcode (dest)
+//   - NumPreOps operands emitted before SubOpcode
+//   - SubOpcode inserted from TSFlags
+//   - remaining operands emitted after SubOpcode
+//
+// Used for TLCS-900 instructions where the operation byte (sub-opcode) is
+// encoded between the addressing mode bytes and the immediate/data bytes.
+class ExtAddrModeOpImmInst<int nbytes, bits<8> sub_opc, int npreops,
+                            dag outs, dag ins, string opcodestr,
+                            string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatExtAddrModeOpImm.Value;
+  let SubOpcode = sub_opc;
+  let NumPreOps = npreops;
   let Size = nbytes;
 }

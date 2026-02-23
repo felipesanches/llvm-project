@@ -909,27 +909,8 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
-  case TLCS900II::ExtAddrMode: {
-    // Computed prefix byte + literal operand bytes.
-    // Source modes (Opcode < 0xF0): prefix = Opcode + OpSize * 0x10
-    //   sd8(C0), sri(C3), spi(C5), erp(C7) → C/D/E depending on OpSize
-    // Dest modes (Opcode >= 0xF0): prefix = Opcode (no size adjustment)
-    //   dd8(F0), dri(F3), dpi(F5)
-    unsigned Prefix = Opcode;
-    if (Opcode < 0xF0)
-      Prefix += OpSize * 0x10;
-    CB.push_back(static_cast<char>(Prefix));
-    // Emit remaining operand bytes literally
-    for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
-      const MCOperand &MO = MI.getOperand(i);
-      if (MO.isImm())
-        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
-    }
-    break;
-  }
-
   case TLCS900II::ExtAddrModeSuffix: {
-    // Like ExtAddrMode but appends SubOpcode byte after operands.
+    // Computed prefix + operand bytes + appended SubOpcode byte.
     // Encoding: [computed_prefix, operand_bytes..., SubOpcode]
     unsigned Prefix = Opcode;
     if (Opcode < 0xF0)
@@ -942,6 +923,35 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     }
     unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
     CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
+
+  case TLCS900II::ExtAddrModeOpImm: {
+    // Like ExtAddrModeSuffix but SubOpcode is inserted in the MIDDLE.
+    // Encoding: [computed_prefix, pre_operands..., SubOpcode, post_operands...]
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    unsigned NumPre = TLCS900II::getNumPreOps(TSFlags);
+    unsigned OpIdx = 0;
+    // Emit pre-SubOpcode operands.
+    for (unsigned i = 0; i < NumPre && OpIdx < MI.getNumOperands(); ++OpIdx) {
+      const MCOperand &MO = MI.getOperand(OpIdx);
+      if (MO.isImm()) {
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+        ++i;
+      }
+    }
+    // Emit SubOpcode.
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    // Emit post-SubOpcode operands.
+    for (; OpIdx < MI.getNumOperands(); ++OpIdx) {
+      const MCOperand &MO = MI.getOperand(OpIdx);
+      if (MO.isImm())
+        CB.push_back(static_cast<char>(MO.getImm() & 0xFF));
+    }
     break;
   }
   }

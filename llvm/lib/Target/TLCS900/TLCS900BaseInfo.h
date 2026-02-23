@@ -20,13 +20,14 @@ namespace llvm {
 // TLCS900II - This namespace holds all of the target specific flags that
 // instruction info tracks.
 //
-// TSFlags layout (28 bits used):
+// TSFlags layout (31 bits used):
 //   [5:0]   InstFormat   — encoding format class (6 bits, up to 64 formats)
 //   [13:6]  Opcode       — second byte (operation code within prefix group)
 //   [15:14] OperandSize  — 0=8bit, 1=16bit, 2=32bit
 //   [16]    AddrWidth    — 0=16-bit address, 1=24-bit address (direct addressing)
 //   [19:17] RegIdx       — register index for block transfer prefix byte
-//   [27:20] SubOpcode    — appended sub-opcode byte (ExtAddrModeSuffix format)
+//   [27:20] SubOpcode    — sub-opcode byte (ExtAddrModeSuffix/OpImm formats)
+//   [30:28] NumPreOps    — operands before SubOpcode (ExtAddrModeOpImm format)
 namespace TLCS900II {
 
 // Instruction encoding format classes.
@@ -76,8 +77,8 @@ enum InstFormat : uint8_t {
   LdIoImm,           // 0x08 + addr8 + imm8 — LD (n), #n (I/O register write)
   LdIoImm16,         // 0x0A + addr8 + imm16 — LDW (n), #nn (I/O register word write)
   ExtPrefix,          // Generic extended prefix: all operand bytes emitted literally
-  ExtAddrMode,        // Computed prefix + literal bytes (C0/C3/C5/C7/D0/D3/D5/D7/E0/E3/E5/E7/F0/F3/F5)
   ExtAddrModeSuffix,  // Computed prefix + literal bytes + appended SubOpcode byte
+  ExtAddrModeOpImm,   // Computed prefix + pre-ops + SubOpcode + post-ops (middle insertion)
 };
 
 // TSFlags bit field positions and masks.
@@ -99,6 +100,9 @@ enum : uint64_t {
 
   SubOpcodeShift = 20,
   SubOpcodeMask = 0xFFULL << SubOpcodeShift, // 8 bits [27:20]
+
+  NumPreOpsShift = 28,
+  NumPreOpsMask = 0x7ULL << NumPreOpsShift, // 3 bits [30:28]
 };
 
 // Operand size encoding in TSFlags.
@@ -139,9 +143,15 @@ inline unsigned getRegIdx(uint64_t TSFlags) {
   return (TSFlags >> RegIdxShift) & 0x7;
 }
 
-// Extract sub-opcode from TSFlags (ExtAddrModeSuffix format).
+// Extract sub-opcode from TSFlags (ExtAddrModeSuffix/OpImm format).
 inline unsigned getSubOpcode(uint64_t TSFlags) {
   return (TSFlags >> SubOpcodeShift) & 0xFF;
+}
+
+// Extract NumPreOps from TSFlags (ExtAddrModeOpImm format).
+// Number of operand bytes emitted before the SubOpcode byte.
+inline unsigned getNumPreOps(uint64_t TSFlags) {
+  return (TSFlags >> NumPreOpsShift) & 0x7;
 }
 
 // Get the source direct addressing prefix byte for a given operand size.
