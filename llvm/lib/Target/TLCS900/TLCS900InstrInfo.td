@@ -4061,6 +4061,8 @@ def SD16W3 : ExtAddrModeInst<4, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2)
 
 let Opcode = 0xC2 in {
 let OpSize = OpSize8.Value in {
+def SD24B3 : ExtAddrModeInst<4, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "sd24b3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def SD24B6 : ExtAddrModeInst<7, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4, i32imm:$b5),
     "sd24b6", "$b0, $b1, $b2, $b3, $b4, $b5", []>, Sched<[WriteSTW]>;
 } // OpSize8
@@ -4154,6 +4156,10 @@ def MRDL3 : ExtPrefixInst<3, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
 // Destination, no displacement (B0-B7)
 def MRID2 : ExtPrefixInst<2, (outs), (ins i32imm:$b0, i32imm:$b1),
     "mrid2", "$b0, $b1", []>, Sched<[WriteSTW]>;
+def MRID3 : ExtPrefixInst<3, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "mrid3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def MRID4 : ExtPrefixInst<4, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "mrid4", "$b0, $b1, $b2, $b3", []>, Sched<[WriteSTW]>;
 
 // Destination, d8 displacement (B8-BF)
 def MRDD3 : ExtPrefixInst<3, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
