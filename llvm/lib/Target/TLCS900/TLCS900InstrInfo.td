@@ -3469,63 +3469,45 @@ def INC4_LERP : ERPUnaryInst< 0x64, (outs), (ins i32imm:$b0),
 } // OpSize32
 } // Opcode = 0xC7 (ERP suffix)
 
-// --- Source Post-Increment Suffix (C5/D5/E5 + reg + SubOpcode) ---
+// --- Source Post-Increment (SPI) native defs ---
+// Encoding: [C5/D5/E5, base_reg_addr, SubOpc_base + data_reg_enc]
+// Reuses ERPRegInst format with Opcode overridden to 0xC5.
+// Operand 0: data register, Operand 1: base register address (i32imm).
 let Opcode = 0xC5 in {
 let OpSize = OpSize8.Value in {
-def LD_A_SPIB : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
-    "ld_a_spib", "$b0", []>, Sched<[WriteSTW]>;
-def LD_C_SPIB : ExtAddrModeSuffixInst<3, 0x23, (outs), (ins i32imm:$b0),
-    "ld_c_spib", "$b0", []>, Sched<[WriteSTW]>;
-def LD_E_SPIB : ExtAddrModeSuffixInst<3, 0x25, (outs), (ins i32imm:$b0),
-    "ld_e_spib", "$b0", []>, Sched<[WriteSTW]>;
-def LD_L_SPIB : ExtAddrModeSuffixInst<3, 0x27, (outs), (ins i32imm:$b0),
-    "ld_l_spib", "$b0", []>, Sched<[WriteSTW]>;
-def ADD_C_SPIB : ExtAddrModeSuffixInst<3, 0x83, (outs), (ins i32imm:$b0),
-    "add_c_spib", "$b0", []>, Sched<[WriteSTW]>;
-def ADD_E_SPIB : ExtAddrModeSuffixInst<3, 0x85, (outs), (ins i32imm:$b0),
-    "add_e_spib", "$b0", []>, Sched<[WriteSTW]>;
-def CP_A_SPIB : ExtAddrModeSuffixInst<3, 0xF1, (outs), (ins i32imm:$b0),
-    "cp_a_spib", "$b0", []>, Sched<[WriteSTW]>;
+def LD_SPIB : ERPRegInst<0x20, (outs), (ins GR8:$rd, i32imm:$base),
+    "ld_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def ADD_SPIB : ERPRegInst<0x80, (outs), (ins GR8:$rd, i32imm:$base),
+    "add_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def CP_SPIB : ERPRegInst<0xF0, (outs), (ins GR8:$rd, i32imm:$base),
+    "cp_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
 } // OpSize8
 let OpSize = OpSize16.Value in {
-def LD_WA_SPIW : ExtAddrModeSuffixInst<3, 0x20, (outs), (ins i32imm:$b0),
-    "ld_wa_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def LD_BC_SPIW : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
-    "ld_bc_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def LD_DE_SPIW : ExtAddrModeSuffixInst<3, 0x22, (outs), (ins i32imm:$b0),
-    "ld_de_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def LD_IZ_SPIW : ExtAddrModeSuffixInst<3, 0x26, (outs), (ins i32imm:$b0),
-    "ld_iz_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def ADD_BC_SPIW : ExtAddrModeSuffixInst<3, 0x81, (outs), (ins i32imm:$b0),
-    "add_bc_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def ADD_DE_SPIW : ExtAddrModeSuffixInst<3, 0x82, (outs), (ins i32imm:$b0),
-    "add_de_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def ADD_HL_SPIW : ExtAddrModeSuffixInst<3, 0x83, (outs), (ins i32imm:$b0),
-    "add_hl_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def CP_DE_SPIW : ExtAddrModeSuffixInst<3, 0xF2, (outs), (ins i32imm:$b0),
-    "cp_de_spiw", "$b0", []>, Sched<[WriteSTW]>;
-def CPM_BC_SPIW : ExtAddrModeSuffixInst<3, 0xF9, (outs), (ins i32imm:$b0),
-    "cpm_bc_spiw", "$b0", []>, Sched<[WriteSTW]>;
+def LD_SPIW : ERPRegInst<0x20, (outs), (ins GR16:$rd, i32imm:$base),
+    "ld_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def ADD_SPIW : ERPRegInst<0x80, (outs), (ins GR16:$rd, i32imm:$base),
+    "add_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def CP_SPIW : ERPRegInst<0xF0, (outs), (ins GR16:$rd, i32imm:$base),
+    "cp_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def CPM_SPIW : ERPRegInst<0xF8, (outs), (ins GR16:$rd, i32imm:$base),
+    "cpm_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
 } // OpSize16
 let OpSize = OpSize32.Value in {
-def LD_XWA_SPIL : ExtAddrModeSuffixInst<3, 0x20, (outs), (ins i32imm:$b0),
-    "ld_xwa_spil", "$b0", []>, Sched<[WriteSTW]>;
-def LD_XBC_SPIL : ExtAddrModeSuffixInst<3, 0x21, (outs), (ins i32imm:$b0),
-    "ld_xbc_spil", "$b0", []>, Sched<[WriteSTW]>;
-def LD_XHL_SPIL : ExtAddrModeSuffixInst<3, 0x23, (outs), (ins i32imm:$b0),
-    "ld_xhl_spil", "$b0", []>, Sched<[WriteSTW]>;
-def ADD_XHL_SPIL : ExtAddrModeSuffixInst<3, 0x83, (outs), (ins i32imm:$b0),
-    "add_xhl_spil", "$b0", []>, Sched<[WriteSTW]>;
+def LD_SPIL : ERPRegInst<0x20, (outs), (ins GPR:$rd, i32imm:$base),
+    "ld_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
+def ADD_SPIL : ERPRegInst<0x80, (outs), (ins GPR:$rd, i32imm:$base),
+    "add_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
 } // OpSize32
-} // Opcode = 0xC5 (SPI suffix)
+} // Opcode = 0xC5 (SPI native)
 
-// --- Source Pre-Decrement Suffix (C4/D4/E4 + reg + SubOpcode) ---
+// --- Source Pre-Decrement (SPD) native defs ---
+// Encoding: [C4/D4/E4, base_reg_addr, SubOpc_base + data_reg_enc]
 let Opcode = 0xC4 in {
 let OpSize = OpSize8.Value in {
-def CP_A_SPDB : ExtAddrModeSuffixInst<3, 0xF1, (outs), (ins i32imm:$b0),
-    "cp_a_spdb", "$b0", []>, Sched<[WriteSTW]>;
+def CP_SPDB : ERPRegInst<0xF0, (outs), (ins GR8:$rd, i32imm:$base),
+    "cp_spdb", "$rd, $base", []>, Sched<[WriteSTW]>;
 } // OpSize8
-} // Opcode = 0xC4 (SPD suffix)
+} // Opcode = 0xC4 (SPD native)
 
 // --- Source Register-Indirect Complex (C3/D3/E3) ---
 // Format: C3/D3/E3 + addressing_bytes + sub_opcode [+ operand_bytes]
@@ -4215,5 +4197,959 @@ def EXTPFX10 : ExtPrefixInst<10, (outs),
          i32imm:$b4, i32imm:$b5, i32imm:$b6, i32imm:$b7, i32imm:$b8, i32imm:$b9),
     "extpfx10", "$b0, $b1, $b2, $b3, $b4, $b5, $b6, $b7, $b8, $b9", []>,
     Sched<[WriteSTW]>;
+
+// === Auto-generated missing extended addressing mode instructions ===
+// Generated by scripts/gen_missing_instrs.py — 167 definitions
+// These x_ mnemonics are used in .s files but were missing from InstrInfo.td.
+
+// --- DD16 (base opcode 0xF1) ---
+def X_DD163_S04 : ExtAddrModeSuffixInst<4, 0x04, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_s04", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_S06 : ExtAddrModeSuffixInst<4, 0x06, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_s06", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_S2C : ExtAddrModeSuffixInst<4, 0x2C, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_s2c", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_S9C : ExtAddrModeSuffixInst<4, 0x9C, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_s9c", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_S9F : ExtAddrModeSuffixInst<4, 0x9F, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_s9f", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SA8 : ExtAddrModeSuffixInst<4, 0xA8, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_sa8", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SA9 : ExtAddrModeSuffixInst<4, 0xA9, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_sa9", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SAA : ExtAddrModeSuffixInst<4, 0xAA, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_saa", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SAB : ExtAddrModeSuffixInst<4, 0xAB, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_sab", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SAC : ExtAddrModeSuffixInst<4, 0xAC, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_sac", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SAD : ExtAddrModeSuffixInst<4, 0xAD, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_sad", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SAE : ExtAddrModeSuffixInst<4, 0xAE, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_sae", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+def X_DD163_SAF : ExtAddrModeSuffixInst<4, 0xAF, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dd163_saf", "$b0, $b1", []> {
+  let Opcode = 0xF1;
+}
+
+// --- DD24 (base opcode 0xF2) ---
+def X_DD246_O14_T2 : ExtAddrModeOpImmInst<7, 0x14, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_dd246_o14_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xF2;
+}
+def X_DD246_O16_T2 : ExtAddrModeOpImmInst<7, 0x16, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_dd246_o16_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xF2;
+}
+
+// --- DD8 (base opcode 0xF0) ---
+def X_DD82_S31 : ExtAddrModeSuffixInst<3, 0x31, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_s31", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_S33 : ExtAddrModeSuffixInst<3, 0x33, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_s33", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_S41 : ExtAddrModeSuffixInst<3, 0x41, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_s41", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_S9C : ExtAddrModeSuffixInst<3, 0x9C, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_s9c", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_S9E : ExtAddrModeSuffixInst<3, 0x9E, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_s9e", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SB0 : ExtAddrModeSuffixInst<3, 0xB0, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sb0", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SB1 : ExtAddrModeSuffixInst<3, 0xB1, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sb1", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SB2 : ExtAddrModeSuffixInst<3, 0xB2, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sb2", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SB3 : ExtAddrModeSuffixInst<3, 0xB3, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sb3", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SB8 : ExtAddrModeSuffixInst<3, 0xB8, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sb8", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SB9 : ExtAddrModeSuffixInst<3, 0xB9, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sb9", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SBA : ExtAddrModeSuffixInst<3, 0xBA, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sba", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SBB : ExtAddrModeSuffixInst<3, 0xBB, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sbb", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SC8 : ExtAddrModeSuffixInst<3, 0xC8, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sc8", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SC9 : ExtAddrModeSuffixInst<3, 0xC9, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sc9", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SCA : ExtAddrModeSuffixInst<3, 0xCA, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sca", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SCB : ExtAddrModeSuffixInst<3, 0xCB, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_scb", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SCD : ExtAddrModeSuffixInst<3, 0xCD, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_scd", "$b0", []> {
+  let Opcode = 0xF0;
+}
+def X_DD82_SCE : ExtAddrModeSuffixInst<3, 0xCE, (outs),
+    (ins i32imm:$b0),
+    "x_dd82_sce", "$b0", []> {
+  let Opcode = 0xF0;
+}
+
+// --- DPD (base opcode 0xF4) ---
+def X_DPD3_O00_T1 : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dpd3_o00_t1", "$b0, $b1", []> {
+  let Opcode = 0xF4;
+}
+
+// --- DPI (base opcode 0xF5) ---
+def X_DPI2_S31 : ExtAddrModeSuffixInst<3, 0x31, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s31", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S32 : ExtAddrModeSuffixInst<3, 0x32, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s32", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S33 : ExtAddrModeSuffixInst<3, 0x33, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s33", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S34 : ExtAddrModeSuffixInst<3, 0x34, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s34", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S35 : ExtAddrModeSuffixInst<3, 0x35, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s35", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S40 : ExtAddrModeSuffixInst<3, 0x40, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s40", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S41 : ExtAddrModeSuffixInst<3, 0x41, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s41", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S42 : ExtAddrModeSuffixInst<3, 0x42, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s42", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S43 : ExtAddrModeSuffixInst<3, 0x43, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s43", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S45 : ExtAddrModeSuffixInst<3, 0x45, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s45", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S47 : ExtAddrModeSuffixInst<3, 0x47, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s47", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S50 : ExtAddrModeSuffixInst<3, 0x50, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s50", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S51 : ExtAddrModeSuffixInst<3, 0x51, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s51", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S52 : ExtAddrModeSuffixInst<3, 0x52, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s52", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S54 : ExtAddrModeSuffixInst<3, 0x54, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s54", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S55 : ExtAddrModeSuffixInst<3, 0x55, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s55", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S60 : ExtAddrModeSuffixInst<3, 0x60, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s60", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S61 : ExtAddrModeSuffixInst<3, 0x61, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s61", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S63 : ExtAddrModeSuffixInst<3, 0x63, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s63", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI2_S64 : ExtAddrModeSuffixInst<3, 0x64, (outs),
+    (ins i32imm:$b0),
+    "x_dpi2_s64", "$b0", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI3_O00_T1 : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_dpi3_o00_t1", "$b0, $b1", []> {
+  let Opcode = 0xF5;
+}
+def X_DPI4_O02_T2 : ExtAddrModeOpImmInst<5, 0x02, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dpi4_o02_t2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF5;
+}
+
+// --- DRI (base opcode 0xF3) ---
+def X_DRI4_S98 : ExtAddrModeSuffixInst<5, 0x98, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_s98", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_S9A : ExtAddrModeSuffixInst<5, 0x9A, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_s9a", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_S9F : ExtAddrModeSuffixInst<5, 0x9F, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_s9f", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SB4 : ExtAddrModeSuffixInst<5, 0xB4, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sb4", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SB7 : ExtAddrModeSuffixInst<5, 0xB7, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sb7", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SBD : ExtAddrModeSuffixInst<5, 0xBD, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sbd", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SBE : ExtAddrModeSuffixInst<5, 0xBE, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sbe", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SC8 : ExtAddrModeSuffixInst<5, 0xC8, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sc8", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SC9 : ExtAddrModeSuffixInst<5, 0xC9, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sc9", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SCA : ExtAddrModeSuffixInst<5, 0xCA, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sca", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SCB : ExtAddrModeSuffixInst<5, 0xCB, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_scb", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SCC : ExtAddrModeSuffixInst<5, 0xCC, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_scc", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SCD : ExtAddrModeSuffixInst<5, 0xCD, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_scd", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SCE : ExtAddrModeSuffixInst<5, 0xCE, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sce", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SCF : ExtAddrModeSuffixInst<5, 0xCF, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_scf", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI4_SD8 : ExtAddrModeSuffixInst<5, 0xD8, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_dri4_sd8", "$b0, $b1, $b2", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI5_O00_T1 : ExtAddrModeOpImmInst<6, 0x00, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "x_dri5_o00_t1", "$b0, $b1, $b2, $b3", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI6_O02_T2 : ExtAddrModeOpImmInst<7, 0x02, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_dri6_o02_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI6_O14_T2 : ExtAddrModeOpImmInst<7, 0x14, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_dri6_o14_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xF3;
+}
+def X_DRI6_O16_T2 : ExtAddrModeOpImmInst<7, 0x16, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_dri6_o16_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xF3;
+}
+
+// --- ERP (base opcode 0xC7) ---
+def X_ERPB3_O03_T1 : ExtAddrModeOpImmInst<4, 0x03, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_o03_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_O09_T1 : ExtAddrModeOpImmInst<4, 0x09, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_o09_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_O30_T1 : ExtAddrModeOpImmInst<4, 0x30, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_o30_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_O31_T1 : ExtAddrModeOpImmInst<4, 0x31, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_o31_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_O33_T1 : ExtAddrModeOpImmInst<4, 0x33, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_o33_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_OC8_T1 : ExtAddrModeOpImmInst<4, 0xC8, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_oc8_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_OCA_T1 : ExtAddrModeOpImmInst<4, 0xCA, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_oca_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_OCC_T1 : ExtAddrModeOpImmInst<4, 0xCC, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_occ_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_OCE_T1 : ExtAddrModeOpImmInst<4, 0xCE, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_oce_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_OCF_T1 : ExtAddrModeOpImmInst<4, 0xCF, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_ocf_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPB3_OEF_T1 : ExtAddrModeOpImmInst<4, 0xEF, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpb3_oef_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize8.Value;
+}
+def X_ERPL6_OC8_T4 : ExtAddrModeOpImmInst<7, 0xC8, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_erpl6_oc8_t4", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize32.Value;
+}
+def X_ERPW3_O33_T1 : ExtAddrModeOpImmInst<4, 0x33, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpw3_o33_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize16.Value;
+}
+def X_ERPW3_OEF_T1 : ExtAddrModeOpImmInst<4, 0xEF, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_erpw3_oef_t1", "$b0, $b1", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize16.Value;
+}
+def X_ERPW4_O03_T2 : ExtAddrModeOpImmInst<5, 0x03, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_erpw4_o03_t2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize16.Value;
+}
+def X_ERPW4_OC8_T2 : ExtAddrModeOpImmInst<5, 0xC8, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_erpw4_oc8_t2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize16.Value;
+}
+def X_ERPW4_OCE_T2 : ExtAddrModeOpImmInst<5, 0xCE, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_erpw4_oce_t2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize16.Value;
+}
+def X_ERPW4_OCF_T2 : ExtAddrModeOpImmInst<5, 0xCF, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_erpw4_ocf_t2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC7;
+  let OpSize = OpSize16.Value;
+}
+
+// --- SD16 (base opcode 0xC1) ---
+def X_SD16B3_S04 : ExtAddrModeSuffixInst<4, 0x04, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd16b3_s04", "$b0, $b1", []> {
+  let Opcode = 0xC1;
+  let OpSize = OpSize8.Value;
+}
+def X_SD16B3_S30 : ExtAddrModeSuffixInst<4, 0x30, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd16b3_s30", "$b0, $b1", []> {
+  let Opcode = 0xC1;
+  let OpSize = OpSize8.Value;
+}
+def X_SD16B3_S41 : ExtAddrModeSuffixInst<4, 0x41, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd16b3_s41", "$b0, $b1", []> {
+  let Opcode = 0xC1;
+  let OpSize = OpSize8.Value;
+}
+def X_SD16B3_S43 : ExtAddrModeSuffixInst<4, 0x43, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd16b3_s43", "$b0, $b1", []> {
+  let Opcode = 0xC1;
+  let OpSize = OpSize8.Value;
+}
+def X_SD16B3_S7C : ExtAddrModeSuffixInst<4, 0x7C, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd16b3_s7c", "$b0, $b1", []> {
+  let Opcode = 0xC1;
+  let OpSize = OpSize8.Value;
+}
+def X_SD16W3_S04 : ExtAddrModeSuffixInst<4, 0x04, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd16w3_s04", "$b0, $b1", []> {
+  let Opcode = 0xC1;
+  let OpSize = OpSize16.Value;
+}
+def X_SD16W3_S48 : ExtAddrModeSuffixInst<4, 0x48, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd16w3_s48", "$b0, $b1", []> {
+  let Opcode = 0xC1;
+  let OpSize = OpSize16.Value;
+}
+
+// --- SD24 (base opcode 0xC2) ---
+def X_SD24B6_O19_T2 : ExtAddrModeOpImmInst<7, 0x19, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_sd24b6_o19_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xC2;
+  let OpSize = OpSize8.Value;
+}
+def X_SD24W4_S04 : ExtAddrModeSuffixInst<5, 0x04, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sd24w4_s04", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC2;
+  let OpSize = OpSize16.Value;
+}
+def X_SD24W6_O19_T2 : ExtAddrModeOpImmInst<7, 0x19, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_sd24w6_o19_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xC2;
+  let OpSize = OpSize16.Value;
+}
+
+// --- SD8 (base opcode 0xC0) ---
+def X_SD8B2_S21 : ExtAddrModeSuffixInst<3, 0x21, (outs),
+    (ins i32imm:$b0),
+    "x_sd8b2_s21", "$b0", []> {
+  let Opcode = 0xC0;
+  let OpSize = OpSize8.Value;
+}
+def X_SD8B2_S23 : ExtAddrModeSuffixInst<3, 0x23, (outs),
+    (ins i32imm:$b0),
+    "x_sd8b2_s23", "$b0", []> {
+  let Opcode = 0xC0;
+  let OpSize = OpSize8.Value;
+}
+def X_SD8B3_O3C_T1 : ExtAddrModeOpImmInst<4, 0x3C, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd8b3_o3c_t1", "$b0, $b1", []> {
+  let Opcode = 0xC0;
+  let OpSize = OpSize8.Value;
+}
+def X_SD8B3_O3E_T1 : ExtAddrModeOpImmInst<4, 0x3E, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_sd8b3_o3e_t1", "$b0, $b1", []> {
+  let Opcode = 0xC0;
+  let OpSize = OpSize8.Value;
+}
+
+// --- SPI (base opcode 0xC5) ---
+def X_SPIB3_O3F_T1 : ExtAddrModeOpImmInst<4, 0x3F, 1, (outs),
+    (ins i32imm:$b0, i32imm:$b1),
+    "x_spib3_o3f_t1", "$b0, $b1", []> {
+  let Opcode = 0xC5;
+  let OpSize = OpSize8.Value;
+}
+
+// --- SRI (base opcode 0xC3) ---
+def X_SRIB4_S61 : ExtAddrModeSuffixInst<5, 0x61, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_s61", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_S69 : ExtAddrModeSuffixInst<5, 0x69, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_s69", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_S88 : ExtAddrModeSuffixInst<5, 0x88, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_s88", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_S89 : ExtAddrModeSuffixInst<5, 0x89, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_s89", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SA9 : ExtAddrModeSuffixInst<5, 0xA9, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sa9", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SC1 : ExtAddrModeSuffixInst<5, 0xC1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sc1", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SC9 : ExtAddrModeSuffixInst<5, 0xC9, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sc9", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SD1 : ExtAddrModeSuffixInst<5, 0xD1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sd1", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SE1 : ExtAddrModeSuffixInst<5, 0xE1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_se1", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SE3 : ExtAddrModeSuffixInst<5, 0xE3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_se3", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SE9 : ExtAddrModeSuffixInst<5, 0xE9, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_se9", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SEB : ExtAddrModeSuffixInst<5, 0xEB, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_seb", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SF1 : ExtAddrModeSuffixInst<5, 0xF1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sf1", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SF3 : ExtAddrModeSuffixInst<5, 0xF3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sf3", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SF5 : ExtAddrModeSuffixInst<5, 0xF5, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sf5", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SF8 : ExtAddrModeSuffixInst<5, 0xF8, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sf8", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SF9 : ExtAddrModeSuffixInst<5, 0xF9, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sf9", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SFB : ExtAddrModeSuffixInst<5, 0xFB, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sfb", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SFD : ExtAddrModeSuffixInst<5, 0xFD, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sfd", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB4_SFF : ExtAddrModeSuffixInst<5, 0xFF, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_srib4_sff", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB5_O3A_T1 : ExtAddrModeOpImmInst<6, 0x3A, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "x_srib5_o3a_t1", "$b0, $b1, $b2, $b3", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB5_O3C_T1 : ExtAddrModeOpImmInst<6, 0x3C, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "x_srib5_o3c_t1", "$b0, $b1, $b2, $b3", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB5_O3E_T1 : ExtAddrModeOpImmInst<6, 0x3E, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "x_srib5_o3e_t1", "$b0, $b1, $b2, $b3", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB5_O3F_T1 : ExtAddrModeOpImmInst<6, 0x3F, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
+    "x_srib5_o3f_t1", "$b0, $b1, $b2, $b3", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIB6_O19_T2 : ExtAddrModeOpImmInst<7, 0x19, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_srib6_o19_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize8.Value;
+}
+def X_SRIL4_S80 : ExtAddrModeSuffixInst<5, 0x80, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_s80", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_S82 : ExtAddrModeSuffixInst<5, 0x82, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_s82", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_S83 : ExtAddrModeSuffixInst<5, 0x83, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_s83", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_S84 : ExtAddrModeSuffixInst<5, 0x84, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_s84", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_S85 : ExtAddrModeSuffixInst<5, 0x85, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_s85", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_S86 : ExtAddrModeSuffixInst<5, 0x86, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_s86", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_S88 : ExtAddrModeSuffixInst<5, 0x88, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_s88", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_SAB : ExtAddrModeSuffixInst<5, 0xAB, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_sab", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_SF0 : ExtAddrModeSuffixInst<5, 0xF0, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_sf0", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_SF1 : ExtAddrModeSuffixInst<5, 0xF1, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_sf1", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_SF3 : ExtAddrModeSuffixInst<5, 0xF3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_sf3", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_SF8 : ExtAddrModeSuffixInst<5, 0xF8, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_sf8", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIL4_SFE : ExtAddrModeSuffixInst<5, 0xFE, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sril4_sfe", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize32.Value;
+}
+def X_SRIW4_S04 : ExtAddrModeSuffixInst<5, 0x04, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s04", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_S30 : ExtAddrModeSuffixInst<5, 0x30, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s30", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_S61 : ExtAddrModeSuffixInst<5, 0x61, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s61", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_S68 : ExtAddrModeSuffixInst<5, 0x68, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s68", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_S6A : ExtAddrModeSuffixInst<5, 0x6A, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s6a", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_S81 : ExtAddrModeSuffixInst<5, 0x81, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s81", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_S84 : ExtAddrModeSuffixInst<5, 0x84, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s84", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_S88 : ExtAddrModeSuffixInst<5, 0x88, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_s88", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SA0 : ExtAddrModeSuffixInst<5, 0xA0, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_sa0", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SC0 : ExtAddrModeSuffixInst<5, 0xC0, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_sc0", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SC2 : ExtAddrModeSuffixInst<5, 0xC2, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_sc2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SE0 : ExtAddrModeSuffixInst<5, 0xE0, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_se0", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SE2 : ExtAddrModeSuffixInst<5, 0xE2, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_se2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SF0 : ExtAddrModeSuffixInst<5, 0xF0, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_sf0", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SF2 : ExtAddrModeSuffixInst<5, 0xF2, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_sf2", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SF6 : ExtAddrModeSuffixInst<5, 0xF6, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_sf6", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW4_SFB : ExtAddrModeSuffixInst<5, 0xFB, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "x_sriw4_sfb", "$b0, $b1, $b2", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW6_O19_T2 : ExtAddrModeOpImmInst<7, 0x19, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_sriw6_o19_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+def X_SRIW6_O3F_T2 : ExtAddrModeOpImmInst<7, 0x3F, 3, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3, i32imm:$b4),
+    "x_sriw6_o3f_t2", "$b0, $b1, $b2, $b3, $b4", []> {
+  let Opcode = 0xC3;
+  let OpSize = OpSize16.Value;
+}
+
 
 } // hasSideEffects, mayLoad, mayStore
