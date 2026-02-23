@@ -374,3 +374,300 @@
 # muls xwa, xbc: D8+1=D9, 0x48+0=48
 # CHECK: muls xwa, xbc
 0xd9 0x48
+
+# === Additional single-byte instructions ===
+
+# CHECK: push_sr
+0x02
+
+# CHECK: pop_sr
+0x03
+
+# CHECK: incf
+0x0c
+
+# CHECK: decf
+0x0d
+
+# CHECK: rcf
+0x10
+
+# CHECK: scf
+0x11
+
+# CHECK: ccf
+0x12
+
+# CHECK: zcf
+0x13
+
+# CHECK: push_a
+0x14
+
+# CHECK: pop_a
+0x15
+
+# CHECK: ex_ff
+0x16
+
+# CHECK: push_f
+0x18
+
+# CHECK: pop_f
+0x19
+
+# === LD (I/O) instructions ===
+
+# CHECK: ldio 66, 255
+0x08 0x42 0xff
+
+# CHECK: ldwio 66, 4660
+0x0a 0x42 0x34 0x12
+
+# === PUSHW immediate ===
+
+# CHECK: pushw 4660
+0x0b 0x34 0x12
+
+# === Short-encoded register instructions ===
+
+# CHECK: ldb w, 42
+0x20 0x2a
+
+# CHECK: ldb a, 255
+0x21 0xff
+
+# CHECK: pushw wa
+0x28
+
+# CHECK: pushw bc
+0x29
+
+# CHECK: ldw wa, 4660
+0x30 0x34 0x12
+
+# CHECK: ldw bc, 0
+0x31 0x00 0x00
+
+# CHECK: popw wa
+0x48
+
+# CHECK: popw bc
+0x49
+
+# === 8-bit register prefix operations (C8+r) ===
+
+# NEG A: C8+1=C9, 0x07
+# CHECK: neg a
+0xc9 0x07
+
+# CPL B: C8+2=CA, 0x06
+# CHECK: cpl b
+0xca 0x06
+
+# EXTS A: C8+1=C9, 0x13
+# CHECK: exts a
+0xc9 0x13
+
+# EXTZ A: C8+1=C9, 0x12
+# CHECK: extz a
+0xc9 0x12
+
+# 8-bit reg-imm ALU: ADD A, 42 → C9, C8, 2A
+# CHECK: add a, 42
+0xc9 0xc8 0x2a
+
+# 8-bit reg-imm: SUB B, 1 → CA, CA, 01
+# CHECK: sub b, 1
+0xca 0xca 0x01
+
+# 8-bit reg-imm: CP A, 0 → C9, CF, 00
+# CHECK: cp a, 0
+0xc9 0xcf 0x00
+
+# 8-bit reg-reg ALU: ADD A, B → src=B(CA), 80+1(A)=81
+# CHECK: add a, b
+0xca 0x81
+
+# 8-bit reg-reg: LD A, B → src=B(CA), 88+1(A)=89
+# CHECK: ld a, b
+0xca 0x89
+
+# 8-bit shift: SLA A, 2 → C9 EC 02
+# CHECK: sla a, 2
+0xc9 0xec 0x02
+
+# 8-bit shift: SRA A, 4 → C9 ED 04
+# CHECK: sra a, 4
+0xc9 0xed 0x04
+
+# 8-bit rotate: RLC B → CA E8 01
+# CHECK: rlc b
+0xca 0xe8 0x01
+
+# 8-bit rotate: RR A → C9 EB 01
+# CHECK: rr a
+0xc9 0xeb 0x01
+
+# 8-bit bit: SET 3, A → C9 31 03
+# CHECK: set 3, a
+0xc9 0x31 0x03
+
+# 8-bit bit: RES 0, B → CA 30 00
+# CHECK: res 0, b
+0xca 0x30 0x00
+
+# 8-bit bit: BIT 7, A → C9 33 07
+# CHECK: bit 7, a
+0xc9 0x33 0x07
+
+# 8-bit INC/DEC: INC 1, A → C9 61
+# CHECK: inc 1, a
+0xc9 0x61
+
+# 8-bit INC/DEC: DEC 1, B → CA 69
+# CHECK: dec 1, b
+0xca 0x69
+
+# 8-bit DJNZ: DJNZ A, 0 → C9 1C 00
+# CHECK: djnz8 a, 0
+0xc9 0x1c 0x00
+
+# 8-bit MUL: MUL A, 5 → C9 08 05
+# CHECK: mul a, 5
+0xc9 0x08 0x05
+
+# 8-bit DIV: DIV A, 3 → C9 0A 03
+# CHECK: div a, 3
+0xc9 0x0a 0x03
+
+# 8-bit EX: EX A, B → src=B(CA), B8+1(A)=B9
+# CHECK: ex8 a, b
+0xca 0xb9
+
+# 8-bit SCC: SCC T, A → C9 78 (cc=8=T)
+# CHECK: scc8 t, a
+0xc9 0x78
+
+# 8-bit LD small: LD A, 3 → C9 AB
+# CHECK: lds8 a, 3
+0xc9 0xab
+
+# 8-bit CP small: CP A, 0 → C9 D8
+# CHECK: cps a, 0
+0xc9 0xd8
+
+# 8-bit PUSH: C9 04
+# CHECK: push a
+0xc9 0x04
+
+# 8-bit POP: C9 05
+# CHECK: pop a
+0xc9 0x05
+
+# 8-bit LD imm via prefix: C9 03 2A
+# CHECK: ld a, 42
+0xc9 0x03 0x2a
+
+# === 16-bit register prefix operations (D8+r) ===
+
+# 16-bit unary: NEG WA → D8 07
+# CHECK: neg wa
+0xd8 0x07
+
+# 16-bit reg-reg: ADD WA, BC → D9 80
+# CHECK: add wa, bc
+0xd9 0x80
+
+# 16-bit reg-imm: SUB WA, 100 → D8 CA 64 00
+# CHECK: sub wa, 100
+0xd8 0xca 0x64 0x00
+
+# 16-bit INC: INC 1, WA → D8 61
+# CHECK: inc 1, wa
+0xd8 0x61
+
+# 16-bit shift: SLA WA, 1 → D8 EC 01
+# CHECK: sla wa, 1
+0xd8 0xec 0x01
+
+# 16-bit rotate: RLC WA → D8 E8 01
+# CHECK: rlc wa
+0xd8 0xe8 0x01
+
+# 16-bit bit: BIT 5, WA → D8 33 05
+# CHECK: bit 5, wa
+0xd8 0x33 0x05
+
+# 16-bit EX: EX WA, BC → D9 B8
+# CHECK: ex16 wa, bc
+0xd9 0xb8
+
+# 16-bit DJNZ: D8 1C 00
+# CHECK: djnz16 wa, 0
+0xd8 0x1c 0x00
+
+# 16-bit DIV rr: DIV XWA, XBC → D9 4A+0=4A  (wait, 16-bit uses GPR for MUL)
+# (16-bit MUL/MULS already tested above)
+
+# === 8-bit memory loads/ALU ===
+
+# LD A, (xhl): 83 21 (8-bit src mem, no disp)
+# CHECK: ld a, (xhl)
+0x83 0x21
+
+# LD WA, (xhl): 93 20 (16-bit src mem, no disp)
+# CHECK: ld wa, (xhl)
+0x93 0x20
+
+# ADD (xhl), A: 83 89 (8-bit src mem ALU)
+# CHECK: add (xhl), a
+0x83 0x89
+
+# SUB (xhl), WA: 93 A8 (16-bit src mem ALU)
+# CHECK: sub (xhl), wa
+0x93 0xa8
+
+# CP (xhl), A: 83 F9 (8-bit src mem CP)
+# CHECK: cp (xhl), a
+0x83 0xf9
+
+# === RETcc (B0 + F0+cc) ===
+
+# RET T: B0 F8 (cc=8=T)
+# CHECK: ret t
+0xb0 0xf8
+
+# RET NZ: B0 FE (cc=14=NZ)
+# CHECK: ret nz
+0xb0 0xfe
+
+# === Direct addressing (E1=32-bit src, 16-bit addr) ===
+
+# LD xwa, (0x1234): E1 34 12 20
+# CHECK: ldda32 xwa, 4660
+0xe1 0x34 0x12 0x20
+
+# LD xbc, (0x1234): E1 34 12 21
+# CHECK: ldda32 xbc, 4660
+0xe1 0x34 0x12 0x21
+
+# ADD (0x1234), xwa: E1 34 12 88
+# CHECK: adddm32 4660, xwa
+0xe1 0x34 0x12 0x88
+
+# === Direct addressing (E2=32-bit src, 24-bit addr) ===
+
+# LD xwa, (0x123456): E2 56 34 12 20
+# CHECK: ldda32_24 xwa, 1193046
+0xe2 0x56 0x34 0x12 0x20
+
+# === Direct addressing destination (F1=dst, 16-bit addr) ===
+
+# LD (0x1234), xwa: F1 34 12 60
+# CHECK: stda32 4660, xwa
+0xf1 0x34 0x12 0x60
+
+# LDA xwa, 0x1234: F1 34 12 30
+# CHECK: ldada xwa, 4660
+0xf1 0x34 0x12 0x30
