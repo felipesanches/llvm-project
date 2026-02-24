@@ -70,18 +70,18 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
   if (MO.isImm()) {
     // Immediate value — no fixup needed, just emit the bytes.
     unsigned NumBytes = 0;
-    switch (Kind) {
+    switch (unsigned(Kind)) {
     case FK_Data_1:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_rel8:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_disp8:
+    case TLCS900::fixup_tlcs900_rel8:
+    case TLCS900::fixup_tlcs900_disp8:
       NumBytes = 1;
       break;
     case FK_Data_2:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_rel16:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_disp16:
+    case TLCS900::fixup_tlcs900_rel16:
+    case TLCS900::fixup_tlcs900_disp16:
       NumBytes = 2;
       break;
-    case (MCFixupKind)TLCS900::fixup_tlcs900_24:
+    case TLCS900::fixup_tlcs900_24:
       NumBytes = 3;
       break;
     case FK_Data_4:
@@ -95,18 +95,18 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
   } else if (MO.isExpr()) {
     // Symbolic expression — emit placeholder zeros and create a fixup.
     unsigned NumBytes = 0;
-    switch (Kind) {
+    switch (unsigned(Kind)) {
     case FK_Data_1:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_rel8:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_disp8:
+    case TLCS900::fixup_tlcs900_rel8:
+    case TLCS900::fixup_tlcs900_disp8:
       NumBytes = 1;
       break;
     case FK_Data_2:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_rel16:
-    case (MCFixupKind)TLCS900::fixup_tlcs900_disp16:
+    case TLCS900::fixup_tlcs900_rel16:
+    case TLCS900::fixup_tlcs900_disp16:
       NumBytes = 2;
       break;
-    case (MCFixupKind)TLCS900::fixup_tlcs900_24:
+    case TLCS900::fixup_tlcs900_24:
       NumBytes = 3;
       break;
     case FK_Data_4:

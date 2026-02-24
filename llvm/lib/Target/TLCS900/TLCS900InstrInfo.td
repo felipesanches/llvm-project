@@ -426,21 +426,6 @@ def CPL32 : PrefixUnaryInst<0x06, (outs GPR:$rd), (ins GPR:$rs1),
                             "cpl", "$rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
-// INC #n, rd — Increment by n (n = 1..8)
-// Encoding: E8+rd, 0x60+(n-1) (2 bytes)
-// Affects S, Z, H, V but NOT C (carry is preserved on hardware, but we
-// model SR as a single register so we must declare it as clobbered).
-def INC32 : PrefixIncDecInst<0x60, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
-                             "inc", "$n, $rd", []>,
-            Sched<[WriteIALU, ReadIALU]>;
-
-// DEC #n, rd — Decrement by n (n = 1..8)
-// Encoding: E8+rd, 0x68+(n-1) (2 bytes)
-// Same flag behavior as INC.
-def DEC32 : PrefixIncDecInst<0x68, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
-                             "dec", "$n, $rd", []>,
-            Sched<[WriteIALU, ReadIALU]>;
-
 // EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits (affects S, Z)
 // Encoding: E8+rd, 0x13 (2 bytes)
 def EXTS32 : PrefixUnaryInst<0x13, (outs GPR:$rd), (ins GPR:$rs1),
@@ -454,6 +439,23 @@ def EXTZ32 : PrefixUnaryInst<0x12, (outs GPR:$rd), (ins GPR:$rs1),
              Sched<[WriteIALU, ReadIALU]>;
 
 } // Constraints = "$rd = $rs1", Defs = [SR]
+
+// INC #n, rd — Increment by n (n = 1..8)
+// Encoding: E8+rd, 0x60+(n-1) (2 bytes)
+// NOTE: On TLCS-900/H, 32-bit INC does NOT set any flags (S, Z, H, V).
+// Only 8-bit INC sets flags. The compiler must not rely on flag output.
+let Constraints = "$rd = $rs1" in {
+def INC32 : PrefixIncDecInst<0x60, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
+                             "inc", "$n, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+
+// DEC #n, rd — Decrement by n (n = 1..8)
+// Encoding: E8+rd, 0x68+(n-1) (2 bytes)
+// Same: 32-bit DEC does NOT set flags on TLCS-900/H.
+def DEC32 : PrefixIncDecInst<0x68, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$n),
+                             "dec", "$n, $rd", []>,
+            Sched<[WriteIALU, ReadIALU]>;
+} // Constraints = "$rd = $rs1" (no Defs=[SR]: 32-bit INC/DEC don't set flags)
 
 // DAA rd — Decimal Adjust after Addition (BCD) (affects all flags)
 // Reads N and H flags from prior arithmetic to determine BCD correction.
@@ -1805,8 +1807,12 @@ def EXTZ16 : PrefixUnaryInst<0x12, (outs GR16:$rd), (ins GR16:$rs1),
                               "extz", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// --- INC/DEC ---
+} // Constraints = "$rd = $rs1", Defs = [SR]
 
+// --- INC/DEC ---
+// NOTE: On TLCS-900/H, 16-bit INC/DEC do NOT set any flags (S, Z, H, V).
+// Only 8-bit INC/DEC set flags. Must be outside the Defs=[SR] block.
+let Constraints = "$rd = $rs1" in {
 def INC16 : PrefixIncDecInst<0x60, (outs GR16:$rd),
                               (ins GR16:$rs1, i16imm:$n),
                               "inc", "$n, $rd", []>,
@@ -1816,8 +1822,7 @@ def DEC16 : PrefixIncDecInst<0x68, (outs GR16:$rd),
                               (ins GR16:$rs1, i16imm:$n),
                               "dec", "$n, $rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
-
-} // Constraints = "$rd = $rs1", Defs = [SR]
+} // Constraints = "$rd = $rs1" (no Defs=[SR]: 16-bit INC/DEC don't set flags)
 
 // --- Compare (no output register) ---
 let Defs = [SR], isCompare = 1 in {
