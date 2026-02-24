@@ -48,7 +48,7 @@ enum InstFormat : uint8_t {
   MemLoadDst,        // Mem prefix + opcode (LDA rd, mem) — dest mem (B0/B8)
   MemStore,          // Mem prefix + opcode (LD (mem), rs) — dest mem (B0/B8)
   MemALU,            // Mem prefix + opcode + operand (ADD/SUB/etc (mem), rs/#imm)
-  Branch24,          // JP nnn (0x1C + 24-bit absolute)
+  Branch24,          // JP nnn (0x1B + 24-bit absolute)
   BranchCond24,      // JP cc, nnn (not a real HW encoding — uses JR/JRL for cond)
   BranchRel8,        // JR cc, d8 (0x60+cc + signed byte)
   BranchRel16,       // JRL cc, d16 (0x70+cc + signed word)
