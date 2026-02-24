@@ -20,6 +20,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 
@@ -48,6 +49,21 @@ void TLCS900AsmBackend::applyFixup(const MCAssembler &Asm,
   // embeds the adjustment (-1 for rel8, -2 for rel16) directly in the fixup
   // expression so that RELA relocation addends are correct for unresolved
   // symbols (e.g., absolute .set labels).
+
+  // Range checking for PC-relative branch fixups.
+  if (Kind == TLCS900::fixup_tlcs900_rel8) {
+    if (!isInt<8>(Value))
+      Asm.getContext().reportError(
+          Fixup.getLoc(),
+          "fixup value out of range for 8-bit relative branch "
+          "(displacement " +
+              Twine((int64_t)Value) + " requires JRL instead of JR)");
+  } else if (Kind == TLCS900::fixup_tlcs900_rel16) {
+    if (!isInt<16>(Value))
+      Asm.getContext().reportError(
+          Fixup.getLoc(),
+          "fixup value out of range for 16-bit relative branch");
+  }
 
   // For each byte of the fragment that the fixup touches, mask in the bits
   // from the fixup value (little-endian).
