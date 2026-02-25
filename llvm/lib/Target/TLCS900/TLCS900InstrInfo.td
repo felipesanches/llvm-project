@@ -3882,11 +3882,11 @@ def OR_ERPB_RR : ERPRegInst<0xE0, (outs), (ins GR8:$rs, i32imm:$bank),
 // --- Consolidated ERP Word operations (prefix D7) ---
 let Opcode = 0xC7, OpSize = OpSize16.Value in {
 // ERPImmAfterInst word: [D7, bank, sub_opc, imm_bytes...]
-def LDCF_ERPW : ERPImmAfterInst<0x22, 4, (outs), (ins i32imm:$bank, i32imm:$bit),
+def LDCF_ERPW : ERPImmAfterInst<0x23, 4, (outs), (ins i32imm:$bank, i32imm:$bit),
     "ldcf_erpw", "$bank, $bit", []>, Sched<[WriteSTW]>;
-def STCF_ERPW : ERPImmAfterInst<0x23, 4, (outs), (ins i32imm:$bank, i32imm:$bit),
+def STCF_ERPW : ERPImmAfterInst<0x24, 4, (outs), (ins i32imm:$bank, i32imm:$bit),
     "stcf_erpw", "$bank, $bit", []>, Sched<[WriteSTW]>;
-def XORCF_ERPW : ERPImmAfterInst<0x24, 4, (outs), (ins i32imm:$bank, i32imm:$bit),
+def XORCF_ERPW : ERPImmAfterInst<0x22, 4, (outs), (ins i32imm:$bank, i32imm:$bit),
     "xorcf_erpw", "$bank, $bit", []>, Sched<[WriteSTW]>;
 def RES_ERPW : ERPImmAfterInst<0x30, 4, (outs), (ins i32imm:$bank, i32imm:$bit),
     "res_erpw", "$bank, $bit", []>, Sched<[WriteSTW]>;
