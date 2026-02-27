@@ -302,7 +302,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       // EI level: opcode 0x06 followed by level byte.
       unsigned Imm = ImmOp.isImm() ? ImmOp.getImm() : 0;
       CB.push_back(0x06);
-      CB.push_back(static_cast<char>(Imm & 0x7));
+      CB.push_back(static_cast<char>(Imm & 0xFF));
     } else if (Opcode == 0xF8) {
       // SWI num: immediate encoded in opcode bits 0-2.
       unsigned Imm = ImmOp.isImm() ? ImmOp.getImm() : 0;
