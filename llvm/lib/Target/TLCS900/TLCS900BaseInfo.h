@@ -108,6 +108,7 @@ enum InstFormat : uint8_t {
   PrevBankUnary,      // 0xD7 + mode_byte(QR) + SubOpc
   PrevBankSmallImm,   // 0xD7 + mode_byte(QR) + (SubOpc + imm3)
   PrevBankImmAfter,   // 0xD7 + mode_byte(QR) + SubOpc + trailing_imm
+  DirectSrcPush,      // Src direct prefix + addr + opcode — PUSH (addr)
 };
 
 // TSFlags bit field positions and masks.

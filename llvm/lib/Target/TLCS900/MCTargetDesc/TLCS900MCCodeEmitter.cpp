@@ -820,6 +820,15 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::DirectSrcPush: {
+    // src_direct_prefix + addr + opcode.
+    // op 0 = addr (only operand).
+    emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
+                         Is24Bit, CB);
+    CB.push_back(Opcode);
+    break;
+  }
+
   case TLCS900II::DirectDstReg: {
     // F1/F2 + addr + (opcode | reg_enc).
     // For LDA (output): op 0 = reg (dst), op 1 = addr.

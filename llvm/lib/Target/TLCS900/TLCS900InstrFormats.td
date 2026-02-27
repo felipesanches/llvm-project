@@ -86,6 +86,7 @@ def InstFormatPrevBankRR : InstFormat<62>;
 def InstFormatPrevBankUnary : InstFormat<63>;
 def InstFormatPrevBankSmallImm : InstFormat<64>;
 def InstFormatPrevBankImmAfter : InstFormat<65>;
+def InstFormatDirectSrcPush : InstFormat<66>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -510,6 +511,16 @@ class DirectSrcIncDecInst<bits<8> opc, int sz, dag outs, dag ins,
                           string opcodestr, string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatDirectSrcIncDec.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// DirectSrcPushInst: src_direct_prefix + addr + opcode
+// PUSH (addr) — no additional operands after the opcode
+class DirectSrcPushInst<bits<8> opc, int sz, dag outs, dag ins,
+                         string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatDirectSrcPush.Value;
   let Opcode = opc;
   let Size = sz;
 }
