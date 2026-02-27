@@ -4009,10 +4009,17 @@ def MUL16_RI : MemRegRegSuffixInst<0x90, 0x40, (outs),
 def MUL16_RID8 : MemRegRegDispSuffixInst<0x98, 0x40, (outs),
     (ins GPR:$addr, i32imm:$disp, GR16:$data),
     "mul16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
+// MUL 8-bit with displacement — sub 0x40
+def MUL8_RID8 : MemRegRegDispSuffixInst<0x88, 0x40, (outs),
+    (ins GPR:$addr, i32imm:$disp, GR8:$data),
+    "mul8_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
 // MULS — sub 0x48
 def MULS8_RI : MemRegRegSuffixInst<0x80, 0x48, (outs),
     (ins GPR:$addr, GR8:$data),
     "muls8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def MULS16_RI : MemRegRegSuffixInst<0x90, 0x48, (outs),
+    (ins GPR:$addr, GR16:$data),
+    "muls16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
 def MULS16_RID8 : MemRegRegDispSuffixInst<0x98, 0x48, (outs),
     (ins GPR:$addr, i32imm:$disp, GR16:$data),
     "muls16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
