@@ -174,14 +174,14 @@ def LD32mi : MemStoreInst<0x08, 8, (outs), (ins MEMri:$addr, i32imm:$val),
 // Both 0x00/0x14 produce identical 8-bit stores; 0x02/0x16 identical 16-bit.
 let OpSize = OpSize8.Value in
 def LD8mi_dst : MemStoreImmInst<0x00, 4, (outs), (ins MEMri:$addr, i8imm:$val),
-                                 "ldmi8", "$addr, $val", []>,
+                                 "ld", "$addr, $val", []>,
                 Sched<[WriteSTW, ReadMemBase]>;
 let OpSize = OpSize16.Value in {
 def LD16mi_dst : MemStoreImmInst<0x14, 5, (outs), (ins MEMri:$addr, i16imm:$val),
                                   "ldmi16", "$addr, $val", []>,
                  Sched<[WriteSTW, ReadMemBase]>;
 def LD16mi_dst_02 : MemStoreImmInst<0x02, 4, (outs), (ins MEMri:$addr, i16imm:$val),
-                                     "ldmw", "$addr, $val", []>,
+                                     "ldw", "$addr, $val", []>,
                     Sched<[WriteSTW, ReadMemBase]>;
 def LD16mi_dst_16 : MemStoreImmInst<0x16, 5, (outs), (ins MEMri:$addr, i16imm:$val),
                                      "ldmw2", "$addr, $val", []>,
@@ -1212,7 +1212,7 @@ let Defs = [SR], mayLoad = 1, hasSideEffects = 0 in {
 
 let OpSize = OpSize8.Value in {
 def CP8mi  : MemALUInst<0x3F, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "cpmi8", "$addr, $imm", []>,
+                         "cp", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def AND8mi : MemALUInst<0x3C, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
                          "andmi8", "$addr, $imm", []>,
@@ -1239,7 +1239,7 @@ def XOR8mi : MemALUInst<0x3D, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
 
 let OpSize = OpSize16.Value in {
 def CP16mi  : MemALUInst<0x3F, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "cpmi16", "$addr, $imm", []>,
+                          "cpw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def AND16mi : MemALUInst<0x3C, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
                           "andmi16", "$addr, $imm", []>,
