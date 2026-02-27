@@ -370,11 +370,14 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // Find the immediate operand (last operand).
     unsigned ImmIdx = Desc.getNumOperands() - 1;
     const MCOperand &ImmOp = MI.getOperand(ImmIdx);
-    MCFixupKind ImmFixupKind = (ImmBytes == 1)   ? FK_Data_1
-                               : (ImmBytes == 2) ? FK_Data_2
-                                                  : FK_Data_4;
+    // Use instruction Size to compute immediate bytes (Size - 2 = prefix + opcode).
+    // This handles cases like STCF16ri where OpSize is 16-bit but imm is 1 byte.
+    unsigned PrefixRegImmBytes = Desc.getSize() - 2;
+    MCFixupKind ImmFixupKind = (PrefixRegImmBytes == 1)   ? FK_Data_1
+                               : (PrefixRegImmBytes == 2) ? FK_Data_2
+                                                           : FK_Data_4;
     if (ImmOp.isImm()) {
-      emitImmediate(ImmOp.getImm(), ImmBytes, CB);
+      emitImmediate(ImmOp.getImm(), PrefixRegImmBytes, CB);
     } else {
       emitFixup(MI, ImmOp, CB.size() - StartByte, ImmFixupKind, CB, Fixups);
     }

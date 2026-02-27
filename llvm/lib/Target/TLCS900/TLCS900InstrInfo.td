@@ -3389,6 +3389,46 @@ def STCF_A_16 : PrefixUnaryInst<0x2C, (outs), (ins GR16:$rs1),
     "stcf_a_16", "$rs1", []>, Sched<[WriteIALU]>;
 }
 
+// ORCF A,r — OR carry flag with bit A of register (2 bytes)
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def ORCF_A_8 : PrefixUnaryInst<0x29, (outs), (ins GR8:$rs1),
+    "orcf_a_8", "$rs1", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def ORCF_A_16 : PrefixUnaryInst<0x29, (outs), (ins GR16:$rs1),
+    "orcf_a_16", "$rs1", []>, Sched<[WriteIALU]>;
+}
+
+// STCF bit#,r — Store carry flag to bit# of register (3 bytes)
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def STCF8ri : PrefixRegImmInst<0x24, 3, (outs), (ins GR8:$rs1, i32imm:$bit),
+    "stcf8ri", "$bit, $rs1", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def STCF16ri : PrefixRegImmInst<0x24, 3, (outs), (ins GR16:$rs1, i32imm:$bit),
+    "stcf16ri", "$bit, $rs1", []>, Sched<[WriteIALU]>;
+}
+
+// LDCF bit#,r — Load carry from bit# of register (3 bytes)
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def LDCF8ri : PrefixRegImmInst<0x23, 3, (outs), (ins GR8:$rs1, i32imm:$bit),
+    "ldcf8ri", "$bit, $rs1", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def LDCF16ri : PrefixRegImmInst<0x23, 3, (outs), (ins GR16:$rs1, i32imm:$bit),
+    "ldcf16ri", "$bit, $rs1", []>, Sched<[WriteIALU]>;
+}
+
+// BS1B A,r — Bit search 1 backward, result in A (2 bytes)
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def BS1B8 : PrefixUnaryInst<0x0F, (outs), (ins GR8:$rs1),
+    "bs1b8", "$rs1", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def BS1B16 : PrefixUnaryInst<0x0F, (outs), (ins GR16:$rs1),
+    "bs1b16", "$rs1", []>, Sched<[WriteIALU]>;
+}
+
 // MUL/MULS/DIV/DIVS register-register 8-bit (2 bytes: C8+src, opc+dst)
 let Defs = [SR], hasSideEffects = 0, OpSize = OpSize8.Value in {
 def MUL8rr : PrefixRegRegInst<0x40, (outs), (ins GR8:$rs1, GR8:$rs2),
