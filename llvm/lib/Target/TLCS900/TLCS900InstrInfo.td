@@ -4063,6 +4063,10 @@ def CP_SRIL_RM : RIRegInst<0xC3, 0xF0, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32i
     "cp_sril_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def CP_SRIL_MR : RIRegInst<0xC3, 0xF8, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "cp_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def ADC_SRIL_MR : RIRegInst<0xC3, 0x98, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "adc_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+def OR_SRIL_RM : RIRegInst<0xC3, 0xE0, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "or_sril_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // OpSize32
 } // Opcode = 0xC3
 
