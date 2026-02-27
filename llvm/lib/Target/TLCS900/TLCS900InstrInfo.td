@@ -1325,6 +1325,29 @@ def SBC32mr : MemALUInst<0xB8, 4, (outs), (ins MEMri:$addr, GPR:$rs),
               Sched<[WriteSTW, ReadMemBase, ReadIALU]>;
 } // Defs, Uses, mayLoad, mayStore
 
+// LD (mem), rs — Source-prefix store (alternative encoding).
+// The TLCS-900 ISA has two valid encodings for register-to-memory stores:
+//   1. Destination prefix (B0/B8): LD32mr/LD16mr/LD8mr use sub-opcodes 0x60/0x50/0x40
+//   2. Source prefix (80-AF):      sub-opcode 0x28+reg_enc in the source memory table
+// Both are semantically identical but produce different byte sequences.
+// The source-prefix form uses MemALU encoding (IsDstMem=false) since
+// the sub-opcode 0x28 lives in the source memory opcode table.
+// Mnemonic: ld_s (source-prefix LD store) to disambiguate from ld.
+let mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize32.Value in
+def LD32mr_src : MemALUInst<0x28, 4, (outs), (ins MEMri:$addr, GPR:$rs),
+                              "ld_s", "$addr, $rs", []>,
+                 Sched<[WriteSTW, ReadMemBase]>;
+let OpSize = OpSize16.Value in
+def LD16mr_src : MemALUInst<0x28, 4, (outs), (ins MEMri:$addr, GR16:$rs),
+                              "ld_s", "$addr, $rs", []>,
+                 Sched<[WriteSTW, ReadMemBase]>;
+let OpSize = OpSize8.Value in
+def LD8mr_src : MemALUInst<0x28, 3, (outs), (ins MEMri:$addr, GR8:$rs),
+                             "ld_s", "$addr, $rs", []>,
+                Sched<[WriteSTW, ReadMemBase]>;
+} // mayStore, hasSideEffects
+
 // Memory INC/DEC — register-indirect addressing.
 // Encoding: src_mem_prefix(base [+disp]) + (0x60 + count%8) for INC
 //           src_mem_prefix(base [+disp]) + (0x68 + count%8) for DEC
