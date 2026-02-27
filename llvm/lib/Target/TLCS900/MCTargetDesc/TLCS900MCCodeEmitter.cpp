@@ -1288,6 +1288,40 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(static_cast<char>(SubOpc));
     break;
   }
+
+  case TLCS900II::MemRegImmMod: {
+    // [PrefixBase + reg_enc, SubOpcode + modifier]
+    // Operand 0: GPR register, Operand 1: immediate modifier (bit#).
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(Opcode + RegEnc));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned Mod = MI.getOperand(1).getImm() & 0xFF;
+    CB.push_back(static_cast<char>(SubOpc + Mod));
+    break;
+  }
+
+  case TLCS900II::MemRegRegSuffix: {
+    // [PrefixBase + addr_reg_enc, SubOpcode | data_reg_enc]
+    // Operand 0: address GPR, Operand 1: data register.
+    unsigned AddrRegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(Opcode + AddrRegEnc));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned DataRegEnc = getRegEncoding(MI.getOperand(1));
+    CB.push_back(static_cast<char>(SubOpc | DataRegEnc));
+    break;
+  }
+
+  case TLCS900II::MemRegRegDispSuffix: {
+    // [PrefixBase + addr_reg_enc, disp8, SubOpcode | data_reg_enc]
+    // Operand 0: address GPR, Operand 1: displacement, Operand 2: data register.
+    unsigned AddrRegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(Opcode + AddrRegEnc));
+    CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    unsigned DataRegEnc = getRegEncoding(MI.getOperand(2));
+    CB.push_back(static_cast<char>(SubOpc | DataRegEnc));
+    break;
+  }
   }
 }
 

@@ -112,6 +112,9 @@ enum InstFormat : uint8_t {
   // Memory register-indirect: [prefix_base + reg, SubOpcode]
   MemRegSuffix,       // [PrefixBase + reg_enc, SubOpcode]
   MemRegDispSuffix,   // [PrefixBase + reg_enc, disp8, SubOpcode]
+  MemRegImmMod,       // [PrefixBase + reg_enc, SubOpcode + modifier]
+  MemRegRegSuffix,    // [PrefixBase + addr_reg_enc, SubOpcode | data_reg_enc]
+  MemRegRegDispSuffix,// [PrefixBase + addr_reg_enc, disp8, SubOpcode | data_reg_enc]
 };
 
 // TSFlags bit field positions and masks.

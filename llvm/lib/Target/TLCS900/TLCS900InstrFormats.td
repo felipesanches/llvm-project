@@ -89,6 +89,9 @@ def InstFormatPrevBankImmAfter : InstFormat<65>;
 def InstFormatDirectSrcPush : InstFormat<66>;
 def InstFormatMemRegSuffix : InstFormat<67>;
 def InstFormatMemRegDispSuffix : InstFormat<68>;
+def InstFormatMemRegImmMod : InstFormat<69>;
+def InstFormatMemRegRegSuffix : InstFormat<70>;
+def InstFormatMemRegRegDispSuffix : InstFormat<71>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -903,6 +906,42 @@ class MemRegDispSuffixInst<bits<8> prefix_base, bits<8> sub_opc, dag outs,
                             list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatMemRegDispSuffix.Value;
+  let Opcode = prefix_base;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// MemRegImmModInst: [prefix_base + reg, SubOpcode + modifier] (2 bytes)
+// Operand 0: GPR register, Operand 1: immediate modifier (bit#, cc, etc.).
+class MemRegImmModInst<bits<8> prefix_base, bits<8> sub_opc, dag outs,
+                        dag ins, string opcodestr, string argstr,
+                        list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemRegImmMod.Value;
+  let Opcode = prefix_base;
+  let SubOpcode = sub_opc;
+  let Size = 2;
+}
+
+// MemRegRegSuffixInst: [prefix_base + addr_reg, SubOpcode | data_reg] (2 bytes)
+// Operand 0: address GPR register, Operand 1: data register.
+class MemRegRegSuffixInst<bits<8> prefix_base, bits<8> sub_opc, dag outs,
+                           dag ins, string opcodestr, string argstr,
+                           list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemRegRegSuffix.Value;
+  let Opcode = prefix_base;
+  let SubOpcode = sub_opc;
+  let Size = 2;
+}
+
+// MemRegRegDispSuffixInst: [prefix_base + addr_reg, disp8, SubOpcode | data_reg] (3 bytes)
+// Operand 0: address GPR register, Operand 1: displacement, Operand 2: data register.
+class MemRegRegDispSuffixInst<bits<8> prefix_base, bits<8> sub_opc, dag outs,
+                               dag ins, string opcodestr, string argstr,
+                               list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemRegRegDispSuffix.Value;
   let Opcode = prefix_base;
   let SubOpcode = sub_opc;
   let Size = 3;

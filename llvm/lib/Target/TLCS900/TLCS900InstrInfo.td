@@ -3946,6 +3946,95 @@ def STCFA_RID8 : MemRegDispSuffixInst<0xB8, 0x2C, (outs),
     "stcfa_rid8", "$reg, $disp", []>, Sched<[WriteIALU]>;
 }
 
+// --- Carry flag bit# operations with register indirect ---
+// ANDCF #n, (XRR) — [B0+reg, 0x80+n]
+// XORCF #n, (XRR) — [B0+reg, 0x90+n]
+let Defs = [SR], hasSideEffects = 0 in {
+def ANDCFN_RI : MemRegImmModInst<0xB0, 0x80, (outs),
+    (ins GPR:$reg, i32imm:$bit),
+    "andcfn_ri", "$reg, $bit", []>, Sched<[WriteIALU]>;
+def XORCFN_RI : MemRegImmModInst<0xB0, 0x90, (outs),
+    (ins GPR:$reg, i32imm:$bit),
+    "xorcfn_ri", "$reg, $bit", []>, Sched<[WriteIALU]>;
+}
+
+// --- Shift/rotate operations with source-memory register indirect ---
+// 8-bit: [0x80+reg, SubOpc], 16-bit: [0x90+reg, SubOpc]
+// With d8: [0x88+reg, disp, SubOpc] / [0x98+reg, disp, SubOpc]
+let Defs = [SR], hasSideEffects = 0 in {
+// SRL — 0x7F
+def SRL_RI : MemRegSuffixInst<0x80, 0x7F, (outs), (ins GPR:$reg),
+    "srl_ri", "$reg", []>, Sched<[WriteIALU]>;
+def SRLW_RI : MemRegSuffixInst<0x90, 0x7F, (outs), (ins GPR:$reg),
+    "srlw_ri", "$reg", []>, Sched<[WriteIALU]>;
+def SRLW_RID8 : MemRegDispSuffixInst<0x98, 0x7F, (outs),
+    (ins GPR:$reg, i32imm:$disp),
+    "srlw_rid8", "$reg, $disp", []>, Sched<[WriteIALU]>;
+// SRA — 0x7D
+def SRA_RI : MemRegSuffixInst<0x80, 0x7D, (outs), (ins GPR:$reg),
+    "sra_ri", "$reg", []>, Sched<[WriteIALU]>;
+def SRAW_RI : MemRegSuffixInst<0x90, 0x7D, (outs), (ins GPR:$reg),
+    "sraw_ri", "$reg", []>, Sched<[WriteIALU]>;
+// SLL — 0x7E
+def SLLW_RI : MemRegSuffixInst<0x90, 0x7E, (outs), (ins GPR:$reg),
+    "sllw_ri", "$reg", []>, Sched<[WriteIALU]>;
+// RLC — 0x78
+def RLC_RI : MemRegSuffixInst<0x80, 0x78, (outs), (ins GPR:$reg),
+    "rlc_ri", "$reg", []>, Sched<[WriteIALU]>;
+def RLCW_RI : MemRegSuffixInst<0x90, 0x78, (outs), (ins GPR:$reg),
+    "rlcw_ri", "$reg", []>, Sched<[WriteIALU]>;
+// RRC — 0x79
+def RRC_RI : MemRegSuffixInst<0x80, 0x79, (outs), (ins GPR:$reg),
+    "rrc_ri", "$reg", []>, Sched<[WriteIALU]>;
+def RRCW_RI : MemRegSuffixInst<0x90, 0x79, (outs), (ins GPR:$reg),
+    "rrcw_ri", "$reg", []>, Sched<[WriteIALU]>;
+// RR — 0x7B
+def RR_RI : MemRegSuffixInst<0x80, 0x7B, (outs), (ins GPR:$reg),
+    "rr_ri", "$reg", []>, Sched<[WriteIALU]>;
+def RRW_RI : MemRegSuffixInst<0x90, 0x7B, (outs), (ins GPR:$reg),
+    "rrw_ri", "$reg", []>, Sched<[WriteIALU]>;
+}
+
+// --- MUL/MULS/DIV/DIVS with source-memory register indirect ---
+// [SrcPrefix+addr_reg, SubOpc|data_reg], [SrcPrefix+addr_reg, disp, SubOpc|data_reg]
+// 8-bit: prefix 0x80/0x88, 16-bit: prefix 0x90/0x98
+let Defs = [SR], hasSideEffects = 0 in {
+// MUL — sub 0x40
+def MUL8_RI : MemRegRegSuffixInst<0x80, 0x40, (outs),
+    (ins GPR:$addr, GR8:$data),
+    "mul8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def MUL16_RI : MemRegRegSuffixInst<0x90, 0x40, (outs),
+    (ins GPR:$addr, GR16:$data),
+    "mul16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def MUL16_RID8 : MemRegRegDispSuffixInst<0x98, 0x40, (outs),
+    (ins GPR:$addr, i32imm:$disp, GR16:$data),
+    "mul16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
+// MULS — sub 0x48
+def MULS8_RI : MemRegRegSuffixInst<0x80, 0x48, (outs),
+    (ins GPR:$addr, GR8:$data),
+    "muls8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def MULS16_RID8 : MemRegRegDispSuffixInst<0x98, 0x48, (outs),
+    (ins GPR:$addr, i32imm:$disp, GR16:$data),
+    "muls16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
+// DIV — sub 0x50
+def DIV8_RI : MemRegRegSuffixInst<0x80, 0x50, (outs),
+    (ins GPR:$addr, GR8:$data),
+    "div8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def DIV16_RI : MemRegRegSuffixInst<0x90, 0x50, (outs),
+    (ins GPR:$addr, GR16:$data),
+    "div16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+// DIVS — sub 0x58
+def DIVS8_RI : MemRegRegSuffixInst<0x80, 0x58, (outs),
+    (ins GPR:$addr, GR8:$data),
+    "divs8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def DIVS16_RI : MemRegRegSuffixInst<0x90, 0x58, (outs),
+    (ins GPR:$addr, GR16:$data),
+    "divs16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def DIVS16_RID8 : MemRegRegDispSuffixInst<0x98, 0x58, (outs),
+    (ins GPR:$addr, i32imm:$disp, GR16:$data),
+    "divs16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
+}
+
 // --- Consolidated SRI LD defs (C3/D3/E3) with register operand ---
 // Uses RIRegInst: [prefix, addr_bytes..., SubOpc + reg_enc]
 // Prefix = C3 + OpSize * 0x10 (C3=byte, D3=word, E3=long)
