@@ -2321,21 +2321,21 @@ def LD32_da16 : DirectSrcRegInst<0x20, 4, (outs GPR:$dst),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8_da24 : DirectSrcRegInst<0x20, 5, (outs GPR:$dst),
                                  (ins i32imm:$addr),
-                                 "ldda8_24", "$dst, $addr", []>,
+                                 "ld8_24", "$dst, $addr", []>,
                Sched<[WriteLDW]>;
 
 // 16-bit loads from 24-bit address: D2 + addr24 + (0x20+reg)
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16_da24 : DirectSrcRegInst<0x20, 5, (outs GPR:$dst),
                                   (ins i32imm:$addr),
-                                  "ldda16_24", "$dst, $addr", []>,
+                                  "ld16_24", "$dst, $addr", []>,
                 Sched<[WriteLDW]>;
 
 // 32-bit loads from 24-bit address: E2 + addr24 + (0x20+reg)
 let OpSize = OpSize32.Value, AddrWidth = 1 in
 def LD32_da24 : DirectSrcRegInst<0x20, 5, (outs GPR:$dst),
                                   (ins i32imm:$addr),
-                                  "ldda32_24", "$dst, $addr", []>,
+                                  "ld32_24", "$dst, $addr", []>,
                 Sched<[WriteLDW]>;
 
 } // mayLoad, hasSideEffects
@@ -2350,7 +2350,7 @@ def LD8_da16_r8 : DirectSrcRegInst<0x20, 4, (outs GR8:$dst),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8_da24_r8 : DirectSrcRegInst<0x20, 5, (outs GR8:$dst),
                                      (ins i32imm:$addr),
-                                     "ldda8_24", "$dst, $addr", []>,
+                                     "ld8_24", "$dst, $addr", []>,
                   Sched<[WriteLDW]>;
 } // mayLoad, hasSideEffects
 
@@ -2744,7 +2744,7 @@ def OR32_da24 : DirectSrcRegInst<0xE0, 5, (outs GPR:$dst),
 let Constraints = "" in {
 def ADD32m_da24 : DirectSrcRegInst<0x88, 5, (outs),
                                      (ins i32imm:$addr, GPR:$src),
-                                     "adddm32_24", "$addr, $src", []>,
+                                     "addm32_24", "$addr, $src", []>,
                   Sched<[WriteSTW]>;
 def SUB32m_da24 : DirectSrcRegInst<0xA8, 5, (outs),
                                      (ins i32imm:$addr, GPR:$src),
@@ -2799,7 +2799,7 @@ def OR8i_da24 : DirectSrcImmInst<0x3E, 6, (outs),
 let isCompare = 1, mayStore = 0, OpSize = OpSize8.Value, AddrWidth = 1 in
 def CP8i_da24 : DirectSrcImmInst<0x3F, 6, (outs),
                                    (ins i32imm:$addr, i8imm:$val),
-                                   "cpdi8_24", "$addr, $val", []>,
+                                   "cpi8_24", "$addr, $val", []>,
                 Sched<[WriteIALU]>;
 
 // 24-bit address: ALU reg, (addr24) — load direction for C2 (8-bit)
@@ -2876,7 +2876,7 @@ def ADD32_da24 : DirectSrcRegInst<0x80, 5, (outs GPR:$dst),
                  Sched<[WriteIALU, ReadIALU]>;
 def SUB32_da24 : DirectSrcRegInst<0xA0, 5, (outs GPR:$dst),
                                     (ins GPR:$src1, i32imm:$addr),
-                                    "subda32_24", "$dst, $addr", []>,
+                                    "sub32_24", "$dst, $addr", []>,
                  Sched<[WriteIALU, ReadIALU]>;
 } // Constraints
 def CP32_da24 : DirectSrcRegInst<0xF0, 5, (outs),
@@ -3028,14 +3028,14 @@ def LD16m_da16 : DirectDstRegInst<0x50, 4, (outs),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8m_da24 : DirectDstRegInst<0x40, 5, (outs),
                                   (ins i32imm:$addr, GPR:$src),
-                                  "stda8_24", "$addr, $src", []>,
+                                  "st8_24", "$addr, $src", []>,
                 Sched<[WriteSTW]>;
 
 // 16-bit stores to 24-bit address: F2 + addr24 + (0x50+reg16)
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16m_da24 : DirectDstRegInst<0x50, 5, (outs),
                                    (ins i32imm:$addr, GPR:$src),
-                                   "stda16_24", "$addr, $src", []>,
+                                   "st16_24", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 
 } // mayStore, hasSideEffects
@@ -3051,7 +3051,7 @@ def LD32m_da16 : DirectDstRegInst<0x60, 4, (outs),
 let OpSize = OpSize32.Value, AddrWidth = 1 in
 def LD32m_da24 : DirectDstRegInst<0x60, 5, (outs),
                                     (ins i32imm:$addr, GPR:$src),
-                                    "stda32_24", "$addr, $src", []>,
+                                    "st32_24", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 
 // GR8 variants for 8-bit stores LD (addr), reg8 — allows W, B, D, H
@@ -3064,7 +3064,7 @@ def LD8m_da16_r8 : DirectDstRegInst<0x40, 4, (outs),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8m_da24_r8 : DirectDstRegInst<0x40, 5, (outs),
                                       (ins i32imm:$addr, GR8:$src),
-                                      "stda8_24", "$addr, $src", []>,
+                                      "st8_24", "$addr, $src", []>,
                    Sched<[WriteSTW]>;
 } // mayStore, hasSideEffects
 
@@ -3090,14 +3090,14 @@ def LD16mi_da16 : DirectDstImmInst<0x02, 6, (outs),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8mi_da24 : DirectDstImmInst<0x00, 6, (outs),
                                    (ins i32imm:$addr, i8imm:$val),
-                                   "stdi8_24", "$addr, $val", []>,
+                                   "sti8_24", "$addr, $val", []>,
                  Sched<[WriteSTW]>;
 
 // 16-bit store imm to 24-bit address: F2 + addr24 + 0x02 + imm16
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16mi_da24 : DirectDstImmInst<0x02, 7, (outs),
                                     (ins i32imm:$addr, i16imm:$val),
-                                    "stdi16_24", "$addr, $val", []>,
+                                    "sti16_24", "$addr, $val", []>,
                   Sched<[WriteSTW]>;
 
 } // mayStore, hasSideEffects
@@ -3117,7 +3117,7 @@ def LDA_da16 : DirectDstRegInst<0x30, 4, (outs GPR:$dst),
 let OpSize = OpSize32.Value, AddrWidth = 1 in
 def LDA_da24 : DirectDstRegInst<0x30, 5, (outs GPR:$dst),
                                  (ins i32imm:$addr),
-                                 "ldada_24", "$dst, $addr", []>,
+                                 "lda_24", "$dst, $addr", []>,
                Sched<[WriteLDW]>;
 
 } // mayLoad, mayStore, hasSideEffects
