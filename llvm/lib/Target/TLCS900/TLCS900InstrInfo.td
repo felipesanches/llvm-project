@@ -2970,15 +2970,15 @@ def DEC16_dda24 : DirectDstBitOpInst<0x68, 5, (outs),
 // F2 conditional CALL: F2 + addr24 + (0xE0+cc) — 5 bytes
 let isCall = 1, Defs = [XSP], Uses = [XSP], hasSideEffects = 0, AddrWidth = 1 in
 def CALLCC_24 : DirectDstBitOpInst<0xE0, 5, (outs),
-                                     (ins i32imm:$addr, i32imm:$cc),
-                                     "callcc_24", "$cc, $addr", []>,
+                                     (ins i32imm:$addr, cc:$cc),
+                                     "call_24", "$cc, $addr", []>,
                 Sched<[WriteJmp]>;
 
 // F2 conditional JP: F2 + addr24 + (0xD0+cc) — 5 bytes
 let isBranch = 1, isTerminator = 1, hasSideEffects = 0, AddrWidth = 1 in
 def JPCC_24 : DirectDstBitOpInst<0xD0, 5, (outs),
-                                    (ins i32imm:$addr, i32imm:$cc),
-                                    "jpcc_24", "$cc, $addr", []>,
+                                    (ins i32imm:$addr, cc:$cc),
+                                    "jp_24", "$cc, $addr", []>,
               Sched<[WriteJmp]>;
 
 //--- Source direct: INC/DEC (addr) — sub-opcode 0x60+count / 0x68+count ---
