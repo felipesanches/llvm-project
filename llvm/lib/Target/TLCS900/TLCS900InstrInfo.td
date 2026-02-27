@@ -3389,6 +3389,16 @@ def STCF_A_16 : PrefixUnaryInst<0x2C, (outs), (ins GR16:$rs1),
     "stcf_a_16", "$rs1", []>, Sched<[WriteIALU]>;
 }
 
+// ANDCF A,r — AND carry flag with bit A of register (2 bytes)
+let Defs = [SR], hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def ANDCF_A_8 : PrefixUnaryInst<0x28, (outs), (ins GR8:$rs1),
+    "andcf_a_8", "$rs1", []>, Sched<[WriteIALU]>;
+let OpSize = OpSize16.Value in
+def ANDCF_A_16 : PrefixUnaryInst<0x28, (outs), (ins GR16:$rs1),
+    "andcf_a_16", "$rs1", []>, Sched<[WriteIALU]>;
+}
+
 // ORCF A,r — OR carry flag with bit A of register (2 bytes)
 let Defs = [SR], hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in
