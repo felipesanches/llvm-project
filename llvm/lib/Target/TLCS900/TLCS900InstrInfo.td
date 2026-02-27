@@ -3913,6 +3913,39 @@ def STIW_DPI : ExtAddrModeOpImmInst<5, 0x02, 1, (outs),
   let Opcode = 0xF5;
 }
 
+// --- Register indirect (RI): [B0+reg, SubOpc] and [B8+reg, disp, SubOpc] ---
+// Carry flag operations with register indirect addressing.
+let Defs = [SR], hasSideEffects = 0 in {
+// XORCF A, (XRR) — [B0+reg, 0x2A]
+def XORCFA_RI : MemRegSuffixInst<0xB0, 0x2A, (outs), (ins GPR:$reg),
+    "xorcfa_ri", "$reg", []>, Sched<[WriteIALU]>;
+// ANDCF A, (XRR) — [B0+reg, 0x28]
+def ANDCFA_RI : MemRegSuffixInst<0xB0, 0x28, (outs), (ins GPR:$reg),
+    "andcfa_ri", "$reg", []>, Sched<[WriteIALU]>;
+// ORCF A, (XRR) — [B0+reg, 0x29]
+def ORCFA_RI : MemRegSuffixInst<0xB0, 0x29, (outs), (ins GPR:$reg),
+    "orcfa_ri", "$reg", []>, Sched<[WriteIALU]>;
+// STCF A, (XRR) — [B0+reg, 0x2C]
+def STCFA_RI : MemRegSuffixInst<0xB0, 0x2C, (outs), (ins GPR:$reg),
+    "stcfa_ri", "$reg", []>, Sched<[WriteIALU]>;
+// XORCF A, (XRR+d8) — [B8+reg, disp, 0x2A]
+def XORCFA_RID8 : MemRegDispSuffixInst<0xB8, 0x2A, (outs),
+    (ins GPR:$reg, i32imm:$disp),
+    "xorcfa_rid8", "$reg, $disp", []>, Sched<[WriteIALU]>;
+// ANDCF A, (XRR+d8) — [B8+reg, disp, 0x2A]
+def ANDCFA_RID8 : MemRegDispSuffixInst<0xB8, 0x28, (outs),
+    (ins GPR:$reg, i32imm:$disp),
+    "andcfa_rid8", "$reg, $disp", []>, Sched<[WriteIALU]>;
+// ORCF A, (XRR+d8) — [B8+reg, disp, 0x29]
+def ORCFA_RID8 : MemRegDispSuffixInst<0xB8, 0x29, (outs),
+    (ins GPR:$reg, i32imm:$disp),
+    "orcfa_rid8", "$reg, $disp", []>, Sched<[WriteIALU]>;
+// STCF A, (XRR+d8) — [B8+reg, disp, 0x2C]
+def STCFA_RID8 : MemRegDispSuffixInst<0xB8, 0x2C, (outs),
+    (ins GPR:$reg, i32imm:$disp),
+    "stcfa_rid8", "$reg, $disp", []>, Sched<[WriteIALU]>;
+}
+
 // --- Consolidated SRI LD defs (C3/D3/E3) with register operand ---
 // Uses RIRegInst: [prefix, addr_bytes..., SubOpc + reg_enc]
 // Prefix = C3 + OpSize * 0x10 (C3=byte, D3=word, E3=long)

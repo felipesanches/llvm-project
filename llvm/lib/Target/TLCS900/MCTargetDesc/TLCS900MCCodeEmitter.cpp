@@ -1267,6 +1267,27 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(static_cast<char>(SubOpc + Mod));
     break;
   }
+
+  case TLCS900II::MemRegSuffix: {
+    // [PrefixBase + reg_enc, SubOpcode]
+    // Operand 0: GPR register.
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(Opcode + RegEnc));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
+
+  case TLCS900II::MemRegDispSuffix: {
+    // [PrefixBase + reg_enc, disp8, SubOpcode]
+    // Operand 0: GPR register, Operand 1: displacement (i32imm).
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(Opcode + RegEnc));
+    CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    break;
+  }
   }
 }
 

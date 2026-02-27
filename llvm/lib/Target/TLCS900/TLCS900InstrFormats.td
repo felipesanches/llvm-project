@@ -87,6 +87,8 @@ def InstFormatPrevBankUnary : InstFormat<63>;
 def InstFormatPrevBankSmallImm : InstFormat<64>;
 def InstFormatPrevBankImmAfter : InstFormat<65>;
 def InstFormatDirectSrcPush : InstFormat<66>;
+def InstFormatMemRegSuffix : InstFormat<67>;
+def InstFormatMemRegDispSuffix : InstFormat<68>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -874,4 +876,34 @@ class PrevBankImmAfterInst<bits<8> sub_opc, int sz, dag outs, dag ins,
   let Opcode = 0xC7;
   let SubOpcode = sub_opc;
   let Size = sz;
+}
+
+//===----------------------------------------------------------------------===//
+// Memory register-indirect instruction formats.
+// Register indirect: [PrefixBase + reg_enc, SubOpcode]
+// Register indirect + d8: [PrefixBase + reg_enc, disp8, SubOpcode]
+// PrefixBase is stored in Opcode field (0xB0 for indirect, 0xB8 for +d8).
+//===----------------------------------------------------------------------===//
+
+// MemRegSuffixInst: [prefix_base + reg, SubOpcode] (2 bytes)
+// Operand 0: GPR register (determines prefix byte).
+class MemRegSuffixInst<bits<8> prefix_base, bits<8> sub_opc, dag outs, dag ins,
+                        string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemRegSuffix.Value;
+  let Opcode = prefix_base;
+  let SubOpcode = sub_opc;
+  let Size = 2;
+}
+
+// MemRegDispSuffixInst: [prefix_base + reg, disp8, SubOpcode] (3 bytes)
+// Operand 0: GPR register, Operand 1: displacement (i32imm).
+class MemRegDispSuffixInst<bits<8> prefix_base, bits<8> sub_opc, dag outs,
+                            dag ins, string opcodestr, string argstr,
+                            list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemRegDispSuffix.Value;
+  let Opcode = prefix_base;
+  let SubOpcode = sub_opc;
+  let Size = 3;
 }
