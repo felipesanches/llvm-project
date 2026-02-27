@@ -81,6 +81,7 @@ def InstFormatD8Unary : InstFormat<57>;
 def InstFormatD8ImmAfter : InstFormat<58>;
 def InstFormatExtImmMod : InstFormat<59>;
 def InstFormatRIImmMod : InstFormat<60>;
+def InstFormatSriD16Reg : InstFormat<61>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -709,6 +710,19 @@ class RIRegInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
   let Opcode = opc;
   let SubOpcode = sub_opc;
   let Size = sz;
+}
+
+// SriD16RegInst: SRI with typed base register + 16-bit displacement.
+// Encoding: [prefix, computed_mode_byte, d16_lo, d16_hi, SubOpcode + reg_enc]
+// Mode byte = 0xE0 + (base_reg_enc * 4) + 1 (current bank, d16 mode).
+// Operand 0: data register, Operand 1-2: MEMri (base GPR, d16 disp).
+class SriD16RegInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                     string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriD16Reg.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 5;
 }
 
 // RIUnaryInst: Register-Indirect Complex with fixed sub-opcode.

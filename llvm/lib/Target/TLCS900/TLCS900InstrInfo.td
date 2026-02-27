@@ -3671,6 +3671,23 @@ def LD_SRIL1 : RIRegInst<0xC3, 0x20, 3, (outs), (ins GPR:$rd, i32imm:$b0),
 } // OpSize32
 } // Opcode = 0xC3
 
+// --- SRI LD with semantic operands (base GPR + d16 displacement) ---
+// Replaces ld_sril3/ld_sriw3/ld_srib3 for mode type 1 (d16) cases.
+// Syntax: ld_sril xwa, (xbc + 0x0e0a)
+let Opcode = 0xC3 in {
+let OpSize = OpSize8.Value in {
+def LD_SRIB_D16 : SriD16RegInst<0xC3, 0x20, (outs), (ins GR8:$rd, MEMri:$addr),
+    "ld_srib", "$rd, $addr", []>, Sched<[WriteSTW]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def LD_SRIW_D16 : SriD16RegInst<0xC3, 0x20, (outs), (ins GR16:$rd, MEMri:$addr),
+    "ld_sriw", "$rd, $addr", []>, Sched<[WriteSTW]>;
+} // OpSize16
+let OpSize = OpSize32.Value in {
+def LD_SRIL_D16 : SriD16RegInst<0xC3, 0x20, (outs), (ins GPR:$rd, MEMri:$addr),
+    "ld_sril", "$rd, $addr", []>, Sched<[WriteSTW]>;
+} // OpSize32
+} // Opcode = 0xC3
 
 // --- Source Post-Increment (C5/D5/E5) ---
 // Format: C5/D5/E5 + reg_byte + sub_opcode [+ operand_bytes]

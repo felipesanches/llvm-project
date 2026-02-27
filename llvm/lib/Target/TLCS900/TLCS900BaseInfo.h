@@ -101,6 +101,8 @@ enum InstFormat : uint8_t {
   // ImmMod: Sub-opcode + immediate modifier (bit#, cc, inc count)
   ExtImmMod,          // prefix + raw addr_bytes + (SubOpc + op0_imm)
   RIImmMod,           // prefix + MEMsri_bytes + (SubOpc + op0_imm)
+  // SRI with computed mode byte from typed operands (base GPR + d16 disp)
+  SriD16Reg,          // prefix + mode_byte + d16 + (SubOpc + reg_enc)
 };
 
 // TSFlags bit field positions and masks.

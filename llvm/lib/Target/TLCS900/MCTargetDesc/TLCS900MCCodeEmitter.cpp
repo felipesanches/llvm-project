@@ -1059,6 +1059,23 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::SriD16Reg: {
+    // [prefix, mode_byte, d16_lo, d16_hi, SubOpc + reg_enc]
+    // Operand 0: dest register, Operand 1: base GPR, Operand 2: d16 disp.
+    // Mode byte = 0xE0 + (base_reg_enc * 4) + 1 (current bank, d16 mode).
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    unsigned BaseEnc = getRegEncoding(MI.getOperand(1));
+    CB.push_back(static_cast<char>(0xE0 + BaseEnc * 4 + 1));
+    emitImmediate(MI.getOperand(2).getImm(), 2, CB);
+    unsigned SubOpc2 = TLCS900II::getSubOpcode(TSFlags);
+    unsigned RegEnc2 = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpc2 + RegEnc2));
+    break;
+  }
+
   case TLCS900II::RIUnary: {
     // [prefix, MEMsri_bytes..., SubOpc]
     // Operand 0-2: MEMsri (mode, lo, hi).
