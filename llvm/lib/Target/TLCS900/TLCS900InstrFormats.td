@@ -92,6 +92,8 @@ def InstFormatMemRegDispSuffix : InstFormat<68>;
 def InstFormatMemRegImmMod : InstFormat<69>;
 def InstFormatMemRegRegSuffix : InstFormat<70>;
 def InstFormatMemRegRegDispSuffix : InstFormat<71>;
+def InstFormatMemRegImmAfter : InstFormat<72>;
+def InstFormatMemRegDispImmAfter : InstFormat<73>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -945,4 +947,28 @@ class MemRegRegDispSuffixInst<bits<8> prefix_base, bits<8> sub_opc, dag outs,
   let Opcode = prefix_base;
   let SubOpcode = sub_opc;
   let Size = 3;
+}
+
+// MemRegImmAfterInst: [prefix_base + reg, SubOpcode, imm_bytes...] (variable size)
+// Operand 0: GPR register, remaining: immediate byte operands.
+class MemRegImmAfterInst<bits<8> prefix_base, bits<8> sub_opc, int sz,
+                          dag outs, dag ins, string opcodestr, string argstr,
+                          list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemRegImmAfter.Value;
+  let Opcode = prefix_base;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// MemRegDispImmAfterInst: [prefix_base + reg, disp8, SubOpcode, imm_bytes...] (variable size)
+// Operand 0: GPR register, Operand 1: displacement, remaining: immediate bytes.
+class MemRegDispImmAfterInst<bits<8> prefix_base, bits<8> sub_opc, int sz,
+                              dag outs, dag ins, string opcodestr,
+                              string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemRegDispImmAfter.Value;
+  let Opcode = prefix_base;
+  let SubOpcode = sub_opc;
+  let Size = sz;
 }

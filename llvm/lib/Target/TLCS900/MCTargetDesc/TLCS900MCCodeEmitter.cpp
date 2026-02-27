@@ -1322,6 +1322,35 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(static_cast<char>(SubOpc | DataRegEnc));
     break;
   }
+
+  case TLCS900II::MemRegImmAfter: {
+    // [PrefixBase + reg_enc, SubOpcode, imm_bytes...]
+    // Operand 0: GPR register, remaining: immediate byte operands.
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(Opcode + RegEnc));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    unsigned ImmBytes = Desc.getSize() - 2;
+    for (unsigned i = 0; i < ImmBytes; ++i) {
+      CB.push_back(static_cast<char>(MI.getOperand(1 + i).getImm() & 0xFF));
+    }
+    break;
+  }
+
+  case TLCS900II::MemRegDispImmAfter: {
+    // [PrefixBase + reg_enc, disp8, SubOpcode, imm_bytes...]
+    // Operand 0: GPR register, Operand 1: displacement, remaining: imm bytes.
+    unsigned RegEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(Opcode + RegEnc));
+    CB.push_back(static_cast<char>(MI.getOperand(1).getImm() & 0xFF));
+    unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc));
+    unsigned ImmBytes = Desc.getSize() - 3;
+    for (unsigned i = 0; i < ImmBytes; ++i) {
+      CB.push_back(static_cast<char>(MI.getOperand(2 + i).getImm() & 0xFF));
+    }
+    break;
+  }
   }
 }
 
