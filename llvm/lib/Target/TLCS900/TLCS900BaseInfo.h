@@ -20,14 +20,14 @@ namespace llvm {
 // TLCS900II - This namespace holds all of the target specific flags that
 // instruction info tracks.
 //
-// TSFlags layout (31 bits used):
-//   [5:0]   InstFormat   — encoding format class (6 bits, up to 64 formats)
-//   [13:6]  Opcode       — second byte (operation code within prefix group)
-//   [15:14] OperandSize  — 0=8bit, 1=16bit, 2=32bit
-//   [16]    AddrWidth    — 0=16-bit address, 1=24-bit address (direct addressing)
-//   [19:17] RegIdx       — register index for block transfer prefix byte
-//   [27:20] SubOpcode    — sub-opcode byte (ExtAddrModeSuffix/OpImm formats)
-//   [30:28] NumPreOps    — operands before SubOpcode (ExtAddrModeOpImm format)
+// TSFlags layout (32 bits used):
+//   [6:0]   InstFormat   — encoding format class (7 bits, up to 128 formats)
+//   [14:7]  Opcode       — second byte (operation code within prefix group)
+//   [16:15] OperandSize  — 0=8bit, 1=16bit, 2=32bit
+//   [17]    AddrWidth    — 0=16-bit address, 1=24-bit address (direct addressing)
+//   [20:18] RegIdx       — register index for block transfer prefix byte
+//   [28:21] SubOpcode    — sub-opcode byte (ExtAddrModeSuffix/OpImm formats)
+//   [31:29] NumPreOps    — operands before SubOpcode (ExtAddrModeOpImm format)
 namespace TLCS900II {
 
 // Instruction encoding format classes.
@@ -103,30 +103,35 @@ enum InstFormat : uint8_t {
   RIImmMod,           // prefix + MEMsri_bytes + (SubOpc + op0_imm)
   // SRI with computed mode byte from typed operands (base GPR + d16 disp)
   SriD16Reg,          // prefix + mode_byte + d16 + (SubOpc + reg_enc)
+  // PrevBank: Previous register bank access (D7 prefix + computed mode byte)
+  PrevBankRR,         // 0xD7 + mode_byte(QR) + (SubOpc + data_reg_enc)
+  PrevBankUnary,      // 0xD7 + mode_byte(QR) + SubOpc
+  PrevBankSmallImm,   // 0xD7 + mode_byte(QR) + (SubOpc + imm3)
+  PrevBankImmAfter,   // 0xD7 + mode_byte(QR) + SubOpc + trailing_imm
 };
 
 // TSFlags bit field positions and masks.
 enum : uint64_t {
   InstFormatShift = 0,
-  InstFormatMask = 0x3F, // 6 bits [5:0]
+  InstFormatMask = 0x7F, // 7 bits [6:0]
 
-  OpcodeShift = 6,
-  OpcodeMask = 0xFF << OpcodeShift, // 8 bits [13:6]
+  OpcodeShift = 7,
+  OpcodeMask = 0xFF << OpcodeShift, // 8 bits [14:7]
 
-  OpSizeShift = 14,
-  OpSizeMask = 0x3 << OpSizeShift, // 2 bits [15:14]
+  OpSizeShift = 15,
+  OpSizeMask = 0x3 << OpSizeShift, // 2 bits [16:15]
 
-  AddrWidthShift = 16,
-  AddrWidthMask = 0x1 << AddrWidthShift, // 1 bit [16]
+  AddrWidthShift = 17,
+  AddrWidthMask = 0x1 << AddrWidthShift, // 1 bit [17]
 
-  RegIdxShift = 17,
-  RegIdxMask = 0x7 << RegIdxShift, // 3 bits [19:17]
+  RegIdxShift = 18,
+  RegIdxMask = 0x7 << RegIdxShift, // 3 bits [20:18]
 
-  SubOpcodeShift = 20,
-  SubOpcodeMask = 0xFFULL << SubOpcodeShift, // 8 bits [27:20]
+  SubOpcodeShift = 21,
+  SubOpcodeMask = 0xFFULL << SubOpcodeShift, // 8 bits [28:21]
 
-  NumPreOpsShift = 28,
-  NumPreOpsMask = 0x7ULL << NumPreOpsShift, // 3 bits [30:28]
+  NumPreOpsShift = 29,
+  NumPreOpsMask = 0x7ULL << NumPreOpsShift, // 3 bits [31:29]
 };
 
 // Operand size encoding in TSFlags.

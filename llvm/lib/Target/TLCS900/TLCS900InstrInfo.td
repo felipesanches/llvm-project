@@ -3474,6 +3474,103 @@ def INC4_LERP : ERPUnaryInst< 0x64, (outs), (ins i32imm:$b0),
 } // OpSize32
 } // Opcode = 0xC7 (ERP suffix)
 
+//===----------------------------------------------------------------------===//
+// Previous register bank (PrevBank) instructions — typed Q register operands.
+// These are the semantic equivalents of the ERP instructions above, but use
+// PrevGR16 (QWA-QSP) register operands instead of raw i32imm bank bytes.
+// Encoding: 0xD7 + mode_byte(QR) + sub-opcode bytes.
+// mode_byte = 0xE0 + QR_enc * 4 + 2 (register direct mode).
+//===----------------------------------------------------------------------===//
+
+let Opcode = 0xC7, OpSize = OpSize16.Value in {
+
+// --- PrevBank register-register operations ---
+// LD r, QR (load from previous bank register to current register)
+def LD_PBW_TO : PrevBankRRInst<0x88, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "ld", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// LD QR, r (store current register to previous bank register)
+def LD_PBW_FR : PrevBankRRInst<0x98, (outs), (ins GR16:$rs, PrevGR16:$qd),
+    "ld", "$qd, $rs", []>, Sched<[WriteSTW]>;
+// ADD r, QR
+def ADD_PBW : PrevBankRRInst<0x80, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "add", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// SUB r, QR
+def SUB_PBW : PrevBankRRInst<0xA0, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "sub", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// OR r, QR
+def OR_PBW : PrevBankRRInst<0xE0, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "or", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// MUL r, QR
+def MUL_PBW : PrevBankRRInst<0x40, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "mul", "$rd, $qs", []>, Sched<[WriteSTW]>;
+
+// --- PrevBank small immediate operations (3-bit value) ---
+// LD QR, #small (0-7)
+def LD_PBW_SI : PrevBankSmallImmInst<0xA8, (outs),
+    (ins i32imm:$imm, PrevGR16:$qd),
+    "ld", "$qd, $imm", []>, Sched<[WriteSTW]>;
+// CP QR, #small (0-7)
+def CP_PBW_SI : PrevBankSmallImmInst<0xD8, (outs),
+    (ins i32imm:$imm, PrevGR16:$qd),
+    "cp", "$qd, $imm", []>, Sched<[WriteSTW]>;
+// INC n, QR
+def INC_PBW : PrevBankSmallImmInst<0x60, (outs),
+    (ins i32imm:$count, PrevGR16:$qd),
+    "inc", "$count, $qd", []>, Sched<[WriteSTW]>;
+// DEC n, QR
+def DEC_PBW : PrevBankSmallImmInst<0x68, (outs),
+    (ins i32imm:$count, PrevGR16:$qd),
+    "dec", "$count, $qd", []>, Sched<[WriteSTW]>;
+
+// --- PrevBank unary operations ---
+// PUSH QR (sub-opcode 0x04)
+def PUSH_PBW : PrevBankUnaryInst<0x04, (outs), (ins PrevGR16:$qd),
+    "push", "$qd", []>, Sched<[WriteSTW]>;
+// POP QR (sub-opcode 0x05)
+def POP_PBW : PrevBankUnaryInst<0x05, (outs), (ins PrevGR16:$qd),
+    "pop", "$qd", []>, Sched<[WriteSTW]>;
+// NEG QR (sub-opcode 0x07)
+def NEG_PBW : PrevBankUnaryInst<0x07, (outs), (ins PrevGR16:$qd),
+    "neg", "$qd", []>, Sched<[WriteSTW]>;
+// CPL QR
+def CPL_PBW : PrevBankUnaryInst<0x06, (outs), (ins PrevGR16:$qd),
+    "cpl", "$qd", []>, Sched<[WriteSTW]>;
+// BS1B A, QR (bit search 1 backward, result in A)
+def BS1B_PBW : PrevBankUnaryInst<0x0F, (outs), (ins PrevGR16:$qd),
+    "bs1b", "$qd", []>, Sched<[WriteSTW]>;
+
+// --- PrevBank with trailing immediate ---
+// CP QR, #imm16 (word-size compare)
+def CP_PBW_IMM : PrevBankImmAfterInst<0xCF, 5, (outs),
+    (ins PrevGR16:$qd, i32imm:$imm),
+    "cpw", "$qd, $imm", []>, Sched<[WriteSTW]>;
+// LD QR, #imm16 (word-size load)
+def LD_PBW_IMM : PrevBankImmAfterInst<0x03, 5, (outs),
+    (ins PrevGR16:$qd, i32imm:$imm),
+    "ldw", "$qd, $imm", []>, Sched<[WriteSTW]>;
+// SET bit#, QR
+def SET_PBW : PrevBankImmAfterInst<0x31, 4, (outs),
+    (ins PrevGR16:$qd, i32imm:$bit),
+    "set", "$bit, $qd", []>, Sched<[WriteSTW]>;
+// BIT bit#, QR
+def BIT_PBW : PrevBankImmAfterInst<0x33, 4, (outs),
+    (ins PrevGR16:$qd, i32imm:$bit),
+    "bit", "$bit, $qd", []>, Sched<[WriteSTW]>;
+// RES bit#, QR
+def RES_PBW : PrevBankImmAfterInst<0x30, 4, (outs),
+    (ins PrevGR16:$qd, i32imm:$bit),
+    "res", "$bit, $qd", []>, Sched<[WriteSTW]>;
+// LDCF bit#, QR (load carry flag from bit)
+def LDCF_PBW : PrevBankImmAfterInst<0x23, 4, (outs),
+    (ins PrevGR16:$qd, i32imm:$bit),
+    "ldcf", "$bit, $qd", []>, Sched<[WriteSTW]>;
+// STCF bit#, QR (store carry flag to bit)
+def STCF_PBW : PrevBankImmAfterInst<0x24, 4, (outs),
+    (ins PrevGR16:$qd, i32imm:$bit),
+    "stcf", "$bit, $qd", []>, Sched<[WriteSTW]>;
+
+} // Opcode = 0xC7, OpSize16
+
 // --- Source Post-Increment (SPI) native defs ---
 // Encoding: [C5/D5/E5, base_reg_addr, SubOpc_base + data_reg_enc]
 // Reuses ERPRegInst format with Opcode overridden to 0xC5.

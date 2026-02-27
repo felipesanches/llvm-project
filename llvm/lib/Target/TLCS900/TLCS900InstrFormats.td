@@ -15,8 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 // InstFormat values — must match TLCS900II::InstFormat enum in BaseInfo.h
-class InstFormat<bits<6> val> {
-  bits<6> Value = val;
+class InstFormat<bits<7> val> {
+  bits<7> Value = val;
 }
 def InstFormatPseudo        : InstFormat<0>;
 def InstFormatSingleByte    : InstFormat<1>;
@@ -82,6 +82,10 @@ def InstFormatD8ImmAfter : InstFormat<58>;
 def InstFormatExtImmMod : InstFormat<59>;
 def InstFormatRIImmMod : InstFormat<60>;
 def InstFormatSriD16Reg : InstFormat<61>;
+def InstFormatPrevBankRR : InstFormat<62>;
+def InstFormatPrevBankUnary : InstFormat<63>;
+def InstFormatPrevBankSmallImm : InstFormat<64>;
+def InstFormatPrevBankImmAfter : InstFormat<65>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -92,16 +96,16 @@ def OpSize16 : OpSizeVal<1>;
 def OpSize32 : OpSizeVal<2>;
 
 // Base class for all TLCS900 instructions.
-// TSFlags layout: [5:0] InstFormat, [13:6] Opcode, [15:14] OpSize,
-//                 [16] AddrWidth, [19:17] RegIdx, [27:20] SubOpcode,
-//                 [30:28] NumPreOps
+// TSFlags layout: [6:0] InstFormat, [14:7] Opcode, [16:15] OpSize,
+//                 [17] AddrWidth, [20:18] RegIdx, [28:21] SubOpcode,
+//                 [31:29] NumPreOps
 class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
                   list<dag> pattern>
     : Instruction {
   let Namespace = "TLCS900";
 
   // TSFlags fields — subclasses override these.
-  bits<6> InstFormat = InstFormatPseudo.Value;
+  bits<7> InstFormat = InstFormatPseudo.Value;
   bits<8> Opcode = 0;
   bits<2> OpSize = OpSize32.Value;
   bits<1> AddrWidth = 0; // 0=16-bit addr, 1=24-bit addr (direct addressing)
@@ -110,13 +114,13 @@ class TLCS900Inst<dag outs, dag ins, string opcodestr, string argstr,
   bits<3> NumPreOps = 0; // Operands before SubOpcode (ExtAddrModeOpImm)
 
   // Wire TSFlags.
-  let TSFlags{5-0}   = InstFormat;
-  let TSFlags{13-6}  = Opcode;
-  let TSFlags{15-14} = OpSize;
-  let TSFlags{16}    = AddrWidth;
-  let TSFlags{19-17} = RegIdx;
-  let TSFlags{27-20} = SubOpcode;
-  let TSFlags{30-28} = NumPreOps;
+  let TSFlags{6-0}   = InstFormat;
+  let TSFlags{14-7}  = Opcode;
+  let TSFlags{16-15} = OpSize;
+  let TSFlags{17}    = AddrWidth;
+  let TSFlags{20-18} = RegIdx;
+  let TSFlags{28-21} = SubOpcode;
+  let TSFlags{31-29} = NumPreOps;
 
   let Size = 0; // Default; subclasses set correct size.
 
@@ -801,6 +805,62 @@ class RIImmModInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatRIImmMod.Value;
   let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+//===----------------------------------------------------------------------===//
+// Previous register bank (PrevBank) instruction formats.
+// All emit: 0xD7 + mode_byte(QR) + sub-opcode bytes.
+// mode_byte = 0xE0 + QR_enc * 4 + 2 (direct register mode).
+//===----------------------------------------------------------------------===//
+
+// PrevBankRRInst: PrevBank with data register + Q register operands.
+// Encoding: [0xD7, mode_byte(QR), SubOpcode + data_reg_enc]
+// Operand 0: data register (GR16), Operand 1: Q register (PrevGR16).
+class PrevBankRRInst<bits<8> sub_opc, dag outs, dag ins, string opcodestr,
+                      string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPrevBankRR.Value;
+  let Opcode = 0xC7;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// PrevBankUnaryInst: PrevBank with only Q register (no data operand).
+// Encoding: [0xD7, mode_byte(QR), SubOpcode]
+// Operand 0: Q register (PrevGR16).
+class PrevBankUnaryInst<bits<8> sub_opc, dag outs, dag ins, string opcodestr,
+                         string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPrevBankUnary.Value;
+  let Opcode = 0xC7;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// PrevBankSmallImmInst: PrevBank with Q register + 3-bit immediate modifier.
+// Encoding: [0xD7, mode_byte(QR), SubOpcode + imm3]
+// Operand 0: immediate (0-7), Operand 1: Q register (PrevGR16).
+class PrevBankSmallImmInst<bits<8> sub_opc, dag outs, dag ins,
+                            string opcodestr, string argstr,
+                            list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPrevBankSmallImm.Value;
+  let Opcode = 0xC7;
+  let SubOpcode = sub_opc;
+  let Size = 3;
+}
+
+// PrevBankImmAfterInst: PrevBank with Q register + trailing immediate.
+// Encoding: [0xD7, mode_byte(QR), SubOpcode, imm_bytes...]
+// Operand 0: Q register (PrevGR16), remaining: trailing immediate bytes.
+class PrevBankImmAfterInst<bits<8> sub_opc, int sz, dag outs, dag ins,
+                            string opcodestr, string argstr,
+                            list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPrevBankImmAfter.Value;
+  let Opcode = 0xC7;
   let SubOpcode = sub_opc;
   let Size = sz;
 }

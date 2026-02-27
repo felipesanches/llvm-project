@@ -102,3 +102,19 @@ def GPR : RegisterClass<"TLCS900", [i32], 32,
 // XIX/XIY/XIZ/XSP lack 8-bit sub-registers on TLCS-900.
 def GPR_with_sub8 : RegisterClass<"TLCS900", [i32], 32,
                                    (add XWA, XBC, XDE, XHL)>;
+
+// Previous register bank 16-bit registers (QWA-QSP).
+// Accessed via D7 prefix on TLCS-900/H2 with register banking.
+// Same HWEncoding (0-7) as their current-bank counterparts.
+def QWA : TLCS900Reg<"qwa", 0>;
+def QBC : TLCS900Reg<"qbc", 1>;
+def QDE : TLCS900Reg<"qde", 2>;
+def QHL : TLCS900Reg<"qhl", 3>;
+def QIX : TLCS900Reg<"qix", 4>;
+def QIY : TLCS900Reg<"qiy", 5>;
+def QIZ : TLCS900Reg<"qiz", 6>;
+def QSP : TLCS900Reg<"qsp", 7>;
+
+let isAllocatable = 0 in
+def PrevGR16 : RegisterClass<"TLCS900", [i16], 16,
+                              (add QWA, QBC, QDE, QHL, QIX, QIY, QIZ, QSP)>;

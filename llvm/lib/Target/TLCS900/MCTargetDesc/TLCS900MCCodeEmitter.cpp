@@ -1076,6 +1076,56 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  //=== Previous register bank (PrevBank) formats ===
+
+  case TLCS900II::PrevBankRR: {
+    // [0xD7, mode_byte(QR), SubOpc + data_reg_enc]
+    // Operand 0: data register (GR16), Operand 1: Q register (PrevGR16).
+    CB.push_back(static_cast<char>(0xD7));
+    unsigned QEnc = getRegEncoding(MI.getOperand(1));
+    CB.push_back(static_cast<char>(0xE0 + QEnc * 4 + 2));
+    unsigned SubOpc3 = TLCS900II::getSubOpcode(TSFlags);
+    unsigned DataEnc = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpc3 + DataEnc));
+    break;
+  }
+
+  case TLCS900II::PrevBankUnary: {
+    // [0xD7, mode_byte(QR), SubOpc]
+    // Operand 0: Q register (PrevGR16).
+    CB.push_back(static_cast<char>(0xD7));
+    unsigned QEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(0xE0 + QEnc * 4 + 2));
+    unsigned SubOpc3 = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc3));
+    break;
+  }
+
+  case TLCS900II::PrevBankSmallImm: {
+    // [0xD7, mode_byte(QR), SubOpc + imm3]
+    // Operand 0: small immediate (0-7), Operand 1: Q register (PrevGR16).
+    CB.push_back(static_cast<char>(0xD7));
+    unsigned QEnc = getRegEncoding(MI.getOperand(1));
+    CB.push_back(static_cast<char>(0xE0 + QEnc * 4 + 2));
+    unsigned SubOpc3 = TLCS900II::getSubOpcode(TSFlags);
+    unsigned Imm = MI.getOperand(0).getImm() & 0x7;
+    CB.push_back(static_cast<char>(SubOpc3 + Imm));
+    break;
+  }
+
+  case TLCS900II::PrevBankImmAfter: {
+    // [0xD7, mode_byte(QR), SubOpc, imm_bytes...]
+    // Operand 0: Q register (PrevGR16), Operand 1: trailing immediate.
+    CB.push_back(static_cast<char>(0xD7));
+    unsigned QEnc = getRegEncoding(MI.getOperand(0));
+    CB.push_back(static_cast<char>(0xE0 + QEnc * 4 + 2));
+    unsigned SubOpc3 = TLCS900II::getSubOpcode(TSFlags);
+    CB.push_back(static_cast<char>(SubOpc3));
+    unsigned TrailingBytes = Desc.getSize() - 3;
+    emitImmediate(MI.getOperand(1).getImm(), TrailingBytes, CB);
+    break;
+  }
+
   case TLCS900II::RIUnary: {
     // [prefix, MEMsri_bytes..., SubOpc]
     // Operand 0-2: MEMsri (mode, lo, hi).
