@@ -3506,6 +3506,8 @@ def LDI_BERP : ERPSmallImmInst<0xA8, (outs), (ins i32imm:$bank, i32imm:$imm),
     "ldi_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def CPI_BERP : ERPSmallImmInst<0xD8, (outs), (ins i32imm:$bank, i32imm:$imm),
     "cpi_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+def INC_BERP : ERPSmallImmInst<0x60, (outs), (ins i32imm:$bank, i32imm:$imm),
+    "inc_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 } // OpSize8
 
 // 16-bit ERP operations with register operand
