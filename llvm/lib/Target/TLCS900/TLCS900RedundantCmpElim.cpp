@@ -97,9 +97,9 @@ static bool isFlagSettingDef(const MachineInstr &MI) {
   case TLCS900::SRA32ri:
   case TLCS900::SRL32rr:
   case TLCS900::SRL32ri:
-  case TLCS900::EXTS32:
-  case TLCS900::EXTZ32:
     return true;
+  // Note: EXTS32/EXTZ32 intentionally omitted — they do NOT set flags
+  // on the TLCS-900/H hardware.
   default:
     return false;
   }

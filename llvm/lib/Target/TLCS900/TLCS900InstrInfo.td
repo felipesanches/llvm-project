@@ -426,19 +426,26 @@ def CPL32 : PrefixUnaryInst<0x06, (outs GPR:$rd), (ins GPR:$rs1),
                             "cpl", "$rd", []>,
             Sched<[WriteIALU, ReadIALU]>;
 
-// EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits (affects S, Z)
+} // Constraints = "$rd = $rs1", Defs = [SR]
+
+// EXTS/EXTZ on 32-bit registers do NOT set flags on TLCS-900/H.
+// Confirmed via MAME hardware emulation: op_EXTZLR and op_EXTSLR perform
+// only the masking/sign-extension without modifying the status register.
+let Constraints = "$rd = $rs1" in {
+
+// EXTS rd — Sign extend: low 16 bits sign-extended to 32 bits
 // Encoding: E8+rd, 0x13 (2 bytes)
 def EXTS32 : PrefixUnaryInst<0x13, (outs GPR:$rd), (ins GPR:$rs1),
                              "exts", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-// EXTZ rd — Zero extend: low 16 bits zero-extended to 32 bits (affects S, Z)
+// EXTZ rd — Zero extend: low 16 bits zero-extended to 32 bits
 // Encoding: E8+rd, 0x12 (2 bytes)
 def EXTZ32 : PrefixUnaryInst<0x12, (outs GPR:$rd), (ins GPR:$rs1),
                              "extz", "$rd", []>,
              Sched<[WriteIALU, ReadIALU]>;
 
-} // Constraints = "$rd = $rs1", Defs = [SR]
+} // Constraints = "$rd = $rs1" (no Defs=[SR]: EXTS/EXTZ don't set flags)
 
 // INC #n, rd — Increment by n (n = 1..8)
 // Encoding: E8+rd, 0x60+(n-1) (2 bytes)
