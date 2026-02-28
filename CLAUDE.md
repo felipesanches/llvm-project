@@ -189,6 +189,11 @@ Key registration points outside the target directory:
 | Bug | Severity | Description | Workaround |
 |-----|----------|-------------|------------|
 | #10 | Moderate | Register x/y swap when functions are inlined | `__attribute__((noinline))` on affected functions |
-| #11 | High | `for` loop with `uint16_t` counter exits after 1 iteration | Use `do-while` with `uint32_t` counter and `!= 0` termination |
+
+### Recently Fixed Bugs
+
+| Fix | Commit | Description |
+|-----|--------|-------------|
+| Bug #11 | `eba2fe6622ee` | `for` loop with `uint16_t` counter exited after 1 iteration. Root cause: EXTS32/EXTZ32 were declared with `Defs=[SR]` but do NOT set flags on TLCS-900/H. RedundantCmpElim incorrectly removed CP instructions after EXTZ. |
 
 Full bug documentation: `/mnt/shared/Mines/LLVM_TLCS900_BUGS.md`
