@@ -219,8 +219,9 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
       return 0;
     }
     CB.push_back(0xF3);
-    // Mode byte: bits 1-0 = 001 (Xrr+d16), bits 4-2 = base_reg.
-    CB.push_back((BaseReg << 2) | 0x01);
+    // Mode byte: bits 1-0 = 01 (Xrr+d16), bits 7-2 = register file address >> 2.
+    // Register file addresses: XWA=0xE0..XSP=0xFC, so (0xE0 >> 2) + BaseReg = 0x38+BaseReg.
+    CB.push_back(0xE0 + (BaseReg << 2) + 0x01);
     if (DispOp.isImm()) {
       emitImmediate(Disp, 2, CB);
     } else if (DispOp.isExpr()) {
