@@ -235,16 +235,25 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
 
 void TLCS900MCCodeEmitter::emitDirectAddrPrefix(
     const MCOperand &AddrOp, bool IsDstMem, unsigned OpSize, bool Is24Bit,
-    SmallVectorImpl<char> &CB) const {
-  int64_t Addr = AddrOp.isImm() ? AddrOp.getImm() : 0;
-  if (Is24Bit) {
-    CB.push_back(IsDstMem ? 0xF2
-                           : (0xC2 + OpSize * 0x10));
-    emitImmediate(Addr, 3, CB);
+    uint64_t StartByte, SmallVectorImpl<char> &CB,
+    SmallVectorImpl<MCFixup> &Fixups) const {
+  unsigned NumBytes = Is24Bit ? 3 : 2;
+  uint8_t Prefix = Is24Bit
+      ? (IsDstMem ? 0xF2 : (0xC2 + OpSize * 0x10))
+      : (IsDstMem ? 0xF1 : (0xC1 + OpSize * 0x10));
+  CB.push_back(Prefix);
+
+  if (AddrOp.isExpr()) {
+    MCFixupKind Kind = Is24Bit
+        ? (MCFixupKind)TLCS900::fixup_tlcs900_24
+        : FK_Data_2;
+    Fixups.push_back(MCFixup::create(CB.size() - StartByte, AddrOp.getExpr(),
+                                     Kind));
+    for (unsigned i = 0; i < NumBytes; ++i)
+      CB.push_back(0);
   } else {
-    CB.push_back(IsDstMem ? 0xF1
-                           : (0xC1 + OpSize * 0x10));
-    emitImmediate(Addr, 2, CB);
+    int64_t Addr = AddrOp.isImm() ? AddrOp.getImm() : 0;
+    emitImmediate(Addr, NumBytes, CB);
   }
 }
 
@@ -792,7 +801,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     }
     unsigned RegEnc = getRegEncoding(MI.getOperand(RegIdx), OpSize);
     emitDirectAddrPrefix(MI.getOperand(AddrIdx), /*IsDstMem=*/false, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode + RegEnc);
     break;
   }
@@ -801,7 +810,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // src_direct_prefix + addr + opcode + imm.
     // op 0 = addr, op 1 = imm.
     emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode);
     const MCOperand &ImmOp = MI.getOperand(1);
     if (ImmOp.isImm())
@@ -816,7 +825,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // src_direct_prefix + addr + (opcode + count%8).
     // op 0 = addr, op 1 = count.
     emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     unsigned Count =
         MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 1;
     CB.push_back(Opcode + (Count & 0x7));
@@ -827,7 +836,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // src_direct_prefix + addr + opcode.
     // op 0 = addr (only operand).
     emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode);
     break;
   }
@@ -844,7 +853,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     }
     unsigned RegEnc = getRegEncoding(MI.getOperand(RegIdx), OpSize);
     emitDirectAddrPrefix(MI.getOperand(AddrIdx), /*IsDstMem=*/true, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode + RegEnc);
     break;
   }
@@ -853,7 +862,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // F1/F2 + addr + opcode + imm.
     // op 0 = addr, op 1 = imm.
     emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/true, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode);
     const MCOperand &ImmOp = MI.getOperand(1);
     if (ImmOp.isImm())
@@ -869,7 +878,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // op 0 = addr, op 1 = bit/count/cc.
     // Used for BIT/SET/RES (3-bit), INC/DEC (3-bit), and CALL cc (4-bit).
     emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/true, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     unsigned BitNum =
         MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0;
     CB.push_back(Opcode + (BitNum & 0xF));
@@ -880,7 +889,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // src_direct_prefix + src_addr16 + opcode(0x19) + dst_addr16.
     // op 0 = src_addr, op 1 = dst_addr.
     emitDirectAddrPrefix(MI.getOperand(0), /*IsDstMem=*/false, OpSize,
-                         Is24Bit, CB);
+                         Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode);
     const MCOperand &DstAddr = MI.getOperand(1);
     if (DstAddr.isImm())
