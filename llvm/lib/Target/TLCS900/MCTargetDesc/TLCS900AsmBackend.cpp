@@ -6,7 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the TLCS900AsmBackend class.
+// This file implements the TLCS900AsmBackend class, including branch relaxation
+// (JR/JRcc -> JRL/JRLcc when 8-bit displacement is insufficient).
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,6 +18,7 @@
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCFixupKindInfo.h"
+#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -97,6 +99,44 @@ bool TLCS900AsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
   for (uint64_t i = 0; i < Count; ++i)
     OS.write('\0');
   return true;
+}
+
+//===----------------------------------------------------------------------===//
+// Branch Relaxation
+//===----------------------------------------------------------------------===//
+
+bool TLCS900AsmBackend::mayNeedRelaxation(const MCInst &Inst,
+                                          const MCSubtargetInfo &STI) const {
+  // JR (unconditional, 8-bit displacement) may need relaxation to JRL.
+  // JRcc (conditional, 8-bit displacement) may need relaxation to JRLcc.
+  unsigned Opc = Inst.getOpcode();
+  return Opc == TLCS900::JR || Opc == TLCS900::JRcc;
+}
+
+bool TLCS900AsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup,
+                                             uint64_t Value) const {
+  // If the 8-bit displacement doesn't fit, relax to 16-bit.
+  if (Fixup.getKind() == (MCFixupKind)TLCS900::fixup_tlcs900_rel8)
+    return !isInt<8>((int64_t)Value);
+  return false;
+}
+
+void TLCS900AsmBackend::relaxInstruction(MCInst &Inst,
+                                         const MCSubtargetInfo &STI) const {
+  unsigned Opc = Inst.getOpcode();
+
+  switch (Opc) {
+  case TLCS900::JR:
+    // JR target (2 bytes: 0x68 + d8) -> JRL target (3 bytes: 0x78 + d16)
+    Inst.setOpcode(TLCS900::JRL);
+    break;
+  case TLCS900::JRcc:
+    // JR cc, target (2 bytes: 0x60+cc + d8) -> JRL cc, target (3 bytes: 0x70+cc + d16)
+    Inst.setOpcode(TLCS900::JRLcc);
+    break;
+  default:
+    llvm_unreachable("Unexpected instruction to relax");
+  }
 }
 
 MCAsmBackend *llvm::createTLCS900AsmBackend(const Target &T,
