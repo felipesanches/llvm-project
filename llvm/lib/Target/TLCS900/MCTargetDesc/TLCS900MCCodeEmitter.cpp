@@ -218,6 +218,16 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
           "use LDA to compute the effective address first");
       return 0;
     }
+    // Validate d16 range: must fit in signed 16-bit.
+    if (DispOp.isImm() && (Disp < -32768 || Disp > 32767)) {
+      std::string ErrMsg;
+      raw_string_ostream OS(ErrMsg);
+      OS << "displacement " << Disp
+         << " too large for d16 encoding (-32768..32767) in: ";
+      MI.print(OS);
+      Ctx.reportError(MI.getLoc(), ErrMsg);
+      return 0;
+    }
     CB.push_back(0xF3);
     // Mode byte: bits 1-0 = 01 (Xrr+d16), bits 7-2 = register file address >> 2.
     // Register file addresses: XWA=0xE0..XSP=0xFC, so (0xE0 >> 2) + BaseReg = 0x38+BaseReg.

@@ -8,17 +8,21 @@
 //
 // TLCS-900/H source memory addressing (loads, ALU-from-memory) only supports
 // 8-bit signed displacements (-128..127) in the prefix encoding. Destination
-// memory (stores, LDA) supports 16-bit displacements via the F3 prefix.
+// memory (stores, LDA) supports 16-bit displacements via the F3 prefix
+// (-32768..32767).
 //
-// eliminateFrameIndex already splits MemLoad/MemALU instructions that have
-// large frame offsets into LDA + register-indirect sequences. However, large
-// displacements can also arise from other sources (global array accesses,
-// inlined functions, etc.) that bypass eliminateFrameIndex.
+// eliminateFrameIndex already splits instructions with large frame offsets.
+// However, large displacements can also arise from other sources (global
+// address folding with LTO, inlined functions, etc.) that bypass
+// eliminateFrameIndex.
 //
-// This pass runs post-register-allocation and catches any remaining MemLoad
-// or MemALU instructions with displacements outside the d8 range, splitting
-// them into:
-//   LDA ScratchReg, (BaseReg + LargeOffset)
+// This pass runs post-register-allocation and catches any remaining
+// instructions with out-of-range displacements:
+//   - MemLoad/MemALU: displacement outside d8 range
+//   - MemStore/MemLoadDst: displacement outside d16 range
+// Splits them into:
+//   LD ScratchReg, BaseReg + ADD ScratchReg, Offset (if > d16)
+//   or LDA ScratchReg, (BaseReg + Offset) (if fits d16)
 //   <original_instr> ... (ScratchReg + 0) ...
 //
 //===----------------------------------------------------------------------===//
@@ -66,7 +70,9 @@ static int getDispOperandIndex(const MachineInstr &MI) {
     // op0 = dst_reg, op1 = base_reg, op2 = displacement
     return 2;
   case TLCS900II::MemALU:
-    // op0 = base_reg, op1 = displacement, op2 = src_reg_or_imm
+  case TLCS900II::MemStore:
+  case TLCS900II::MemLoadDst:
+    // op0 = base_reg, op1 = displacement, op2 = src_reg (or dst_reg for LDA)
     return 1;
   default:
     return -1;
@@ -82,6 +88,8 @@ static int getBaseRegOperandIndex(const MachineInstr &MI) {
   case TLCS900II::MemLoad:
     return 1; // op1 = base_reg
   case TLCS900II::MemALU:
+  case TLCS900II::MemStore:
+  case TLCS900II::MemLoadDst:
     return 0; // op0 = base_reg
   default:
     return -1;
@@ -98,6 +106,9 @@ bool TLCS900FixLargeDisp::runOnMachineFunction(MachineFunction &MF) {
 
   for (MachineBasicBlock &MBB : MF) {
     // First pass: collect instructions that need fixing.
+    // MemLoad/MemALU: only support d8 (-128..127) — need fixing if outside.
+    // MemStore/MemLoadDst: support d16 via F3 prefix (-32768..32767) —
+    //   only need fixing if displacement exceeds d16 range.
     SmallVector<MachineInstr *, 8> Worklist;
     for (MachineInstr &MI : MBB) {
       int DispIdx = getDispOperandIndex(MI);
@@ -107,7 +118,13 @@ bool TLCS900FixLargeDisp::runOnMachineFunction(MachineFunction &MF) {
       if (!DispOp.isImm())
         continue;
       int64_t Disp = DispOp.getImm();
-      if (Disp < -128 || Disp > 127)
+      uint64_t TSFlags = MI.getDesc().TSFlags;
+      unsigned Format = TLCS900II::getInstFormat(TSFlags);
+      bool IsDstMem = (Format == TLCS900II::MemStore ||
+                       Format == TLCS900II::MemLoadDst);
+      int64_t MaxDisp = IsDstMem ? 32767 : 127;
+      int64_t MinDisp = IsDstMem ? -32768 : -128;
+      if (Disp < MinDisp || Disp > MaxDisp)
         Worklist.push_back(&MI);
     }
 
@@ -152,11 +169,19 @@ bool TLCS900FixLargeDisp::runOnMachineFunction(MachineFunction &MF) {
 
       DebugLoc DL = MI->getDebugLoc();
 
-      // Insert: LDA ScratchReg, (BaseReg + Disp)
-      // LDA uses destination memory prefix (F3+d16), which supports d16.
-      BuildMI(MBB, MBBI, DL, TII->get(TLCS900::LDA32), ScratchReg)
-          .addReg(BaseReg)
-          .addImm(Disp);
+      if (Disp >= -32768 && Disp <= 32767) {
+        // Displacement fits in d16: use LDA with F3+d16 prefix.
+        BuildMI(MBB, MBBI, DL, TII->get(TLCS900::LDA32), ScratchReg)
+            .addReg(BaseReg)
+            .addImm(Disp);
+      } else {
+        // Displacement exceeds d16: use LD + ADD to compute address.
+        BuildMI(MBB, MBBI, DL, TII->get(TLCS900::LD32rr), ScratchReg)
+            .addReg(BaseReg);
+        BuildMI(MBB, MBBI, DL, TII->get(TLCS900::ADD32ri), ScratchReg)
+            .addReg(ScratchReg)
+            .addImm(Disp);
+      }
 
       // Rewrite the original instruction to use (ScratchReg + 0).
       MI->getOperand(BaseIdx).ChangeToRegister(ScratchReg, false,

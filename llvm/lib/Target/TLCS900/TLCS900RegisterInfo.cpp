@@ -115,15 +115,17 @@ bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   bool NeedsSrcMemTable = (Format == TLCS900II::MemLoad ||
                            Format == TLCS900II::MemALU);
 
-  if (!NeedsSrcMemTable) {
-    // MemStore/MemLoadDst: F3+d16 dispatches to B0/F0 table — correct.
+  if (!NeedsSrcMemTable && Offset >= -32768 && Offset <= 32767) {
+    // MemStore/MemLoadDst: F3+d16 dispatches to B0/F0 table — correct,
+    // but only if the offset fits in d16.
     MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
     MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
     return false;
   }
 
-  // MemLoad/MemALU with d16: must split into LDA + register-indirect.
-  // Scavenge a scratch register for the effective address.
+  // Either MemLoad/MemALU (needs source memory table, can't use F3+d16),
+  // or offset exceeds d16 range. Split into address computation +
+  // register-indirect access.
   assert(RS && "Register scavenger required for large frame offsets");
   Register ScratchReg = RS->scavengeRegisterBackwards(
       TLCS900::GPRRegClass, II, /*RestoreAfter=*/false, SPAdj);
@@ -133,10 +135,19 @@ bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
   DebugLoc DL = MI.getDebugLoc();
 
-  // Emit: LDA ScratchReg, (BaseReg + Offset)
-  BuildMI(MBB, II, DL, TII.get(TLCS900::LDA32), ScratchReg)
-      .addReg(BaseReg)
-      .addImm(Offset);
+  if (Offset >= -32768 && Offset <= 32767) {
+    // Fits in d16: use LDA with F3+d16 prefix.
+    BuildMI(MBB, II, DL, TII.get(TLCS900::LDA32), ScratchReg)
+        .addReg(BaseReg)
+        .addImm(Offset);
+  } else {
+    // Exceeds d16: use LD + ADD to compute effective address.
+    BuildMI(MBB, II, DL, TII.get(TLCS900::LD32rr), ScratchReg)
+        .addReg(BaseReg);
+    BuildMI(MBB, II, DL, TII.get(TLCS900::ADD32ri), ScratchReg)
+        .addReg(ScratchReg)
+        .addImm(Offset);
+  }
 
   // Rewrite original instruction to use (ScratchReg + 0).
   MI.getOperand(FIOperandNum).ChangeToRegister(ScratchReg, false,
