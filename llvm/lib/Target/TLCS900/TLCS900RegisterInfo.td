@@ -103,6 +103,12 @@ def GPR : RegisterClass<"TLCS900", [i32], 32,
 def GPR_with_sub8 : RegisterClass<"TLCS900", [i32], 32,
                                    (add XWA, XBC, XDE, XHL)>;
 
+// GPR registers excluding XWA — used for variable shift destinations.
+// TLCS-900 variable shifts use A (low byte of XWA) as the shift count,
+// so the shift destination cannot be XWA (would clobber the value).
+def GPRnoXWA : RegisterClass<"TLCS900", [i32], 32,
+                              (sub GPR, XWA)>;
+
 // Previous register bank 16-bit registers (QWA-QSP).
 // Accessed via D7 prefix on TLCS-900/H2 with register banking.
 // Same HWEncoding (0-7) as their current-bank counterparts.

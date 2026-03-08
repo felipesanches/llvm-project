@@ -346,30 +346,18 @@ def XOR32ri : PrefixRegImmInst<0xCD, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$i
 // Shift Instructions (two-address, all modify SR flags)
 //===----------------------------------------------------------------------===//
 
-// SLA rd, rs — Shift Left Arithmetic (affects S, Z, H=0, V, N=0, C)
-// Encoding: E8+rd, 0xFC (SLA A,R form — shift amount in A register)
-def SLA32rr : PrefixRegRegInst<0xFC, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                               "sla", "$rd, $rs2",
-                               [(set GPR:$rd, (shl GPR:$rs1, GPR:$rs2))]>,
-              Sched<[WriteShift, ReadIALU, ReadShift]>;
-
-// SLA rd, #imm
+// SLA rd, #imm — Shift Left Arithmetic by immediate
 // Encoding: E8+rd, 0xEC, amt (3 bytes)
 def SLA32ri : PrefixShiftInst<0xEC, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                              "sla", "$rd, $imm", []>,
+                              "sla", "$rd, $imm",
+                              [(set GPR:$rd, (shl GPR:$rs1, (i32 imm:$imm)))]>,
               Sched<[WriteShift, ReadIALU]>;
 
-// SRA rd, rs — Shift Right Arithmetic (affects S, Z, H=0, V, N=0, C)
-// Encoding: E8+rd, 0xFD (SRA A,R form)
-def SRA32rr : PrefixRegRegInst<0xFD, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                               "sra", "$rd, $rs2",
-                               [(set GPR:$rd, (sra GPR:$rs1, GPR:$rs2))]>,
-              Sched<[WriteShift, ReadIALU, ReadShift]>;
-
-// SRA rd, #imm
+// SRA rd, #imm — Shift Right Arithmetic by immediate
 // Encoding: E8+rd, 0xED, amt (3 bytes)
 def SRA32ri : PrefixShiftInst<0xED, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                              "sra", "$rd, $imm", []>,
+                              "sra", "$rd, $imm",
+                              [(set GPR:$rd, (sra GPR:$rs1, (i32 imm:$imm)))]>,
               Sched<[WriteShift, ReadIALU]>;
 
 // SLL rd, #imm — Shift Left Logical (same result as SLA, different flags)
@@ -378,18 +366,28 @@ def SLL32ri : PrefixShiftInst<0xEE, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                               "sll", "$rd, $imm", []>,
               Sched<[WriteShift, ReadIALU]>;
 
-// SRL rd, rs — Shift Right Logical (affects S, Z, H=0, V, N=0, C)
-// Encoding: E8+rd, 0xFF (SRL A,R form)
-def SRL32rr : PrefixRegRegInst<0xFF, (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2),
-                               "srl", "$rd, $rs2",
-                               [(set GPR:$rd, (srl GPR:$rs1, GPR:$rs2))]>,
-              Sched<[WriteShift, ReadIALU, ReadShift]>;
-
-// SRL rd, #imm
+// SRL rd, #imm — Shift Right Logical by immediate
 // Encoding: E8+rd, 0xEF, amt (3 bytes)
 def SRL32ri : PrefixShiftInst<0xEF, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
-                              "srl", "$rd, $imm", []>,
+                              "srl", "$rd, $imm",
+                              [(set GPR:$rd, (srl GPR:$rs1, (i32 imm:$imm)))]>,
               Sched<[WriteShift, ReadIALU]>;
+
+// Variable shift pseudos — expanded by custom inserter into:
+//   COPY XWA, $rs2  (puts shift count in A register)
+//   SLA_A_32 $rd    (shift $rd by A)
+// Destination constrained to GPRnoXWA since A (part of XWA) holds the count.
+let usesCustomInserter = 1, Defs = [XWA] in {
+def SLA32rr : Pseudo<(outs GPRnoXWA:$rd), (ins GPRnoXWA:$rs1, GPR:$rs2),
+                     [(set GPRnoXWA:$rd, (shl GPRnoXWA:$rs1, GPR:$rs2))]>,
+              Sched<[WriteShift, ReadIALU, ReadShift]>;
+def SRA32rr : Pseudo<(outs GPRnoXWA:$rd), (ins GPRnoXWA:$rs1, GPR:$rs2),
+                     [(set GPRnoXWA:$rd, (sra GPRnoXWA:$rs1, GPR:$rs2))]>,
+              Sched<[WriteShift, ReadIALU, ReadShift]>;
+def SRL32rr : Pseudo<(outs GPRnoXWA:$rd), (ins GPRnoXWA:$rs1, GPR:$rs2),
+                     [(set GPRnoXWA:$rd, (srl GPRnoXWA:$rs1, GPR:$rs2))]>,
+              Sched<[WriteShift, ReadIALU, ReadShift]>;
+} // usesCustomInserter, Defs = [XWA]
 
 } // Constraints = "$rd = $rs1", Defs = [SR]
 

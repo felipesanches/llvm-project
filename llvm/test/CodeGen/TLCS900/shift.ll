@@ -2,26 +2,32 @@
 
 ; Test shift instructions
 
+; Variable shifts: copy count to XWA (A register), then use slaa/sraa/srla.
+; Destination constrained to GPRnoXWA (XDE here since XWA holds the count).
+
 define i32 @shl_reg(i32 %a, i32 %b) {
 ; CHECK-LABEL: shl_reg:
-; CHECK:       sla xde, xbc
-; CHECK:       ret
+; CHECK:       ld xwa, xbc
+; CHECK-NEXT:  slaa xde
+; CHECK-NEXT:  ret
   %c = shl i32 %a, %b
   ret i32 %c
 }
 
 define i32 @sra_reg(i32 %a, i32 %b) {
 ; CHECK-LABEL: sra_reg:
-; CHECK:       sra xde, xbc
-; CHECK:       ret
+; CHECK:       ld xwa, xbc
+; CHECK-NEXT:  sraa xde
+; CHECK-NEXT:  ret
   %c = ashr i32 %a, %b
   ret i32 %c
 }
 
 define i32 @srl_reg(i32 %a, i32 %b) {
 ; CHECK-LABEL: srl_reg:
-; CHECK:       srl xde, xbc
-; CHECK:       ret
+; CHECK:       ld xwa, xbc
+; CHECK-NEXT:  srla xde
+; CHECK-NEXT:  ret
   %c = lshr i32 %a, %b
   ret i32 %c
 }

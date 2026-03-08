@@ -292,6 +292,37 @@ TLCS900TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
 
+  // Variable shift pseudos: copy shift count to XWA (so A has the count),
+  // then emit the A-register shift instruction.
+  if (MI.getOpcode() == TLCS900::SLA32rr ||
+      MI.getOpcode() == TLCS900::SRA32rr ||
+      MI.getOpcode() == TLCS900::SRL32rr) {
+    Register DstReg = MI.getOperand(0).getReg();
+    Register SrcReg = MI.getOperand(1).getReg();  // tied to DstReg
+    Register CntReg = MI.getOperand(2).getReg();
+
+    // Copy the shift count to XWA (A = low byte = actual count).
+    // DstReg is constrained to GPRnoXWA, so this won't clobber the value
+    // being shifted.
+    BuildMI(*BB, MI, DL, TII.get(TargetOpcode::COPY), TLCS900::XWA)
+        .addReg(CntReg);
+
+    // Select the A-register shift instruction.
+    unsigned ShiftOpc;
+    switch (MI.getOpcode()) {
+    case TLCS900::SLA32rr: ShiftOpc = TLCS900::SLA_A_32; break;
+    case TLCS900::SRA32rr: ShiftOpc = TLCS900::SRA_A_32; break;
+    case TLCS900::SRL32rr: ShiftOpc = TLCS900::SRL_A_32; break;
+    default: llvm_unreachable("Unexpected shift pseudo");
+    }
+
+    BuildMI(*BB, MI, DL, TII.get(ShiftOpc), DstReg)
+        .addReg(SrcReg);
+
+    MI.eraseFromParent();
+    return BB;
+  }
+
   if (MI.getOpcode() == TLCS900::MEMMOVE_PSEUDO) {
     // Expand MEMMOVE_PSEUDO into runtime direction check + LDIR or LDDR.
     //
