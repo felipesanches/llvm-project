@@ -19,6 +19,7 @@ add_llvm_target(TLCS900CodeGen
   TLCS900BitTestOpt.cpp
   TLCS900BranchShortening.cpp
   TLCS900DJNZOpt.cpp
+  TLCS900FixLargeDisp.cpp
   TLCS900IncDecOpt.cpp
   TLCS900RedundantCmpElim.cpp
   TLCS900FrameLowering.cpp

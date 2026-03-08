@@ -29,6 +29,7 @@ namespace llvm {
   FunctionPass *createTLCS900DJNZOptPass();
   FunctionPass *createTLCS900RedundantCmpElimPass();
   FunctionPass *createTLCS900IncDecOptPass();
+  FunctionPass *createTLCS900FixLargeDispPass();
 
   // TLCS900 condition codes (matching hardware encoding from MAME/Toshiba docs).
   namespace TLCS900CC {
