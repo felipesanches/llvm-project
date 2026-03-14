@@ -17,15 +17,13 @@ define i32 @needs_frame(i32 %a) {
   ret i32 %c
 }
 
-; Large stack frame: offset > 127 bytes requires LDA for loads/ALU
-; (F3 d16 prefix only dispatches to B0/F0 destination memory table,
-; not A0 source memory table needed by loads)
+; Large stack frame: offset > 127 bytes uses d16 SRI prefix encoding
+; (C3/D3/E3 for source memory, F3 for destination memory)
 define i32 @large_frame(i32 %a) {
 ; CHECK-LABEL: large_frame:
 ; CHECK:       sub xsp,
-; Stack access with large offset uses LDA + register-indirect
-; CHECK:       lda {{.*}}, (xsp+
-; CHECK:       ld {{.*}}, ({{.*}})
+; Stack access with large offset uses d16 displacement directly
+; CHECK:       ld {{.*}}, (xsp+{{[0-9]+}})
 ; CHECK:       add xsp,
 ; CHECK:       ret
   %arr = alloca [64 x i32]

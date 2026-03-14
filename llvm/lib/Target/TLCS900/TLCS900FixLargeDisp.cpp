@@ -6,10 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// TLCS-900/H source memory addressing (loads, ALU-from-memory) only supports
-// 8-bit signed displacements (-128..127) in the prefix encoding. Destination
-// memory (stores, LDA) supports 16-bit displacements via the F3 prefix
-// (-32768..32767).
+// TLCS-900/H memory addressing supports up to 16-bit signed displacements
+// (-32768..32767) via the SRI prefix encoding (C3/D3/E3 for source memory,
+// F3 for destination memory).
 //
 // eliminateFrameIndex already splits instructions with large frame offsets.
 // However, large displacements can also arise from other sources (global
@@ -17,12 +16,9 @@
 // eliminateFrameIndex.
 //
 // This pass runs post-register-allocation and catches any remaining
-// instructions with out-of-range displacements:
-//   - MemLoad/MemALU: displacement outside d8 range
-//   - MemStore/MemLoadDst: displacement outside d16 range
+// instructions with out-of-range displacements (exceeding d16 range).
 // Splits them into:
-//   LD ScratchReg, BaseReg + ADD ScratchReg, Offset (if > d16)
-//   or LDA ScratchReg, (BaseReg + Offset) (if fits d16)
+//   LD ScratchReg, BaseReg + ADD ScratchReg, Offset
 //   <original_instr> ... (ScratchReg + 0) ...
 //
 //===----------------------------------------------------------------------===//
@@ -106,9 +102,9 @@ bool TLCS900FixLargeDisp::runOnMachineFunction(MachineFunction &MF) {
 
   for (MachineBasicBlock &MBB : MF) {
     // First pass: collect instructions that need fixing.
-    // MemLoad/MemALU: only support d8 (-128..127) — need fixing if outside.
-    // MemStore/MemLoadDst: support d16 via F3 prefix (-32768..32767) —
-    //   only need fixing if displacement exceeds d16 range.
+    // All memory formats (MemLoad/MemALU/MemStore/MemLoadDst) support d16
+    // range (-32768..32767) via the SRI prefix (C3/D3/E3/F3).
+    // Only need fixing if displacement exceeds d16 range.
     SmallVector<MachineInstr *, 8> Worklist;
     for (MachineInstr &MI : MBB) {
       int DispIdx = getDispOperandIndex(MI);
@@ -118,13 +114,7 @@ bool TLCS900FixLargeDisp::runOnMachineFunction(MachineFunction &MF) {
       if (!DispOp.isImm())
         continue;
       int64_t Disp = DispOp.getImm();
-      uint64_t TSFlags = MI.getDesc().TSFlags;
-      unsigned Format = TLCS900II::getInstFormat(TSFlags);
-      bool IsDstMem = (Format == TLCS900II::MemStore ||
-                       Format == TLCS900II::MemLoadDst);
-      int64_t MaxDisp = IsDstMem ? 32767 : 127;
-      int64_t MinDisp = IsDstMem ? -32768 : -128;
-      if (Disp < MinDisp || Disp > MaxDisp)
+      if (Disp < -32768 || Disp > 32767)
         Worklist.push_back(&MI);
     }
 

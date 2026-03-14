@@ -206,18 +206,13 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     CB.push_back(static_cast<char>(Disp & 0xFF));
     return 2;
   } else {
-    // (Xrr+d16) — 16-bit displacement, uses F3 prefix + mode byte + d16.
-    // F3 dispatches to the destination-memory opcode table (B0/F0), which
-    // is correct for MemStore and MemLoadDst (LDA) but not for MemLoad
-    // or MemALU. The register allocator's eliminateFrameIndex splits
-    // MemLoad/MemALU with large offsets into LDA + register-indirect,
-    // so we should only reach here for destination-memory formats.
-    if (!IsDstMem) {
-      Ctx.reportError(MI.getLoc(),
-          "displacement too large for source memory; "
-          "use LDA to compute the effective address first");
-      return 0;
-    }
+    // (Xrr+d16) — 16-bit displacement, uses SRI prefix + mode byte + d16.
+    // Destination memory uses F3 prefix (dispatches to B0/F0 table).
+    // Source memory uses C3/D3/E3 prefix depending on data size:
+    //   8-bit:  0xC3 → mnemonic_80 table
+    //   16-bit: 0xD3 → mnemonic_90 table
+    //   32-bit: 0xE3 → mnemonic_a0 table
+
     // Validate d16 range: must fit in signed 16-bit.
     if (DispOp.isImm() && (Disp < -32768 || Disp > 32767)) {
       std::string ErrMsg;
@@ -228,7 +223,8 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
       Ctx.reportError(MI.getLoc(), ErrMsg);
       return 0;
     }
-    CB.push_back(0xF3);
+    uint8_t SRIPrefix = IsDstMem ? 0xF3 : (0xC3 + OpSize * 0x10);
+    CB.push_back(SRIPrefix);
     // Mode byte: bits 1-0 = 01 (Xrr+d16), bits 7-2 = register file address >> 2.
     // Register file addresses: XWA=0xE0..XSP=0xFC, so (0xE0 >> 2) + BaseReg = 0x38+BaseReg.
     CB.push_back(0xE0 + (BaseReg << 2) + 0x01);

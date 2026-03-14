@@ -104,27 +104,17 @@ bool TLCS900RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     return false;
   }
 
-  // Offset exceeds d8 range. Check the instruction's encoding format.
-  // The F3 prefix (used for d16 displacements) dispatches to the B0/F0
-  // destination memory opcode table. This is correct for MemStore and
-  // MemLoadDst (LDA), but WRONG for MemLoad and MemALU which need the
-  // A0 source memory opcode table.
-  uint64_t TSFlags = MI.getDesc().TSFlags;
-  unsigned Format = TLCS900II::getInstFormat(TSFlags);
-
-  bool NeedsSrcMemTable = (Format == TLCS900II::MemLoad ||
-                           Format == TLCS900II::MemALU);
-
-  if (!NeedsSrcMemTable && Offset >= -32768 && Offset <= 32767) {
-    // MemStore/MemLoadDst: F3+d16 dispatches to B0/F0 table — correct,
-    // but only if the offset fits in d16.
+  // Offset exceeds d8 range. All memory formats (MemLoad/MemALU/MemStore/
+  // MemLoadDst) support d16 via the SRI prefix encoding:
+  //   Source memory: C3/D3/E3 (size-dependent)
+  //   Destination memory: F3
+  if (Offset >= -32768 && Offset <= 32767) {
     MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
     MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
     return false;
   }
 
-  // Either MemLoad/MemALU (needs source memory table, can't use F3+d16),
-  // or offset exceeds d16 range. Split into address computation +
+  // Offset exceeds d16 range. Split into address computation +
   // register-indirect access.
   assert(RS && "Register scavenger required for large frame offsets");
   Register ScratchReg = RS->scavengeRegisterBackwards(
