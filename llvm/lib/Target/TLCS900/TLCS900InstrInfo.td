@@ -912,6 +912,13 @@ let mayLoad = 1, Defs = [SR] in
 def POP_F : SingleByteInst<0x19, (outs), (ins), "pop_f", "", []>,
             Sched<[WritePop]>;
 
+// LDF — Load register file (switch register bank)
+// Encoding: 0x17, bank (2 bytes — opcode then bank number 0-3)
+let hasSideEffects = 1 in
+def LDF : SingleByteImm8Inst<0x17, (outs), (ins i32imm:$bank),
+                             "ldf", "$bank", []>,
+          Sched<[WriteNop]>;
+
 // EI — Enable/disable interrupts (with level)
 // Encoding: 0x06, level (2 bytes — opcode then level byte)
 def EI : SingleByteImm8Inst<0x06, (outs), (ins i32imm:$level),
