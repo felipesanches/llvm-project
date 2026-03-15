@@ -346,6 +346,7 @@ ParseStatus TLCS900AsmParser::parseCondCodeOperand(OperandVector &Operands) {
                     .Case("le", TLCS900CC::COND_LE)
                     .Case("ule", TLCS900CC::COND_ULE)
                     .Case("ov", TLCS900CC::COND_OV)
+                    .Case("pe", TLCS900CC::COND_OV)    // alias: PE = OV
                     .Case("mi", TLCS900CC::COND_MI)
                     .Case("z", TLCS900CC::COND_Z)
                     .Case("c", TLCS900CC::COND_C)
@@ -354,6 +355,7 @@ ParseStatus TLCS900AsmParser::parseCondCodeOperand(OperandVector &Operands) {
                     .Case("gt", TLCS900CC::COND_GT)
                     .Case("ugt", TLCS900CC::COND_UGT)
                     .Case("nov", TLCS900CC::COND_NOV)
+                    .Case("po", TLCS900CC::COND_NOV)   // alias: PO = NOV
                     .Case("pl", TLCS900CC::COND_PL)
                     .Case("nz", TLCS900CC::COND_NZ)
                     .Case("nc", TLCS900CC::COND_NC)
