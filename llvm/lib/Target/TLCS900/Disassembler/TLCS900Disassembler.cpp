@@ -1269,6 +1269,15 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
     Size = 3;
     return MCDisassembler::Success;
 
+  // PUSH imm8: 0x09 + imm8 — 2 bytes
+  case 0x09:
+    if (Bytes.size() < 2)
+      return MCDisassembler::Fail;
+    MI.setOpcode(TLCS900::PUSH_imm8);
+    MI.addOperand(MCOperand::createImm(Bytes[1]));
+    Size = 2;
+    return MCDisassembler::Success;
+
   // LDWIO: 0x0A + addr8 + imm16 — 4 bytes
   case 0x0A:
     if (Bytes.size() < 4)

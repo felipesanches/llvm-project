@@ -771,6 +771,13 @@ def POP16_short : SingleByteRegInst<0x48, (outs GR16SP:$rd), (ins),
                                      "popw", "$rd", []>,
                   Sched<[WritePop]>;
 
+// PUSH #imm8 — Push 8-bit immediate to stack
+// Encoding: 0x09, imm8 (2 bytes)
+let mayStore = 1 in
+def PUSH_imm8 : SingleByteImm8Inst<0x09, (outs), (ins i32imm:$imm),
+                                     "push", "$imm", []>,
+                Sched<[WritePush]>;
+
 // PUSHW #imm16 — Push 16-bit immediate to stack
 // Encoding: 0x0B, imm16_LE (3 bytes)
 let mayStore = 1 in
