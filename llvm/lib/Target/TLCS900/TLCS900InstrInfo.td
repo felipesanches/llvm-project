@@ -611,6 +611,13 @@ def JP : Branch24Inst<0x1B, (outs), (ins brtarget:$target),
                       [(br bb:$target)]>,
          Sched<[WriteJmp]>;
 
+// JP nn — Unconditional jump to 16-bit absolute address
+// Encoding: 0x1A + addr16 (3 bytes)
+let isBranch = 1, isTerminator = 1, isBarrier = 1 in
+def JP16 : Branch16Inst<0x1A, (outs), (ins i32imm:$target),
+                         "jp16", "$target", []>,
+           Sched<[WriteJmp]>;
+
 // JP (rs) — Indirect jump through register
 // Encoding: B0+rs, 0xD8 (2 bytes) — JP T,(mem) in B0 table (0xD0+cc, cc=T=8)
 let isBranch = 1, isTerminator = 1, isBarrier = 1, isIndirectBranch = 1 in
@@ -668,6 +675,13 @@ def CALL : Call24Inst<0x1D, (outs), (ins i32imm:$target),
                       "call", "$target",
                       [(tlcs900_call tglobaladdr:$target)]>,
            Sched<[WriteJmp]>;
+
+// CALL nn — Function call to 16-bit absolute address
+// Encoding: 0x1C + addr16 (3 bytes)
+let isCall = 1 in
+def CALL16 : Call16Inst<0x1C, (outs), (ins i32imm:$target),
+                         "call16", "$target", []>,
+             Sched<[WriteJmp]>;
 
 // CALL (rs) — Indirect function call through register
 // Encoding: B0+rs, 0xE8 (2 bytes) — CALL T,(mem) in B0 table (0xE0+cc, cc=T=8)
@@ -860,6 +874,18 @@ def SCC16 : PrefixCondCodeInst<0x70, (outs GR16:$rd), (ins cc:$cc, GR16:$rs),
 // Encoding: 0x00 (1 byte)
 let hasSideEffects = 0 in
 def NOP : SingleByteInst<0x00, (outs), (ins), "nop", "", []>,
+          Sched<[WriteNop]>;
+
+// NORMAL — Exit MAX mode, return to normal operation
+// Encoding: 0x01 (1 byte)
+let hasSideEffects = 1 in
+def NORMAL : SingleByteInst<0x01, (outs), (ins), "normal", "", []>,
+             Sched<[WriteNop]>;
+
+// MAX — Enter MAX mode (expands register file to 32-bit)
+// Encoding: 0x04 (1 byte)
+let hasSideEffects = 1 in
+def MAX : SingleByteInst<0x04, (outs), (ins), "max", "", []>,
           Sched<[WriteNop]>;
 
 // HALT — Halt CPU until interrupt

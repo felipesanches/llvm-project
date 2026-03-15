@@ -558,6 +558,30 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::Branch16: {
+    // 0x1A + 16-bit absolute address.
+    CB.push_back(Opcode);
+    const MCOperand &Target = MI.getOperand(0);
+    if (Target.isImm()) {
+      emitImmediate(Target.getImm(), 2, CB);
+    } else {
+      emitFixup(MI, Target, CB.size() - StartByte, FK_Data_2, CB, Fixups);
+    }
+    break;
+  }
+
+  case TLCS900II::Call16: {
+    // 0x1C + 16-bit absolute address.
+    CB.push_back(Opcode);
+    const MCOperand &Target = MI.getOperand(0);
+    if (Target.isImm()) {
+      emitImmediate(Target.getImm(), 2, CB);
+    } else {
+      emitFixup(MI, Target, CB.size() - StartByte, FK_Data_2, CB, Fixups);
+    }
+    break;
+  }
+
   case TLCS900II::Branch24: {
     // 0x1B + 24-bit absolute address.
     CB.push_back(Opcode);

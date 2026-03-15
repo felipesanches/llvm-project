@@ -98,6 +98,8 @@ def InstFormatMemRegDispImmAfter : InstFormat<73>;
 // SRI Register+Register (R+R) addressing: [prefix, mode, base_addr, idx_addr, ...]
 def InstFormatSriRRReg : InstFormat<74>;
 def InstFormatSriRRUnary : InstFormat<75>;
+def InstFormatBranch16 : InstFormat<76>;
+def InstFormatCall16 : InstFormat<77>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -305,6 +307,14 @@ class MemALUInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
 //===----------------------------------------------------------------------===//
 
 // Branch24Inst: 0x1B + 24-bit absolute address (JP nnn)
+class Branch16Inst<bits<8> opc, dag outs, dag ins, string opcodestr,
+                   string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatBranch16.Value;
+  let Opcode = opc;
+  let Size = 3;
+}
+
 class Branch24Inst<bits<8> opc, dag outs, dag ins, string opcodestr,
                    string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
@@ -336,6 +346,15 @@ class BranchRel16Inst<bits<8> opc, dag outs, dag ins, string opcodestr,
                       string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatBranchRel16.Value;
+  let Opcode = opc;
+  let Size = 3;
+}
+
+// Call16Inst: 0x1C + 16-bit absolute address (CALL nn)
+class Call16Inst<bits<8> opc, dag outs, dag ins, string opcodestr,
+                 string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatCall16.Value;
   let Opcode = opc;
   let Size = 3;
 }

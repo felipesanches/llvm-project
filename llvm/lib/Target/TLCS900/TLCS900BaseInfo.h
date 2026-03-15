@@ -120,6 +120,9 @@ enum InstFormat : uint8_t {
   // SRI Register+Register (R+R) addressing
   SriRRReg,           // [prefix, 0x07, base_addr, idx_addr, SubOpc + data_reg_enc]
   SriRRUnary,         // [prefix, 0x07, base_addr, idx_addr, SubOpc + cc]
+  // 16-bit absolute addressing (JP/CALL with 16-bit target)
+  Branch16,           // [opcode, addr16_lo, addr16_hi]
+  Call16,             // [opcode, addr16_lo, addr16_hi]
 };
 
 // TSFlags bit field positions and masks.
