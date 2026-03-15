@@ -117,9 +117,11 @@ enum InstFormat : uint8_t {
   MemRegRegDispSuffix,// [PrefixBase + addr_reg_enc, disp8, SubOpcode | data_reg_enc]
   MemRegImmAfter,     // [PrefixBase + reg_enc, SubOpcode, imm_bytes...]
   MemRegDispImmAfter, // [PrefixBase + reg_enc, disp8, SubOpcode, imm_bytes...]
-  // SRI Register+Register (R+R) addressing
+  // SRI Register+Register (R+R) addressing — 16-bit index
   SriRRReg,           // [prefix, 0x07, base_addr, idx_addr, SubOpc + data_reg_enc]
   SriRRUnary,         // [prefix, 0x07, base_addr, idx_addr, SubOpc + cc]
+  // SRI Register+Register (R+R) addressing — 8-bit index
+  SriRR8Reg,          // [prefix, 0x03, base_addr, idx_addr, SubOpc + data_reg_enc]
   // 16-bit absolute addressing (JP/CALL with 16-bit target)
   Branch16,           // [opcode, addr16_lo, addr16_hi]
   Call16,             // [opcode, addr16_lo, addr16_hi]

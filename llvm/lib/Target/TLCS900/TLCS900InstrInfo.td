@@ -4073,6 +4073,50 @@ def CALL_RR : SriRRUnaryInst<0xF3, 0x08, (outs),
 }
 } // isCall
 
+// R+R with 8-bit index register (mode byte 0x03 instead of 0x07)
+// Source loads: ld reg, (base + index8)
+let hasSideEffects = 0, mayLoad = 1 in {
+def LD_RR8B : SriRR8RegInst<0xC3, 0x20, (outs GR8:$dst),
+    (ins GPR:$base, GR8:$idx),
+    "ld_rr8b", "$dst, $base, $idx", []>,
+    Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def LD_RR8W : SriRR8RegInst<0xC3, 0x20, (outs GR16:$dst),
+    (ins GPR:$base, GR8:$idx),
+    "ld_rr8w", "$dst, $base, $idx", []>,
+    Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def LD_RR8L : SriRR8RegInst<0xC3, 0x20, (outs GPR:$dst),
+    (ins GPR:$base, GR8:$idx),
+    "ld_rr8l", "$dst, $base, $idx", []>,
+    Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // hasSideEffects, mayLoad
+// Destination stores: ld (base + index8), reg
+let hasSideEffects = 0, mayStore = 1 in {
+def ST_RR8B : SriRR8RegInst<0xF3, 0x40, (outs),
+    (ins GR8:$src, GPR:$base, GR8:$idx),
+    "st_rr8b", "$src, $base, $idx", []>,
+    Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def ST_RR8W : SriRR8RegInst<0xF3, 0x50, (outs),
+    (ins GR16:$src, GPR:$base, GR8:$idx),
+    "st_rr8w", "$src, $base, $idx", []>,
+    Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def ST_RR8L : SriRR8RegInst<0xF3, 0x60, (outs),
+    (ins GPR:$src, GPR:$base, GR8:$idx),
+    "st_rr8l", "$src, $base, $idx", []>,
+    Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // hasSideEffects, mayStore
+
 // --- DPD (prefix F4): store immediate ---
 // ExtAddrModeOpImm: [F4, addr_reg, SubOpc, imm...]
 // 1 pre-op (base register byte), then SubOpcode, then trailing imm

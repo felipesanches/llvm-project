@@ -1148,6 +1148,26 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::SriRR8Reg: {
+    // [prefix, 0x03, base_addr, idx_addr, SubOpc + data_reg_enc]
+    // Same as SriRRReg but with 0x03 mode byte (8-bit index).
+    unsigned Prefix8 = Opcode;
+    if (Opcode < 0xF0)
+      Prefix8 += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix8));
+    CB.push_back(static_cast<char>(0x03)); // R+R 8-bit index mode
+    unsigned BaseEnc8 = getRegEncoding(MI.getOperand(1));
+    CB.push_back(static_cast<char>(0xE0 + BaseEnc8 * 4));
+    unsigned IdxEnc8 = getRegEncoding(MI.getOperand(2));
+    // 8-bit register file address: W=0xE0, A=0xE1, B=0xE4, C=0xE5, ...
+    // Formula: 0xE0 + (enc >> 1) * 4 + (enc & 1)
+    CB.push_back(static_cast<char>(0xE0 + (IdxEnc8 >> 1) * 4 + (IdxEnc8 & 1)));
+    unsigned SubOpcRR8 = TLCS900II::getSubOpcode(TSFlags);
+    unsigned RegEncRR8 = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpcRR8 + RegEncRR8));
+    break;
+  }
+
   case TLCS900II::SriRRUnary: {
     // [prefix, 0x07, base_addr, idx_addr, SubOpc + cc]
     // Operand 0: condition code (imm), Operand 1: base GPR, Operand 2: index GR16.

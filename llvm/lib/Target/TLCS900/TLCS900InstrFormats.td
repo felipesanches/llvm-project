@@ -98,8 +98,9 @@ def InstFormatMemRegDispImmAfter : InstFormat<73>;
 // SRI Register+Register (R+R) addressing: [prefix, mode, base_addr, idx_addr, ...]
 def InstFormatSriRRReg : InstFormat<74>;
 def InstFormatSriRRUnary : InstFormat<75>;
-def InstFormatBranch16 : InstFormat<76>;
-def InstFormatCall16 : InstFormat<77>;
+def InstFormatSriRR8Reg : InstFormat<76>;
+def InstFormatBranch16 : InstFormat<77>;
+def InstFormatCall16 : InstFormat<78>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -1023,6 +1024,18 @@ class SriRRUnaryInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
                       string opcodestr, string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatSriRRUnary.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 5;
+}
+
+// SriRR8RegInst: R+R addressing with 8-bit index register.
+// Encoding: [prefix, 0x03, base_addr, idx_addr, SubOpc + data_reg_enc]
+// Operand 0: data register, Operand 1: base GPR, Operand 2: index GR8.
+class SriRR8RegInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                     string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriRR8Reg.Value;
   let Opcode = opc;
   let SubOpcode = sub_opc;
   let Size = 5;
