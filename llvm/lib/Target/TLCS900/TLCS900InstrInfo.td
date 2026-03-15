@@ -3734,6 +3734,21 @@ def OR_PBW : PrevBankRRInst<0xE0, (outs), (ins GR16:$rd, PrevGR16:$qs),
 // MUL r, QR
 def MUL_PBW : PrevBankRRInst<0x40, (outs), (ins GR16:$rd, PrevGR16:$qs),
     "mul", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// CP r, QR
+def CP_PBW : PrevBankRRInst<0xF0, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "cp", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// AND r, QR
+def AND_PBW : PrevBankRRInst<0xC0, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "and", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// XOR r, QR
+def XOR_PBW : PrevBankRRInst<0xD0, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "xor", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// ADC r, QR
+def ADC_PBW : PrevBankRRInst<0x90, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "adc", "$rd, $qs", []>, Sched<[WriteSTW]>;
+// SBC r, QR
+def SBC_PBW : PrevBankRRInst<0xB0, (outs), (ins GR16:$rd, PrevGR16:$qs),
+    "sbc", "$rd, $qs", []>, Sched<[WriteSTW]>;
 
 // --- PrevBank small immediate operations (3-bit value) ---
 // LD QR, #small (0-7)
