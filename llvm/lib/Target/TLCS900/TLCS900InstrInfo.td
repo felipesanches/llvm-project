@@ -1588,6 +1588,13 @@ let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
 def LDIRW93 : BlockTransferInst<0x11, (outs), (ins), "ldirw93", "", [], 3>,
               Sched<[WriteSTW]>;
 
+// LDX — Load and eXchange: exchange (XDE)↔(XHL), increment both, decrement XBC
+// Encoding: 0xF7 (1 byte) — NOT in the block transfer prefix group
+let Defs = [XDE, XHL, XBC], Uses = [XDE, XHL, XBC], mayLoad = 1, mayStore = 1,
+    hasSideEffects = 0 in
+def LDX : SingleByteInst<0xF7, (outs), (ins), "ldx", "", []>,
+          Sched<[WriteSTW]>;
+
 //===----------------------------------------------------------------------===//
 // Bit manipulation isel patterns
 //===----------------------------------------------------------------------===//

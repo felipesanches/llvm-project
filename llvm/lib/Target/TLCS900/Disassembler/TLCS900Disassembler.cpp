@@ -1598,6 +1598,10 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
     case 3: return decodeSRIPrefix(MI, Size, Bytes, true, 2);
     case 4: return decodePIPrefix(MI, Size, Bytes, true, 2, false);
     case 5: return decodePIPrefix(MI, Size, Bytes, true, 2, true);
+    case 7: // 0xF7 = LDX (block transfer exchange)
+      MI.setOpcode(TLCS900::LDX);
+      Size = 1;
+      return MCDisassembler::Success;
     default: return MCDisassembler::Fail;
     }
   }
