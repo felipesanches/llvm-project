@@ -95,6 +95,10 @@ def InstFormatMemRegRegDispSuffix : InstFormat<71>;
 def InstFormatMemRegImmAfter : InstFormat<72>;
 def InstFormatMemRegDispImmAfter : InstFormat<73>;
 
+// SRI Register+Register (R+R) addressing: [prefix, mode, base_addr, idx_addr, ...]
+def InstFormatSriRRReg : InstFormat<74>;
+def InstFormatSriRRUnary : InstFormat<75>;
+
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
   bits<2> Value = val;
@@ -971,4 +975,36 @@ class MemRegDispImmAfterInst<bits<8> prefix_base, bits<8> sub_opc, int sz,
   let Opcode = prefix_base;
   let SubOpcode = sub_opc;
   let Size = sz;
+}
+
+//===----------------------------------------------------------------------===//
+// SRI Register+Register (R+R) addressing instruction formats.
+// Encoding: [prefix, mode(0x07), base_reg_addr, idx_reg_addr, SubOpc ...]
+//   prefix = Opcode + (Opcode < 0xF0 ? OpSize*0x10 : 0)
+//   base_reg_addr = 0xE0 + base_reg_enc * 4
+//   idx_reg_addr  = 0xE0 + idx_reg_enc * 4
+//===----------------------------------------------------------------------===//
+
+// SriRRRegInst: R+R addressing with data register operand.
+// Encoding: [prefix, 0x07, base_addr, idx_addr, SubOpc + data_reg_enc]
+// Operand 0: data register, Operand 1: base GPR, Operand 2: index GR16.
+class SriRRRegInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                    string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriRRReg.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 5;
+}
+
+// SriRRUnaryInst: R+R addressing with fixed sub-opcode (JP, CALL).
+// Encoding: [prefix, 0x07, base_addr, idx_addr, SubOpc + cc]
+// Operand 0: condition code (imm), Operand 1: base GPR, Operand 2: index GR16.
+class SriRRUnaryInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                      string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriRRUnary.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 5;
 }

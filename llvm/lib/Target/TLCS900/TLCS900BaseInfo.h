@@ -117,6 +117,9 @@ enum InstFormat : uint8_t {
   MemRegRegDispSuffix,// [PrefixBase + addr_reg_enc, disp8, SubOpcode | data_reg_enc]
   MemRegImmAfter,     // [PrefixBase + reg_enc, SubOpcode, imm_bytes...]
   MemRegDispImmAfter, // [PrefixBase + reg_enc, disp8, SubOpcode, imm_bytes...]
+  // SRI Register+Register (R+R) addressing
+  SriRRReg,           // [prefix, 0x07, base_addr, idx_addr, SubOpc + data_reg_enc]
+  SriRRUnary,         // [prefix, 0x07, base_addr, idx_addr, SubOpc + cc]
 };
 
 // TSFlags bit field positions and masks.

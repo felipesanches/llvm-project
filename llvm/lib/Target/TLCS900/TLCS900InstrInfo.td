@@ -3929,6 +3929,87 @@ def LDMMW_DRI : RIImmAfterInst<0xF3, 0x16, 7, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$s0, i32imm:$s1),
     "ldmmw_dri", "$b0, $b1, $b2, $s0, $s1", []>;
 
+// --- SRI R+R addressing (Register+Register indexed) ---
+// Encoding: [prefix, 0x07, base_addr, idx_addr, SubOpc + data_reg]
+// prefix = C3 (8-bit src), D3 (16-bit src), E3 (32-bit src), F3 (dest)
+// base_addr = 0xE0 + base_enc*4, idx_addr = 0xE0 + idx_enc*4
+
+// Source loads: ld reg, (base + index)
+let hasSideEffects = 0, mayLoad = 1 in {
+def LD_RRB : SriRRRegInst<0xC3, 0x20, (outs GR8:$dst),
+    (ins GPR:$base, GR16:$idx),
+    "ld_rrb", "$dst, $base, $idx", []>,
+    Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def LD_RRW : SriRRRegInst<0xC3, 0x20, (outs GR16:$dst),
+    (ins GPR:$base, GR16:$idx),
+    "ld_rrw", "$dst, $base, $idx", []>,
+    Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def LD_RRL : SriRRRegInst<0xC3, 0x20, (outs GPR:$dst),
+    (ins GPR:$base, GR16:$idx),
+    "ld_rrl", "$dst, $base, $idx", []>,
+    Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // hasSideEffects, mayLoad
+
+// Destination stores: ld (base + index), reg
+// F3 prefix is size-independent; OpSize selects sub-opcode range.
+let hasSideEffects = 0, mayStore = 1 in {
+def ST_RRB : SriRRRegInst<0xF3, 0x40, (outs),
+    (ins GR8:$src, GPR:$base, GR16:$idx),
+    "st_rrb", "$src, $base, $idx", []>,
+    Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def ST_RRW : SriRRRegInst<0xF3, 0x40, (outs),
+    (ins GR16:$src, GPR:$base, GR16:$idx),
+    "st_rrw", "$src, $base, $idx", []>,
+    Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def ST_RRL : SriRRRegInst<0xF3, 0x40, (outs),
+    (ins GPR:$src, GPR:$base, GR16:$idx),
+    "st_rrl", "$src, $base, $idx", []>,
+    Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // hasSideEffects, mayStore
+
+// LDA: load effective address of (base + index)
+let hasSideEffects = 0, mayLoad = 0 in {
+def LDA_RR : SriRRRegInst<0xF3, 0x30, (outs GPR:$dst),
+    (ins GPR:$base, GR16:$idx),
+    "lda_rr", "$dst, $base, $idx", []>,
+    Sched<[WriteIALU]> {
+  let OpSize = OpSize32.Value;
+}
+} // hasSideEffects, mayLoad
+
+// JP cc, (base + index) — conditional/unconditional jump via R+R
+let hasSideEffects = 0, isBarrier = 1, isBranch = 1, isTerminator = 1,
+    isIndirectBranch = 1 in {
+def JP_RR : SriRRUnaryInst<0xF3, 0xD0, (outs),
+    (ins i32imm:$cc, GPR:$base, GR16:$idx),
+    "jp_rr", "$cc, $base, $idx", []>,
+    Sched<[WriteJmp]> {
+  let OpSize = OpSize32.Value;
+}
+} // JP flags
+
+// CALL (base + index) — call via R+R
+let hasSideEffects = 0, isCall = 1 in {
+def CALL_RR : SriRRUnaryInst<0xF3, 0x08, (outs),
+    (ins i32imm:$cc, GPR:$base, GR16:$idx),
+    "call_rr", "$cc, $base, $idx", []>,
+    Sched<[WriteJmp]> {
+  let OpSize = OpSize32.Value;
+}
+} // isCall
+
 // --- DPD (prefix F4): store immediate ---
 // ExtAddrModeOpImm: [F4, addr_reg, SubOpc, imm...]
 // 1 pre-op (base register byte), then SubOpcode, then trailing imm

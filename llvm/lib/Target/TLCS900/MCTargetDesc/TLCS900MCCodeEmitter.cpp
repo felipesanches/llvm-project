@@ -1104,6 +1104,44 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  //=== SRI Register+Register (R+R) addressing formats ===
+
+  case TLCS900II::SriRRReg: {
+    // [prefix, 0x07, base_addr, idx_addr, SubOpc + data_reg_enc]
+    // Operand 0: data register, Operand 1: base GPR, Operand 2: index GR16.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(0x07)); // R+R 16-bit index mode
+    unsigned BaseEnc = getRegEncoding(MI.getOperand(1));
+    CB.push_back(static_cast<char>(0xE0 + BaseEnc * 4));
+    unsigned IdxEnc = getRegEncoding(MI.getOperand(2));
+    CB.push_back(static_cast<char>(0xE0 + IdxEnc * 4));
+    unsigned SubOpcRR = TLCS900II::getSubOpcode(TSFlags);
+    unsigned RegEncRR = getRegEncoding(MI.getOperand(0), OpSize);
+    CB.push_back(static_cast<char>(SubOpcRR + RegEncRR));
+    break;
+  }
+
+  case TLCS900II::SriRRUnary: {
+    // [prefix, 0x07, base_addr, idx_addr, SubOpc + cc]
+    // Operand 0: condition code (imm), Operand 1: base GPR, Operand 2: index GR16.
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(0x07)); // R+R 16-bit index mode
+    unsigned BaseEnc = getRegEncoding(MI.getOperand(1));
+    CB.push_back(static_cast<char>(0xE0 + BaseEnc * 4));
+    unsigned IdxEnc = getRegEncoding(MI.getOperand(2));
+    CB.push_back(static_cast<char>(0xE0 + IdxEnc * 4));
+    unsigned SubOpcRR = TLCS900II::getSubOpcode(TSFlags);
+    unsigned CC = MI.getOperand(0).getImm() & 0xF;
+    CB.push_back(static_cast<char>(SubOpcRR + CC));
+    break;
+  }
+
   //=== Previous register bank (PrevBank) formats ===
 
   case TLCS900II::PrevBankRR: {
