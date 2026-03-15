@@ -3584,6 +3584,10 @@ def CPI_BERP : ERPSmallImmInst<0xD8, (outs), (ins i32imm:$bank, i32imm:$imm),
     "cpi_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def INC_BERP : ERPSmallImmInst<0x60, (outs), (ins i32imm:$bank, i32imm:$imm),
     "inc_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+def DEC_BERP : ERPSmallImmInst<0x68, (outs), (ins i32imm:$bank, i32imm:$imm),
+    "dec_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+def XOR_BERP : ERPRegInst<0xD0, (outs), (ins GR8:$rs, i32imm:$bank),
+    "xor_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 } // OpSize8
 
 // 16-bit ERP operations with register operand
