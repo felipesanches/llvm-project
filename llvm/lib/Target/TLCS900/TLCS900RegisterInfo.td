@@ -95,6 +95,10 @@ def GR8 : RegisterClass<"TLCS900", [i8],  8,
 def GR16 : RegisterClass<"TLCS900", [i16], 16,
                          (add WA, BC, DE, HL, IX, IY, IZ)>;
 
+// GR16 + SP — for push/pop short forms which accept all 8 registers
+def GR16SP : RegisterClass<"TLCS900", [i16], 16,
+                            (add WA, BC, DE, HL, IX, IY, IZ, SP)>;
+
 def GPR : RegisterClass<"TLCS900", [i32], 32,
                          (add XWA, XBC, XDE, XHL, XIX, XIY, XIZ, XSP)>;
 

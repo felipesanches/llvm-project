@@ -761,13 +761,13 @@ def POP16 : PrefixPopInst<0x05, (outs GR16:$rd), (ins),
 
 // PUSH rs16 — Short form: 0x28+r (1 byte)
 let mayStore = 1 in
-def PUSH16_short : SingleByteRegInst<0x28, (outs), (ins GR16:$rs),
+def PUSH16_short : SingleByteRegInst<0x28, (outs), (ins GR16SP:$rs),
                                       "pushw", "$rs", []>,
                    Sched<[WritePush]>;
 
 // POP rd16 — Short form: 0x48+r (1 byte)
 let mayLoad = 1 in
-def POP16_short : SingleByteRegInst<0x48, (outs GR16:$rd), (ins),
+def POP16_short : SingleByteRegInst<0x48, (outs GR16SP:$rd), (ins),
                                      "popw", "$rd", []>,
                   Sched<[WritePop]>;
 
