@@ -1422,6 +1422,15 @@ def STCFm : MemDstBitOpInst<0xA0, 2, (outs),
                               (ins MEMri:$addr, i32imm:$bit),
                               "stcfm", "$bit, $addr", []>,
             Sched<[WriteSTW, ReadMemBase]>;
+def CHGm : MemDstBitOpInst<0xC0, 2, (outs),
+                             (ins MEMri:$addr, i32imm:$bit),
+                             "chgm", "$bit, $addr", []>,
+           Sched<[WriteSTW, ReadMemBase]>;
+let Defs = [SR] in
+def TSETm : MemDstBitOpInst<0xA8, 2, (outs),
+                              (ins MEMri:$addr, i32imm:$bit),
+                              "tsetm", "$bit, $addr", []>,
+            Sched<[WriteSTW, ReadMemBase]>;
 } // mayLoad, mayStore, hasSideEffects
 
 // Memory PUSH — read from memory and push to stack.
@@ -3978,11 +3987,15 @@ def STCFA_RID8 : MemRegDispSuffixInst<0xB8, 0x2C, (outs),
 
 // --- Carry flag bit# operations with register indirect ---
 // ANDCF #n, (XRR) — [B0+reg, 0x80+n]
+// ORCF #n, (XRR) — [B0+reg, 0x88+n]
 // XORCF #n, (XRR) — [B0+reg, 0x90+n]
 let Defs = [SR], hasSideEffects = 0 in {
 def ANDCFN_RI : MemRegImmModInst<0xB0, 0x80, (outs),
     (ins GPR:$reg, i32imm:$bit),
     "andcfn_ri", "$reg, $bit", []>, Sched<[WriteIALU]>;
+def ORCFN_RI : MemRegImmModInst<0xB0, 0x88, (outs),
+    (ins GPR:$reg, i32imm:$bit),
+    "orcfn_ri", "$reg, $bit", []>, Sched<[WriteIALU]>;
 def XORCFN_RI : MemRegImmModInst<0xB0, 0x90, (outs),
     (ins GPR:$reg, i32imm:$bit),
     "xorcfn_ri", "$reg, $bit", []>, Sched<[WriteIALU]>;
