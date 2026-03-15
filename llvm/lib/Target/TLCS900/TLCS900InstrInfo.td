@@ -1152,6 +1152,28 @@ def DJNZ8 : PrefixDJNZInst<0x1C, (outs GR8:$rd), (ins GR8:$rs1, brtarget:$target
             Sched<[WriteIALU, WriteJmp]>;
 
 //===----------------------------------------------------------------------===//
+// LINK / UNLK — Stack frame creation/destruction
+//===----------------------------------------------------------------------===//
+
+// LINK rd, #d16 — Push rd, copy XSP to rd, then subtract d16 from XSP.
+// Encoding: E8+rd, 0x0C, d16_lo, d16_hi (4 bytes)
+// Uses 32-bit prefix (E8) because it operates on 32-bit GPR registers.
+let hasSideEffects = 1, mayStore = 1, Defs = [XSP],
+    OpSize = OpSize32.Value in
+def LINK : PrefixRegImmInst<0x0C, 4, (outs), (ins GPR:$reg, i32imm:$disp),
+                             "link", "$reg, $disp", []>,
+           Sched<[WriteSTW]>;
+
+// UNLK rd — Copy rd to XSP, then pop rd from stack.
+// Encoding: E8+rd, 0x0D (2 bytes)
+// Uses 32-bit prefix (E8) because it operates on 32-bit GPR registers.
+let hasSideEffects = 1, mayLoad = 1, Defs = [XSP],
+    OpSize = OpSize32.Value in
+def UNLK : PrefixUnaryInst<0x0D, (outs), (ins GPR:$reg),
+                            "unlk", "$reg", []>,
+           Sched<[WriteLDW]>;
+
+//===----------------------------------------------------------------------===//
 // Memory-register arithmetic (CISC: operates directly on memory)
 // All modify SR flags.
 //===----------------------------------------------------------------------===//
