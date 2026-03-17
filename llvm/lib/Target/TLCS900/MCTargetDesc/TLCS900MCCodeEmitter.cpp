@@ -20,6 +20,7 @@
 #include "TLCS900FixupKinds.h"
 #include "TLCS900MCTargetDesc.h"
 #include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
@@ -32,6 +33,33 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "tlcs900-mccodeemitter"
+
+/// Check if an MCExpr tree contains a reference to the "." (dot/current PC)
+/// symbol.  Dot symbols are temporary symbols starting with ".Ltmp" that the
+/// assembler creates to represent the current location counter.
+static bool exprContainsDot(const MCExpr *E) {
+  switch (E->getKind()) {
+  case MCExpr::Constant:
+    return false;
+  case MCExpr::SymbolRef: {
+    const MCSymbolRefExpr *SR = static_cast<const MCSymbolRefExpr *>(E);
+    // The assembler creates temporary symbols like ".Ltmp0" for "."
+    // references.  Check for the temporary name prefix.
+    return SR->getSymbol().isTemporary() &&
+           SR->getSymbol().getName().starts_with(".Ltmp");
+  }
+  case MCExpr::Unary:
+    return exprContainsDot(
+        static_cast<const MCUnaryExpr *>(E)->getSubExpr());
+  case MCExpr::Binary: {
+    const MCBinaryExpr *BE = static_cast<const MCBinaryExpr *>(E);
+    return exprContainsDot(BE->getLHS()) || exprContainsDot(BE->getRHS());
+  }
+  case MCExpr::Target:
+    return false;
+  }
+  return false;
+}
 
 unsigned TLCS900MCCodeEmitter::getRegEncoding(const MCOperand &MO,
                                                unsigned OpSize) const {
@@ -120,15 +148,31 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
     // displacement being measured from the END of the instruction, not from
     // the displacement field. This ensures RELA addends are correct for
     // absolute symbols (e.g., .set labels).
+    //
+    // When the expression contains a "." (dot/current PC) reference (e.g.,
+    // "calr (0xE00010 - . - 3)"), the user has already incorporated the PC
+    // into the expression. Using a PC-relative fixup would double-subtract
+    // the PC. In this case, use a plain data fixup (FK_Data_N) so the
+    // expression value is emitted as-is.
     const MCExpr *Expr = MO.getExpr();
+    MCFixupKind FixupKind = Kind;
+    bool HasDotRef = exprContainsDot(Expr);
     if (Kind == (MCFixupKind)TLCS900::fixup_tlcs900_rel8) {
-      Expr = MCBinaryExpr::createAdd(
-          Expr, MCConstantExpr::create(-1, Ctx), Ctx);
+      if (HasDotRef) {
+        FixupKind = FK_Data_1;
+      } else {
+        Expr = MCBinaryExpr::createAdd(
+            Expr, MCConstantExpr::create(-1, Ctx), Ctx);
+      }
     } else if (Kind == (MCFixupKind)TLCS900::fixup_tlcs900_rel16) {
-      Expr = MCBinaryExpr::createAdd(
-          Expr, MCConstantExpr::create(-2, Ctx), Ctx);
+      if (HasDotRef) {
+        FixupKind = FK_Data_2;
+      } else {
+        Expr = MCBinaryExpr::createAdd(
+            Expr, MCConstantExpr::create(-2, Ctx), Ctx);
+      }
     }
-    Fixups.push_back(MCFixup::create(FixupOffset, Expr, Kind));
+    Fixups.push_back(MCFixup::create(FixupOffset, Expr, FixupKind));
     for (unsigned i = 0; i < NumBytes; ++i)
       CB.push_back(0);
   }
@@ -1026,7 +1070,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   case TLCS900II::ERPSmallImm: {
     // [prefix, bank_idx, SubOpc + imm3]
     // Operand 0: bank index, Operand 1: small immediate (0-7).
-    unsigned Prefix = Opcode + OpSize * 0x10;
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
     CB.push_back(static_cast<char>(Prefix));
     CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
     unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
@@ -1038,7 +1084,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   case TLCS900II::ERPUnary: {
     // [prefix, bank_idx, SubOpc]
     // Operand 0: bank index.
-    unsigned Prefix = Opcode + OpSize * 0x10;
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
     CB.push_back(static_cast<char>(Prefix));
     CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
     unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);
@@ -1049,7 +1097,9 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   case TLCS900II::ERPImmAfter: {
     // [prefix, bank_idx, SubOpc, imm_bytes...]
     // Operand 0: bank index, remaining operands: trailing immediate bytes.
-    unsigned Prefix = Opcode + OpSize * 0x10;
+    unsigned Prefix = Opcode;
+    if (Opcode < 0xF0)
+      Prefix += OpSize * 0x10;
     CB.push_back(static_cast<char>(Prefix));
     CB.push_back(static_cast<char>(MI.getOperand(0).getImm() & 0xFF));
     unsigned SubOpc = TLCS900II::getSubOpcode(TSFlags);

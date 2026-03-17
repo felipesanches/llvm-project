@@ -396,11 +396,23 @@ bool TLCS900AsmParser::parseOperand(OperandVector &Operands) {
     // Not a register — fall through to expression parsing
   }
 
-  // Literal '(' — add as token (for 'call (reg)' syntax)
+  // '(' handling: if the next token after '(' is a register, treat '(' as a
+  // literal token for 'call (reg)' / 'jp (reg)' syntax.  Otherwise, fall
+  // through to parseExpression which handles parenthesized expressions like
+  // (0xE00010 - .) for branch-target arithmetic.
   if (getLexer().is(AsmToken::LParen)) {
-    Operands.push_back(TLCS900Operand::createToken("(", S));
-    Parser.Lex();
-    return false;
+    // Peek at the token after '(' to decide.
+    const AsmToken &Next = getLexer().peekTok();
+    bool NextIsReg = false;
+    if (Next.is(AsmToken::Identifier))
+      NextIsReg = MatchRegisterName(Next.getString().lower()) != 0;
+    if (NextIsReg) {
+      Operands.push_back(TLCS900Operand::createToken("(", S));
+      Parser.Lex();
+      return false;
+    }
+    // Not a register — fall through to expression parsing which will
+    // handle the parenthesized expression (including consuming '(' and ')').
   }
 
   // Literal ')' — add as token

@@ -3847,30 +3847,172 @@ def STCF_PBW : PrevBankImmAfterInst<0x24, 4, (outs),
 // Encoding: [C5/D5/E5, base_reg_addr, SubOpc_base + data_reg_enc]
 // Reuses ERPRegInst format with Opcode overridden to 0xC5.
 // Operand 0: data register, Operand 1: base register address (i32imm).
+//
+// TLCS-900 post-increment / pre-decrement addressing modes:
+//   SPI source: C5 (byte), D5 (word), E5 (long) — (R+) as source
+//   SPD source: C4 (byte), D4 (word), E4 (long) — (-R) as source
+//   DPI dest:   F5 — (R+) as destination (size-independent prefix)
+//   DPD dest:   F4 — (-R) as destination (size-independent prefix)
+//
+// The base register is encoded as a register file address byte:
+//   XWA=0xE0, XBC=0xE4, XDE=0xE8, XHL=0xEC, XIX=0xF0, XIY=0xF4, XIZ=0xF8, XSP=0xFC
+//
+// Sub-opcode table (same as standard memory addressing):
+//   0x04: PUSH    0x06: POP (word only in source table)
+//   0x20+r: LD reg,(mem)    0x30+r: ST (mem),reg (dest only)
+//   0x38+opc: ALU (mem),#imm  (0x38=ADD,0x39=ADC,0x3A=SUB,0x3B=SBC,0x3C=AND,0x3D=XOR,0x3E=OR,0x3F=CP)
+//   0x40+r: LDA reg,mem (dest only)
+//   0x60+n: INC #n,(mem)    0x68+n: DEC #n,(mem)
+//   0x80+r: ADD reg,(mem)   0x88+r: ADD (mem),reg
+//   0x90+r: ADC reg,(mem)   0x98+r: ADC (mem),reg
+//   0xA0+r: SUB reg,(mem)   0xA8+r: SUB (mem),reg
+//   0xB0+r: SBC reg,(mem)   0xB8+r: SBC (mem),reg
+//   0xC0+r: AND reg,(mem)   0xC8+r: AND (mem),reg
+//   0xD0+r: XOR reg,(mem)   0xD8+r: XOR (mem),reg
+//   0xE0+r: OR reg,(mem)    0xE8+r: OR (mem),reg
+//   0xF0+r: CP reg,(mem)    0xF8+r: CP (mem),reg
+
 let Opcode = 0xC5 in {
+// --- SPI Byte (prefix C5) ---
 let OpSize = OpSize8.Value in {
+// Load: LD r8, (R+)
 def LD_SPIB : ERPRegInst<0x20, (outs), (ins GR8:$rd, i32imm:$base),
     "ld_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+// ALU reg,(mem): ADD/ADC/SUB/SBC/AND/XOR/OR/CP r8, (R+)
 def ADD_SPIB : ERPRegInst<0x80, (outs), (ins GR8:$rd, i32imm:$base),
     "add_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def ADC_SPIB : ERPRegInst<0x90, (outs), (ins GR8:$rd, i32imm:$base),
+    "adc_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def SUB_SPIB : ERPRegInst<0xA0, (outs), (ins GR8:$rd, i32imm:$base),
+    "sub_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def SBC_SPIB : ERPRegInst<0xB0, (outs), (ins GR8:$rd, i32imm:$base),
+    "sbc_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def AND_SPIB : ERPRegInst<0xC0, (outs), (ins GR8:$rd, i32imm:$base),
+    "and_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def XOR_SPIB : ERPRegInst<0xD0, (outs), (ins GR8:$rd, i32imm:$base),
+    "xor_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+def OR_SPIB_RM : ERPRegInst<0xE0, (outs), (ins GR8:$rd, i32imm:$base),
+    "or_spib_rm", "$rd, $base", []>, Sched<[WriteSTW]>;
 def CP_SPIB : ERPRegInst<0xF0, (outs), (ins GR8:$rd, i32imm:$base),
     "cp_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+// ALU (mem),reg: ADD/ADC/SUB/SBC/AND/XOR/OR/CP (R+), r8
+def ADD_SPIB_MR : ERPRegInst<0x88, (outs), (ins GR8:$rs, i32imm:$base),
+    "add_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def ADC_SPIB_MR : ERPRegInst<0x98, (outs), (ins GR8:$rs, i32imm:$base),
+    "adc_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def SUB_SPIB_MR : ERPRegInst<0xA8, (outs), (ins GR8:$rs, i32imm:$base),
+    "sub_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def SBC_SPIB_MR : ERPRegInst<0xB8, (outs), (ins GR8:$rs, i32imm:$base),
+    "sbc_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def AND_SPIB_MR : ERPRegInst<0xC8, (outs), (ins GR8:$rs, i32imm:$base),
+    "and_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def XOR_SPIB_MR : ERPRegInst<0xD8, (outs), (ins GR8:$rs, i32imm:$base),
+    "xor_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def OR_SPIB_MR : ERPRegInst<0xE8, (outs), (ins GR8:$rs, i32imm:$base),
+    "or_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def CP_SPIB_MR : ERPRegInst<0xF8, (outs), (ins GR8:$rs, i32imm:$base),
+    "cp_spib_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+// ALU (mem),#imm: ADD/ADC/SUB/SBC/AND/XOR/OR/CP (R+), #n
+def ADD_SPIB_IM : ERPImmAfterInst<0x38, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "add_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def ADC_SPIB_IM : ERPImmAfterInst<0x39, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "adc_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def SUB_SPIB_IM : ERPImmAfterInst<0x3A, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "sub_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def SBC_SPIB_IM : ERPImmAfterInst<0x3B, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "sbc_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def AND_SPIB_IM : ERPImmAfterInst<0x3C, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "and_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def XOR_SPIB_IM : ERPImmAfterInst<0x3D, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "xor_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def OR_SPIB_IM : ERPImmAfterInst<0x3E, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "or_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def CP_SPIB_IM : ERPImmAfterInst<0x3F, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "cp_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+// INC/DEC (R+): count in bits 0-2 of sub-opcode
+def INC_SPIB : ERPSmallImmInst<0x60, (outs), (ins i32imm:$base, i32imm:$count),
+    "inc_spib", "$count, $base", []>, Sched<[WriteSTW]>;
+def DEC_SPIB : ERPSmallImmInst<0x68, (outs), (ins i32imm:$base, i32imm:$count),
+    "dec_spib", "$count, $base", []>, Sched<[WriteSTW]>;
+// PUSH (R+)
+def PUSH_SPIB : ERPUnaryInst<0x04, (outs), (ins i32imm:$base),
+    "push_spib", "$base", []>, Sched<[WriteSTW]>;
 } // OpSize8
+
+// --- SPI Word (prefix D5) ---
 let OpSize = OpSize16.Value in {
 def LD_SPIW : ERPRegInst<0x20, (outs), (ins GR16:$rd, i32imm:$base),
     "ld_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
 def ADD_SPIW : ERPRegInst<0x80, (outs), (ins GR16:$rd, i32imm:$base),
     "add_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def ADC_SPIW : ERPRegInst<0x90, (outs), (ins GR16:$rd, i32imm:$base),
+    "adc_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def SUB_SPIW : ERPRegInst<0xA0, (outs), (ins GR16:$rd, i32imm:$base),
+    "sub_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def SBC_SPIW : ERPRegInst<0xB0, (outs), (ins GR16:$rd, i32imm:$base),
+    "sbc_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def AND_SPIW : ERPRegInst<0xC0, (outs), (ins GR16:$rd, i32imm:$base),
+    "and_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def XOR_SPIW : ERPRegInst<0xD0, (outs), (ins GR16:$rd, i32imm:$base),
+    "xor_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def OR_SPIW : ERPRegInst<0xE0, (outs), (ins GR16:$rd, i32imm:$base),
+    "or_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
 def CP_SPIW : ERPRegInst<0xF0, (outs), (ins GR16:$rd, i32imm:$base),
     "cp_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
 def CPM_SPIW : ERPRegInst<0xF8, (outs), (ins GR16:$rd, i32imm:$base),
     "cpm_spiw", "$rd, $base", []>, Sched<[WriteSTW]>;
+// ALU (mem),reg word
+def ADD_SPIW_MR : ERPRegInst<0x88, (outs), (ins GR16:$rs, i32imm:$base),
+    "add_spiw_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def SUB_SPIW_MR : ERPRegInst<0xA8, (outs), (ins GR16:$rs, i32imm:$base),
+    "sub_spiw_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def AND_SPIW_MR : ERPRegInst<0xC8, (outs), (ins GR16:$rs, i32imm:$base),
+    "and_spiw_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def OR_SPIW_MR : ERPRegInst<0xE8, (outs), (ins GR16:$rs, i32imm:$base),
+    "or_spiw_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def CP_SPIW_MR : ERPRegInst<0xF8, (outs), (ins GR16:$rs, i32imm:$base),
+    "cp_spiw_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+// ALU (mem),#imm word (trailing 2-byte immediate)
+def ADD_SPIW_IM : ERPImmAfterInst<0x38, 5, (outs), (ins i32imm:$base, i32imm:$lo, i32imm:$hi),
+    "add_spiw_im", "$base, $lo, $hi", []>, Sched<[WriteSTW]>;
+def SUB_SPIW_IM : ERPImmAfterInst<0x3A, 5, (outs), (ins i32imm:$base, i32imm:$lo, i32imm:$hi),
+    "sub_spiw_im", "$base, $lo, $hi", []>, Sched<[WriteSTW]>;
+def AND_SPIW_IM : ERPImmAfterInst<0x3C, 5, (outs), (ins i32imm:$base, i32imm:$lo, i32imm:$hi),
+    "and_spiw_im", "$base, $lo, $hi", []>, Sched<[WriteSTW]>;
+def OR_SPIW_IM : ERPImmAfterInst<0x3E, 5, (outs), (ins i32imm:$base, i32imm:$lo, i32imm:$hi),
+    "or_spiw_im", "$base, $lo, $hi", []>, Sched<[WriteSTW]>;
+def CP_SPIW_IM : ERPImmAfterInst<0x3F, 5, (outs), (ins i32imm:$base, i32imm:$lo, i32imm:$hi),
+    "cp_spiw_im", "$base, $lo, $hi", []>, Sched<[WriteSTW]>;
+// INC/DEC word
+def INC_SPIW : ERPSmallImmInst<0x60, (outs), (ins i32imm:$base, i32imm:$count),
+    "inc_spiw", "$count, $base", []>, Sched<[WriteSTW]>;
+def DEC_SPIW : ERPSmallImmInst<0x68, (outs), (ins i32imm:$base, i32imm:$count),
+    "dec_spiw", "$count, $base", []>, Sched<[WriteSTW]>;
+// PUSH word
+def PUSH_SPIW : ERPUnaryInst<0x04, (outs), (ins i32imm:$base),
+    "push_spiw", "$base", []>, Sched<[WriteSTW]>;
 } // OpSize16
+
+// --- SPI Long (prefix E5) ---
 let OpSize = OpSize32.Value in {
 def LD_SPIL : ERPRegInst<0x20, (outs), (ins GPR:$rd, i32imm:$base),
     "ld_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
 def ADD_SPIL : ERPRegInst<0x80, (outs), (ins GPR:$rd, i32imm:$base),
     "add_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
+def SUB_SPIL : ERPRegInst<0xA0, (outs), (ins GPR:$rd, i32imm:$base),
+    "sub_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
+def AND_SPIL : ERPRegInst<0xC0, (outs), (ins GPR:$rd, i32imm:$base),
+    "and_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
+def OR_SPIL : ERPRegInst<0xE0, (outs), (ins GPR:$rd, i32imm:$base),
+    "or_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
+def CP_SPIL : ERPRegInst<0xF0, (outs), (ins GPR:$rd, i32imm:$base),
+    "cp_spil", "$rd, $base", []>, Sched<[WriteSTW]>;
+def ADD_SPIL_MR : ERPRegInst<0x88, (outs), (ins GPR:$rs, i32imm:$base),
+    "add_spil_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def SUB_SPIL_MR : ERPRegInst<0xA8, (outs), (ins GPR:$rs, i32imm:$base),
+    "sub_spil_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def CP_SPIL_MR : ERPRegInst<0xF8, (outs), (ins GPR:$rs, i32imm:$base),
+    "cp_spil_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
 } // OpSize32
 } // Opcode = 0xC5 (SPI native)
 
@@ -3878,9 +4020,39 @@ def ADD_SPIL : ERPRegInst<0x80, (outs), (ins GPR:$rd, i32imm:$base),
 // Encoding: [C4/D4/E4, base_reg_addr, SubOpc_base + data_reg_enc]
 let Opcode = 0xC4 in {
 let OpSize = OpSize8.Value in {
+def LD_SPDB : ERPRegInst<0x20, (outs), (ins GR8:$rd, i32imm:$base),
+    "ld_spdb", "$rd, $base", []>, Sched<[WriteSTW]>;
+def ADD_SPDB : ERPRegInst<0x80, (outs), (ins GR8:$rd, i32imm:$base),
+    "add_spdb", "$rd, $base", []>, Sched<[WriteSTW]>;
+def SUB_SPDB : ERPRegInst<0xA0, (outs), (ins GR8:$rd, i32imm:$base),
+    "sub_spdb", "$rd, $base", []>, Sched<[WriteSTW]>;
+def AND_SPDB : ERPRegInst<0xC0, (outs), (ins GR8:$rd, i32imm:$base),
+    "and_spdb", "$rd, $base", []>, Sched<[WriteSTW]>;
+def OR_SPDB : ERPRegInst<0xE0, (outs), (ins GR8:$rd, i32imm:$base),
+    "or_spdb", "$rd, $base", []>, Sched<[WriteSTW]>;
 def CP_SPDB : ERPRegInst<0xF0, (outs), (ins GR8:$rd, i32imm:$base),
     "cp_spdb", "$rd, $base", []>, Sched<[WriteSTW]>;
+def CP_SPDB_MR : ERPRegInst<0xF8, (outs), (ins GR8:$rs, i32imm:$base),
+    "cp_spdb_mr", "$rs, $base", []>, Sched<[WriteSTW]>;
+def CP_SPDB_IM : ERPImmAfterInst<0x3F, 4, (outs), (ins i32imm:$base, i32imm:$imm),
+    "cp_spdb_im", "$base, $imm", []>, Sched<[WriteSTW]>;
+def PUSH_SPDB : ERPUnaryInst<0x04, (outs), (ins i32imm:$base),
+    "push_spdb", "$base", []>, Sched<[WriteSTW]>;
+def INC_SPDB : ERPSmallImmInst<0x60, (outs), (ins i32imm:$base, i32imm:$count),
+    "inc_spdb", "$count, $base", []>, Sched<[WriteSTW]>;
+def DEC_SPDB : ERPSmallImmInst<0x68, (outs), (ins i32imm:$base, i32imm:$count),
+    "dec_spdb", "$count, $base", []>, Sched<[WriteSTW]>;
 } // OpSize8
+let OpSize = OpSize16.Value in {
+def LD_SPDW : ERPRegInst<0x20, (outs), (ins GR16:$rd, i32imm:$base),
+    "ld_spdw", "$rd, $base", []>, Sched<[WriteSTW]>;
+def CP_SPDW : ERPRegInst<0xF0, (outs), (ins GR16:$rd, i32imm:$base),
+    "cp_spdw", "$rd, $base", []>, Sched<[WriteSTW]>;
+} // OpSize16
+let OpSize = OpSize32.Value in {
+def LD_SPDL : ERPRegInst<0x20, (outs), (ins GPR:$rd, i32imm:$base),
+    "ld_spdl", "$rd, $base", []>, Sched<[WriteSTW]>;
+} // OpSize32
 } // Opcode = 0xC4 (SPD native)
 
 // --- Source Register-Indirect Complex (C3/D3/E3) ---
@@ -4538,6 +4710,13 @@ def ST_DRI3L : RIRegInst<0xF3, 0x60, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm
 // Format: [F5, base_reg_addr_byte, SubOpc + data_reg_enc]
 // F5 prefix is size-independent (Opcode >= 0xF0, no OpSize adjustment).
 // Uses ERPRegInst: Operand 0 = data register, Operand 1 = base reg addr byte.
+//
+// Destination sub-opcode table (F5/F4):
+//   0x00: LD (R+), #imm8    0x02: LD (R+), #imm16
+//   0x04: POP byte (R+)     0x06: POP word (R+)
+//   0x14: LD (dst), (src)   0x19: LD (mem), (mem) (mem-to-mem)
+//   0x30+r: ST r8, (R+)     0x40+r: LDA r32, (R+)
+//   0x50+r: ST r16, (R+)    0x60+r: ST r32, (R+)
 
 let Opcode = 0xF5 in {
 let OpSize = OpSize8.Value in {
@@ -4552,7 +4731,32 @@ def ST_DPIW : ERPRegInst<0x50, (outs), (ins GR16:$rs, i32imm:$base),
 } // OpSize16
 def ST_DPIL : ERPRegInst<0x60, (outs), (ins GPR:$rs, i32imm:$base),
     "st_dpil", "$rs, $base", []>, Sched<[WriteSTW]>;
+// POP to (R+)
+def POPB_DPI : ERPUnaryInst<0x04, (outs), (ins i32imm:$base),
+    "popb_dpi", "$base", []>, Sched<[WriteSTW]>;
+def POPW_DPI : ERPUnaryInst<0x06, (outs), (ins i32imm:$base),
+    "popw_dpi", "$base", []>, Sched<[WriteSTW]>;
 } // Opcode = 0xF5
+
+// --- Destination Pre-Decrement (F4) — consolidated defs ---
+let Opcode = 0xF4 in {
+let OpSize = OpSize8.Value in {
+def ST_DPDB : ERPRegInst<0x30, (outs), (ins GR8:$rs, i32imm:$base),
+    "st_dpdb", "$rs, $base", []>, Sched<[WriteSTW]>;
+} // OpSize8
+def LDA_DPD : ERPRegInst<0x40, (outs), (ins GPR:$rd, i32imm:$base),
+    "lda_dpd", "$rd, $base", []>, Sched<[WriteSTW]>;
+let OpSize = OpSize16.Value in {
+def ST_DPDW : ERPRegInst<0x50, (outs), (ins GR16:$rs, i32imm:$base),
+    "st_dpdw", "$rs, $base", []>, Sched<[WriteSTW]>;
+} // OpSize16
+def ST_DPDL : ERPRegInst<0x60, (outs), (ins GPR:$rs, i32imm:$base),
+    "st_dpdl", "$rs, $base", []>, Sched<[WriteSTW]>;
+def POPB_DPD : ERPUnaryInst<0x04, (outs), (ins i32imm:$base),
+    "popb_dpd", "$base", []>, Sched<[WriteSTW]>;
+def POPW_DPD : ERPUnaryInst<0x06, (outs), (ins i32imm:$base),
+    "popw_dpd", "$base", []>, Sched<[WriteSTW]>;
+} // Opcode = 0xF4
 
 // --- Destination 8-bit Direct Address (F0) ---
 // Format: F0 + addr8 + sub_opcode [+ operand_bytes]
@@ -4778,13 +4982,7 @@ def ADD_ERPL : ERPImmAfterInst<0xC8, 7,
     "add_erpl", "$bank, $b0, $b1, $b2, $b3", []>, Sched<[WriteSTW]>;
 } // Opcode = 0xC7, OpSize32
 
-// --- Consolidated SPI Byte additional operations (prefix C5) ---
-let Opcode = 0xC5, OpSize = OpSize8.Value in {
-def OR_SPIB_RM : ERPRegInst<0xE0, (outs), (ins GR8:$rd, i32imm:$base),
-    "or_spib_rm", "$rd, $base", []>, Sched<[WriteSTW]>;
-def CP_SPIB_IM : ERPImmAfterInst<0x3F, 4, (outs), (ins i32imm:$base, i32imm:$imm),
-    "cp_spib_im", "$base, $imm", []>, Sched<[WriteSTW]>;
-} // Opcode = 0xC5, OpSize8
+// (SPI byte operations moved to main SPI block above)
 
 // --- Consolidated SRI Byte non-register operations ---
 let OpSize = OpSize8.Value in {

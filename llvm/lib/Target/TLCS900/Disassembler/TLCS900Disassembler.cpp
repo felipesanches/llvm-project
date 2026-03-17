@@ -48,10 +48,10 @@ private:
   DecodeStatus decodeRegPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes,
                                unsigned PrefixReg) const;
-  DecodeStatus decode16BitRegPrefix(MCInst &MI, uint64_t &Size,
+  DecodeStatus decodeGR16Prefix(MCInst &MI, uint64_t &Size,
                                     ArrayRef<uint8_t> Bytes,
                                     unsigned PrefixReg) const;
-  DecodeStatus decode8BitRegPrefix(MCInst &MI, uint64_t &Size,
+  DecodeStatus decodeGR8Prefix(MCInst &MI, uint64_t &Size,
                                    ArrayRef<uint8_t> Bytes,
                                    unsigned PrefixReg) const;
   /// Decode a source/destination memory-prefixed instruction.
@@ -78,9 +78,10 @@ private:
                                ArrayRef<uint8_t> Bytes, bool IsDst,
                                unsigned OpSize) const;
   /// Decode a post-increment/pre-decrement prefixed instruction.
+  /// IsPostInc: true for post-increment (R+), false for pre-decrement (-R).
   DecodeStatus decodePIPrefix(MCInst &MI, uint64_t &Size,
                               ArrayRef<uint8_t> Bytes, bool IsDst,
-                              unsigned OpSize, bool IsPreDec) const;
+                              unsigned OpSize, bool IsPostInc) const;
   /// Decode an extended register prefix (ERP) instruction.
   DecodeStatus decodeERPPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes,
@@ -613,13 +614,13 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeRegPrefix(
   return decodeGenericRegPrefix(MI, Size, Bytes, PrefixReg, /*OpSize=*/2);
 }
 
-MCDisassembler::DecodeStatus TLCS900Disassembler::decode16BitRegPrefix(
+MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGR16Prefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes,
     unsigned PrefixReg) const {
   return decodeGenericRegPrefix(MI, Size, Bytes, PrefixReg, /*OpSize=*/1);
 }
 
-MCDisassembler::DecodeStatus TLCS900Disassembler::decode8BitRegPrefix(
+MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGR8Prefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes,
     unsigned PrefixReg) const {
   return decodeGenericRegPrefix(MI, Size, Bytes, PrefixReg, /*OpSize=*/0);
@@ -1390,13 +1391,392 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSRIPrefix(
 
 MCDisassembler::DecodeStatus TLCS900Disassembler::decodePIPrefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, bool IsDst,
-    unsigned OpSize, bool IsPreDec) const {
+    unsigned OpSize, bool IsPostInc) const {
   // Prefix byte consumed. Next: base_gpr_enc (1 byte), then sub-opcode.
   if (Bytes.size() < 3)
     return MCDisassembler::Fail;
 
-  // Emit as raw bytes for now.
-  // TODO: Map sub-opcodes to appropriate instructions.
+  uint8_t BaseRegByte = Bytes[1];
+  uint8_t SubOpc = Bytes[2];
+
+  // Helper to pick instruction based on IsDst, IsPostInc, and OpSize.
+  // Source: C5/D5/E5 (post-inc), C4/D4/E4 (pre-dec)
+  // Dest:   F5 (post-inc), F4 (pre-dec)
+
+  // === Destination table (F5/F4) ===
+  if (IsDst) {
+    // ST r, (R+/-) — sub-opcodes 0x30-0x37 (byte), 0x50-0x57 (word), 0x60-0x67 (long)
+    if (SubOpc >= 0x30 && SubOpc <= 0x37) {
+      unsigned RegEnc = SubOpc & 0x7;
+      unsigned Opc = IsPostInc ? TLCS900::ST_DPIB : TLCS900::ST_DPDB;
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+    if (SubOpc >= 0x50 && SubOpc <= 0x57) {
+      unsigned RegEnc = SubOpc & 0x7;
+      unsigned Opc = IsPostInc ? TLCS900::ST_DPIW : TLCS900::ST_DPDW;
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeGR16(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+    if (SubOpc >= 0x60 && SubOpc <= 0x67) {
+      unsigned RegEnc = SubOpc & 0x7;
+      unsigned Opc = IsPostInc ? TLCS900::ST_DPIL : TLCS900::ST_DPDL;
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeGPR(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // LDA r32, (R+/-) — sub-opcodes 0x40-0x47
+    if (SubOpc >= 0x40 && SubOpc <= 0x47) {
+      unsigned RegEnc = SubOpc & 0x7;
+      unsigned Opc = IsPostInc ? TLCS900::LDA_DPI : TLCS900::LDA_DPD;
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeGPR(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // Store immediate: LD (R+/-), #imm8 — sub-opcode 0x00
+    if (SubOpc == 0x00) {
+      if (Bytes.size() < 4)
+        return MCDisassembler::Fail;
+      unsigned Opc = IsPostInc ? TLCS900::STIB_DPI : TLCS900::STIB_DPD;
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      MI.addOperand(MCOperand::createImm(Bytes[3]));
+      Size = 4;
+      return MCDisassembler::Success;
+    }
+
+    // Store immediate word: LD (R+/-), #imm16 — sub-opcode 0x02
+    if (SubOpc == 0x02) {
+      if (Bytes.size() < 5)
+        return MCDisassembler::Fail;
+      unsigned Opc = IsPostInc ? TLCS900::STIW_DPI : TLCS900::STIW_DPI; // TODO: STIW_DPD
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      MI.addOperand(MCOperand::createImm(Bytes[3]));
+      MI.addOperand(MCOperand::createImm(Bytes[4]));
+      Size = 5;
+      return MCDisassembler::Success;
+    }
+
+    // POP to (R+/-) byte — sub-opcode 0x04
+    if (SubOpc == 0x04) {
+      unsigned Opc = IsPostInc ? TLCS900::POPB_DPI : TLCS900::POPB_DPD;
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+    // POP to (R+/-) word — sub-opcode 0x06
+    if (SubOpc == 0x06) {
+      unsigned Opc = IsPostInc ? TLCS900::POPW_DPI : TLCS900::POPW_DPD;
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    return MCDisassembler::Fail;
+  }
+
+  // === Source table (C5/D5/E5 post-inc, C4/D4/E4 pre-dec) ===
+
+  // LD reg, (R+/-) — sub-opcodes 0x20-0x27
+  if (SubOpc >= 0x20 && SubOpc <= 0x27) {
+    unsigned RegEnc = SubOpc & 0x7;
+    unsigned Opc;
+    if (OpSize == 0) // byte
+      Opc = IsPostInc ? TLCS900::LD_SPIB : TLCS900::LD_SPDB;
+    else if (OpSize == 1) // word
+      Opc = IsPostInc ? TLCS900::LD_SPIW : TLCS900::LD_SPDW;
+    else // long
+      Opc = IsPostInc ? TLCS900::LD_SPIL : TLCS900::LD_SPDL;
+    MI.setOpcode(Opc);
+    if (OpSize == 0)
+      MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+    else if (OpSize == 1)
+      MI.addOperand(MCOperand::createReg(decodeGR16(RegEnc)));
+    else
+      MI.addOperand(MCOperand::createReg(decodeGPR(RegEnc)));
+    MI.addOperand(MCOperand::createImm(BaseRegByte));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // PUSH (R+/-) — sub-opcode 0x04
+  if (SubOpc == 0x04) {
+    if (!IsPostInc) {
+      // Pre-dec
+      if (OpSize == 0)
+        MI.setOpcode(TLCS900::PUSH_SPDB);
+      else if (OpSize == 1)
+        return MCDisassembler::Fail; // TODO: add PUSH_SPDW
+      else
+        return MCDisassembler::Fail;
+    } else {
+      // Post-inc
+      if (OpSize == 0)
+        MI.setOpcode(TLCS900::PUSH_SPIB);
+      else if (OpSize == 1)
+        MI.setOpcode(TLCS900::PUSH_SPIW);
+      else
+        return MCDisassembler::Fail; // TODO: add PUSH_SPIL
+    }
+    MI.addOperand(MCOperand::createImm(BaseRegByte));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // INC n, (R+/-) — sub-opcodes 0x60-0x67
+  if (SubOpc >= 0x60 && SubOpc <= 0x67) {
+    unsigned Count = SubOpc & 0x7;
+    unsigned Opc;
+    if (OpSize == 0) // byte
+      Opc = IsPostInc ? TLCS900::INC_SPIB : TLCS900::INC_SPDB;
+    else if (OpSize == 1) // word
+      Opc = IsPostInc ? TLCS900::INC_SPIW : TLCS900::INC_SPIW; // TODO: INC_SPDW
+    else
+      return MCDisassembler::Fail;
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createImm(BaseRegByte));
+    MI.addOperand(MCOperand::createImm(Count));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // DEC n, (R+/-) — sub-opcodes 0x68-0x6F
+  if (SubOpc >= 0x68 && SubOpc <= 0x6F) {
+    unsigned Count = SubOpc & 0x7;
+    unsigned Opc;
+    if (OpSize == 0) // byte
+      Opc = IsPostInc ? TLCS900::DEC_SPIB : TLCS900::DEC_SPDB;
+    else if (OpSize == 1) // word
+      Opc = IsPostInc ? TLCS900::DEC_SPIW : TLCS900::DEC_SPIW; // TODO: DEC_SPDW
+    else
+      return MCDisassembler::Fail;
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createImm(BaseRegByte));
+    MI.addOperand(MCOperand::createImm(Count));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // ALU (mem), #imm — sub-opcodes 0x38-0x3F
+  if (SubOpc >= 0x38 && SubOpc <= 0x3F) {
+    unsigned ImmSize = (OpSize == 0) ? 1 : (OpSize == 1) ? 2 : 4;
+    if (Bytes.size() < 3u + ImmSize)
+      return MCDisassembler::Fail;
+
+    // Select opcode based on ALU operation and OpSize
+    unsigned AluOp = SubOpc & 0x07; // 0=ADD,1=ADC,2=SUB,3=SBC,4=AND,5=XOR,6=OR,7=CP
+    unsigned Opc;
+    if (OpSize == 0) {
+      // Byte ALU immediate
+      static const unsigned SpiByteImm[] = {
+        TLCS900::ADD_SPIB_IM, TLCS900::ADC_SPIB_IM, TLCS900::SUB_SPIB_IM,
+        TLCS900::SBC_SPIB_IM, TLCS900::AND_SPIB_IM, TLCS900::XOR_SPIB_IM,
+        TLCS900::OR_SPIB_IM, TLCS900::CP_SPIB_IM
+      };
+      static const unsigned SpdByteImm[] = {
+        0, 0, 0, 0, 0, 0, 0, TLCS900::CP_SPDB_IM
+      };
+      if (IsPostInc) {
+        Opc = SpiByteImm[AluOp];
+      } else {
+        Opc = SpdByteImm[AluOp];
+        if (!Opc) return MCDisassembler::Fail;
+      }
+    } else if (OpSize == 1) {
+      // Word ALU immediate (only some defined)
+      static const unsigned SpiWordImm[] = {
+        TLCS900::ADD_SPIW_IM, 0, TLCS900::SUB_SPIW_IM, 0,
+        TLCS900::AND_SPIW_IM, 0, TLCS900::OR_SPIW_IM, TLCS900::CP_SPIW_IM
+      };
+      if (!IsPostInc) return MCDisassembler::Fail;
+      Opc = SpiWordImm[AluOp];
+      if (!Opc) return MCDisassembler::Fail;
+    } else {
+      return MCDisassembler::Fail;
+    }
+
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createImm(BaseRegByte));
+    for (unsigned i = 0; i < ImmSize; i++)
+      MI.addOperand(MCOperand::createImm(Bytes[3 + i]));
+    Size = 3 + ImmSize;
+    return MCDisassembler::Success;
+  }
+
+  // ALU reg, (mem) and ALU (mem), reg — sub-opcodes 0x80-0xFF
+  if (SubOpc >= 0x80) {
+    unsigned RegEnc = SubOpc & 0x7;
+    unsigned AluBase = SubOpc & 0xF8;
+    bool IsMemReg = (AluBase & 0x08) != 0; // 0x88,0x98,...,0xF8 = (mem),reg direction
+
+    // Map AluBase to instruction opcode
+    // reg,(mem): 0x80=ADD, 0x90=ADC, 0xA0=SUB, 0xB0=SBC, 0xC0=AND, 0xD0=XOR, 0xE0=OR, 0xF0=CP
+    // (mem),reg: 0x88=ADD, 0x98=ADC, 0xA8=SUB, 0xB8=SBC, 0xC8=AND, 0xD8=XOR, 0xE8=OR, 0xF8=CP
+
+    // Byte SPI reg,(mem)
+    if (OpSize == 0 && IsPostInc && !IsMemReg) {
+      static const unsigned SpiByteRM[] = {
+        TLCS900::ADD_SPIB, 0, TLCS900::ADC_SPIB, 0,
+        TLCS900::SUB_SPIB, 0, TLCS900::SBC_SPIB, 0,
+        TLCS900::AND_SPIB, 0, TLCS900::XOR_SPIB, 0,
+        TLCS900::OR_SPIB_RM, 0, TLCS900::CP_SPIB, 0
+      };
+      unsigned Idx = (AluBase - 0x80) >> 3;
+      if (Idx >= 16 || !SpiByteRM[Idx]) return MCDisassembler::Fail;
+      MI.setOpcode(SpiByteRM[Idx]);
+      MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // Byte SPI (mem),reg
+    if (OpSize == 0 && IsPostInc && IsMemReg) {
+      static const unsigned SpiByteReg[] = {
+        TLCS900::ADD_SPIB_MR, TLCS900::ADC_SPIB_MR,
+        TLCS900::SUB_SPIB_MR, TLCS900::SBC_SPIB_MR,
+        TLCS900::AND_SPIB_MR, TLCS900::XOR_SPIB_MR,
+        TLCS900::OR_SPIB_MR, TLCS900::CP_SPIB_MR
+      };
+      unsigned Idx = (AluBase - 0x88) >> 4;
+      MI.setOpcode(SpiByteReg[Idx]);
+      MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // Byte SPD (pre-dec)
+    if (OpSize == 0 && !IsPostInc) {
+      // Only CP_SPDB defined for reg,(mem) direction
+      if (!IsMemReg && AluBase == 0xF0) {
+        MI.setOpcode(TLCS900::CP_SPDB);
+        MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+        MI.addOperand(MCOperand::createImm(BaseRegByte));
+        Size = 3;
+        return MCDisassembler::Success;
+      }
+      if (IsMemReg && AluBase == 0xF8) {
+        MI.setOpcode(TLCS900::CP_SPDB_MR);
+        MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+        MI.addOperand(MCOperand::createImm(BaseRegByte));
+        Size = 3;
+        return MCDisassembler::Success;
+      }
+      // Other SPD byte ALU ops
+      if (!IsMemReg) {
+        unsigned Opc = 0;
+        switch (AluBase) {
+        case 0x80: Opc = TLCS900::ADD_SPDB; break;
+        case 0xA0: Opc = TLCS900::SUB_SPDB; break;
+        case 0xC0: Opc = TLCS900::AND_SPDB; break;
+        case 0xE0: Opc = TLCS900::OR_SPDB; break;
+        default: return MCDisassembler::Fail;
+        }
+        MI.setOpcode(Opc);
+        MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+        MI.addOperand(MCOperand::createImm(BaseRegByte));
+        Size = 3;
+        return MCDisassembler::Success;
+      }
+      return MCDisassembler::Fail;
+    }
+
+    // Word SPI reg,(mem)
+    if (OpSize == 1 && IsPostInc && !IsMemReg) {
+      unsigned Opc = 0;
+      switch (AluBase) {
+      case 0x80: Opc = TLCS900::ADD_SPIW; break;
+      case 0x90: Opc = TLCS900::ADC_SPIW; break;
+      case 0xA0: Opc = TLCS900::SUB_SPIW; break;
+      case 0xB0: Opc = TLCS900::SBC_SPIW; break;
+      case 0xC0: Opc = TLCS900::AND_SPIW; break;
+      case 0xD0: Opc = TLCS900::XOR_SPIW; break;
+      case 0xE0: Opc = TLCS900::OR_SPIW; break;
+      case 0xF0: Opc = TLCS900::CP_SPIW; break;
+      default: return MCDisassembler::Fail;
+      }
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeGR16(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // Word SPI (mem),reg
+    if (OpSize == 1 && IsPostInc && IsMemReg) {
+      unsigned Opc = 0;
+      switch (AluBase) {
+      case 0x88: Opc = TLCS900::ADD_SPIW_MR; break;
+      case 0xA8: Opc = TLCS900::SUB_SPIW_MR; break;
+      case 0xC8: Opc = TLCS900::AND_SPIW_MR; break;
+      case 0xE8: Opc = TLCS900::OR_SPIW_MR; break;
+      case 0xF8: Opc = TLCS900::CPM_SPIW; break;
+      default: return MCDisassembler::Fail;
+      }
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeGR16(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // Word SPD
+    if (OpSize == 1 && !IsPostInc && !IsMemReg && AluBase == 0xF0) {
+      MI.setOpcode(TLCS900::CP_SPDW);
+      MI.addOperand(MCOperand::createReg(decodeGR16(RegEnc)));
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // Long SPI
+    if (OpSize == 2 && IsPostInc) {
+      unsigned Opc = 0;
+      if (!IsMemReg) {
+        switch (AluBase) {
+        case 0x80: Opc = TLCS900::ADD_SPIL; break;
+        case 0xA0: Opc = TLCS900::SUB_SPIL; break;
+        case 0xC0: Opc = TLCS900::AND_SPIL; break;
+        case 0xE0: Opc = TLCS900::OR_SPIL; break;
+        case 0xF0: Opc = TLCS900::CP_SPIL; break;
+        default: return MCDisassembler::Fail;
+        }
+        MI.setOpcode(Opc);
+        MI.addOperand(MCOperand::createReg(decodeGPR(RegEnc)));
+      } else {
+        switch (AluBase) {
+        case 0x88: Opc = TLCS900::ADD_SPIL_MR; break;
+        case 0xA8: Opc = TLCS900::SUB_SPIL_MR; break;
+        case 0xF8: Opc = TLCS900::CP_SPIL_MR; break;
+        default: return MCDisassembler::Fail;
+        }
+        MI.setOpcode(Opc);
+        MI.addOperand(MCOperand::createReg(decodeGPR(RegEnc)));
+      }
+      MI.addOperand(MCOperand::createImm(BaseRegByte));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    return MCDisassembler::Fail;
+  }
+
   return MCDisassembler::Fail;
 }
 
@@ -2004,7 +2384,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
 
   // === 8-bit register prefix: 0xC8-0xCF ===
   if (FirstByte >= 0xC8 && FirstByte <= 0xCF) {
-    return decode8BitRegPrefix(MI, Size, Bytes, FirstByte & 0x7);
+    return decodeGR8Prefix(MI, Size, Bytes, FirstByte & 0x7);
   }
 
   if (FirstByte >= 0xD0 && FirstByte <= 0xD7) {
@@ -2023,7 +2403,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
 
   // === 16-bit register prefix: 0xD8-0xDF ===
   if (FirstByte >= 0xD8 && FirstByte <= 0xDF) {
-    return decode16BitRegPrefix(MI, Size, Bytes, FirstByte & 0x7);
+    return decodeGR16Prefix(MI, Size, Bytes, FirstByte & 0x7);
   }
 
   if (FirstByte >= 0xE0 && FirstByte <= 0xE7) {
