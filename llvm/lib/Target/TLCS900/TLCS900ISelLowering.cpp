@@ -107,7 +107,7 @@ TLCS900TargetLowering::TLCS900TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SETCC,     MVT::i32, Custom);
   setOperationAction(ISD::SELECT,    MVT::i32, Expand);
   setOperationAction(ISD::BRCOND,    MVT::Other, Expand);
-  setOperationAction(ISD::BR_JT,     MVT::Other, Expand);
+  setOperationAction(ISD::BR_JT,     MVT::Other, Custom);
 
   // Address resolution
   setOperationAction(ISD::GlobalAddress,    MVT::i32, Custom);
@@ -170,6 +170,7 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case TLCS900ISD::Wrapper:   return "TLCS900ISD::Wrapper";
   case TLCS900ISD::LDIR:      return "TLCS900ISD::LDIR";
   case TLCS900ISD::MEMMOVE:   return "TLCS900ISD::MEMMOVE";
+  case TLCS900ISD::BR_JT:     return "TLCS900ISD::BR_JT";
   default:                    return nullptr;
   }
 }
@@ -230,6 +231,7 @@ SDValue TLCS900TargetLowering::LowerOperation(SDValue Op,
   case ISD::BlockAddress:         return LowerBlockAddress(Op, DAG);
   case ISD::ExternalSymbol:       return LowerExternalSymbol(Op, DAG);
   case ISD::JumpTable:            return LowerJumpTable(Op, DAG);
+  case ISD::BR_JT:                return LowerBR_JT(Op, DAG);
   case ISD::BR_CC:                return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:            return LowerSELECT_CC(Op, DAG);
   case ISD::SETCC:                return LowerSETCC(Op, DAG);
@@ -533,6 +535,47 @@ TLCS900TargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
   auto *N = cast<JumpTableSDNode>(Op);
   SDValue Result = DAG.getTargetJumpTable(N->getIndex(), MVT::i32);
   return DAG.getNode(TLCS900ISD::Wrapper, DL, MVT::i32, Result);
+}
+
+//===----------------------------------------------------------------------===//
+// Jump table branch lowering
+//===----------------------------------------------------------------------===//
+
+SDValue
+TLCS900TargetLowering::LowerBR_JT(SDValue Op, SelectionDAG &DAG) const {
+  // Lower BR_JT to: load jump table base, scale index by 4, load target
+  // address from table entry, then indirect jump via jp (reg).
+  //
+  // Code sequence:
+  //   sla index, 2          ; index * 4 (32-bit entries)
+  //   ld  reg, table_base   ; load jump table address
+  //   add reg, index        ; compute entry address
+  //   ld  reg, (reg)        ; load target address
+  //   jp  (reg)             ; indirect jump
+  SDValue Chain = Op.getOperand(0);
+  SDValue Table = Op.getOperand(1);
+  SDValue Index = Op.getOperand(2);
+  SDLoc DL(Op);
+
+  // Get the jump table base address.
+  auto *JT = cast<JumpTableSDNode>(Table);
+  SDValue JTAddr = DAG.getTargetJumpTable(JT->getIndex(), MVT::i32);
+  SDValue Base = DAG.getNode(TLCS900ISD::Wrapper, DL, MVT::i32, JTAddr);
+
+  // Scale the index by the entry size (4 bytes for 32-bit addresses).
+  SDValue ScaledIndex = DAG.getNode(ISD::SHL, DL, MVT::i32, Index,
+                                    DAG.getConstant(2, DL, MVT::i32));
+
+  // Compute the address of the jump table entry.
+  SDValue EntryAddr = DAG.getNode(ISD::ADD, DL, MVT::i32, Base, ScaledIndex);
+
+  // Load the target address from the jump table.
+  SDValue Target = DAG.getLoad(MVT::i32, DL, Chain, EntryAddr,
+                               MachinePointerInfo::getJumpTable(
+                                   DAG.getMachineFunction()));
+
+  // Indirect branch to the loaded address.
+  return DAG.getNode(ISD::BRIND, DL, MVT::Other, Target.getValue(1), Target);
 }
 
 //===----------------------------------------------------------------------===//

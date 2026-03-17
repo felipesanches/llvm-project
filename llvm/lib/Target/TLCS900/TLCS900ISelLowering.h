@@ -34,6 +34,7 @@ enum NodeType {
   Wrapper,    // Wraps target-specific address nodes for materialization
   LDIR,       // Block transfer: copy XBC bytes from (XHL) to (XDE), incrementing
   MEMMOVE,    // Memmove: runtime direction check + LDIR or LDDR
+  BR_JT,      // Jump table branch: (chain, jumptable, index)
 };
 }
 
@@ -103,6 +104,7 @@ private:
   SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerMUL(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerBR_JT(SDValue Op, SelectionDAG &DAG) const;
 
 public:
   // Inline assembly support
