@@ -84,6 +84,9 @@ private:
   DecodeStatus decodeERPPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes,
                                unsigned OpSize) const;
+  /// Decode a previous register bank (PrevBank/D7) instruction.
+  DecodeStatus decodePrevBankPrefix(MCInst &MI, uint64_t &Size,
+                                    ArrayRef<uint8_t> Bytes) const;
 };
 
 } // end anonymous namespace
@@ -1199,6 +1202,237 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeERPPrefix(
   return MCDisassembler::Fail;
 }
 
+// Map 3-bit register encoding to PrevGR16 (Q) register.
+static unsigned decodeQReg(unsigned Enc) {
+  static const unsigned QRegDecoderTable[] = {
+      TLCS900::QWA, TLCS900::QBC, TLCS900::QDE, TLCS900::QHL,
+      TLCS900::QIX, TLCS900::QIY, TLCS900::QIZ, TLCS900::QSP};
+  assert(Enc < 8 && "Invalid Q register encoding");
+  return QRegDecoderTable[Enc];
+}
+
+//===----------------------------------------------------------------------===//
+// Previous register bank (PrevBank / D7 prefix) decoder
+//===----------------------------------------------------------------------===//
+
+MCDisassembler::DecodeStatus TLCS900Disassembler::decodePrevBankPrefix(
+    MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes) const {
+  // Format: 0xD7 + mode_byte + sub-opcode [+ operand bytes]
+  // mode_byte = 0xE0 + QR_enc * 4 + 2 (register direct mode)
+  if (Bytes.size() < 3)
+    return MCDisassembler::Fail;
+
+  uint8_t ModeByte = Bytes[1];
+  // Validate mode byte: must be 0xE2, 0xE6, 0xEA, ..., 0xFE
+  // i.e., (ModeByte - 0xE2) must be divisible by 4 and in range 0..28
+  if (ModeByte < 0xE2 || ((ModeByte - 0xE2) & 0x3) != 0)
+    return MCDisassembler::Fail;
+  unsigned QEnc = (ModeByte - 0xE2) >> 2;
+  if (QEnc > 7)
+    return MCDisassembler::Fail;
+  unsigned QReg = decodeQReg(QEnc);
+
+  uint8_t SubOpc = Bytes[2];
+
+  // --- Unary operations (3 bytes: D7 + mode + sub) ---
+  switch (SubOpc) {
+  case 0x04: // PUSH qR
+    MI.setOpcode(TLCS900::PUSH_PBW);
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  case 0x05: // POP qR
+    MI.setOpcode(TLCS900::POP_PBW);
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  case 0x06: // CPL qR
+    MI.setOpcode(TLCS900::CPL_PBW);
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  case 0x07: // NEG qR
+    MI.setOpcode(TLCS900::NEG_PBW);
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  case 0x0F: // BS1B a, qR
+    MI.setOpcode(TLCS900::BS1B_PBW);
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  default:
+    break;
+  }
+
+  // --- LD qR, #imm16 (sub-opcode 0x03 + 2 bytes imm) ---
+  if (SubOpc == 0x03) {
+    if (Bytes.size() < 5)
+      return MCDisassembler::Fail;
+    uint16_t Imm = readU16LE(Bytes, 3);
+    MI.setOpcode(TLCS900::LD_PBW_IMM);
+    MI.addOperand(MCOperand::createReg(QReg));
+    MI.addOperand(MCOperand::createImm(Imm));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+
+  // --- CP qR, #imm16 (sub-opcode 0xCF + 2 bytes imm) ---
+  if (SubOpc == 0xCF) {
+    if (Bytes.size() < 5)
+      return MCDisassembler::Fail;
+    uint16_t Imm = readU16LE(Bytes, 3);
+    MI.setOpcode(TLCS900::CP_PBW_IMM);
+    MI.addOperand(MCOperand::createReg(QReg));
+    MI.addOperand(MCOperand::createImm(Imm));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+
+  // --- Bit operations with trailing byte (4 bytes: D7 + mode + sub + bit) ---
+  // 0x23=LDCF, 0x24=STCF, 0x30=RES, 0x31=SET, 0x33=BIT
+  if (SubOpc == 0x23 || SubOpc == 0x24 ||
+      SubOpc == 0x30 || SubOpc == 0x31 || SubOpc == 0x33) {
+    if (Bytes.size() < 4)
+      return MCDisassembler::Fail;
+    unsigned BitNum = Bytes[3];
+    unsigned Opc;
+    switch (SubOpc) {
+    case 0x23: Opc = TLCS900::LDCF_PBW; break;
+    case 0x24: Opc = TLCS900::STCF_PBW; break;
+    case 0x30: Opc = TLCS900::RES_PBW; break;
+    case 0x31: Opc = TLCS900::SET_PBW; break;
+    case 0x33: Opc = TLCS900::BIT_PBW; break;
+    default: llvm_unreachable("handled above");
+    }
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createReg(QReg));
+    MI.addOperand(MCOperand::createImm(BitNum));
+    Size = 4;
+    return MCDisassembler::Success;
+  }
+
+  // --- INC n, qR (0x60-0x67) and DEC n, qR (0x68-0x6F) ---
+  if (SubOpc >= 0x60 && SubOpc <= 0x6F) {
+    bool IsInc = (SubOpc < 0x68);
+    unsigned I3 = SubOpc & 0x7;
+    unsigned Count = (I3 == 0) ? 8 : I3;
+    MI.setOpcode(IsInc ? TLCS900::INC_PBW : TLCS900::DEC_PBW);
+    MI.addOperand(MCOperand::createImm(Count));
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // --- LD small immediate: 0xA8-0xAF = LD qR, #small (0-7) ---
+  if ((SubOpc & 0xF8) == 0xA8) {
+    unsigned SmallImm = SubOpc & 0x7;
+    MI.setOpcode(TLCS900::LD_PBW_SI);
+    MI.addOperand(MCOperand::createImm(SmallImm));
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // --- CP small immediate: 0xD8-0xDF = CP qR, #small (0-7) ---
+  if ((SubOpc & 0xF8) == 0xD8) {
+    unsigned SmallImm = SubOpc & 0x7;
+    MI.setOpcode(TLCS900::CP_PBW_SI);
+    MI.addOperand(MCOperand::createImm(SmallImm));
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // --- Register-register ALU operations: sub-opcode = base + rd_enc ---
+  // 0x80=ADD, 0x88=LD(to), 0x90=ADC, 0x98=LD(from), 0xA0=SUB, 0xB0=SBC,
+  // 0xC0=AND, 0xD0=XOR, 0xE0=OR, 0xF0=CP
+  // Also 0x40=MUL
+  if (SubOpc >= 0x80) {
+    unsigned DstEnc = SubOpc & 0x7;
+    unsigned AluBase = SubOpc & 0xF8;
+    unsigned DataReg = decodeGR16(DstEnc);
+
+    switch (AluBase) {
+    case 0x80: // ADD rd, qR
+      MI.setOpcode(TLCS900::ADD_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0x88: // LD rd, qR (load from Q to current)
+      MI.setOpcode(TLCS900::LD_PBW_TO);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0x90: // ADC rd, qR
+      MI.setOpcode(TLCS900::ADC_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0x98: // LD qR, rd (store current to Q)
+      MI.setOpcode(TLCS900::LD_PBW_FR);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0xA0: // SUB rd, qR
+      MI.setOpcode(TLCS900::SUB_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0xB0: // SBC rd, qR
+      MI.setOpcode(TLCS900::SBC_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0xC0: // AND rd, qR
+      MI.setOpcode(TLCS900::AND_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0xD0: // XOR rd, qR
+      MI.setOpcode(TLCS900::XOR_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0xE0: // OR rd, qR
+      MI.setOpcode(TLCS900::OR_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0xF0: // CP rd, qR
+      MI.setOpcode(TLCS900::CP_PBW);
+      MI.addOperand(MCOperand::createReg(DataReg));
+      MI.addOperand(MCOperand::createReg(QReg));
+      Size = 3;
+      return MCDisassembler::Success;
+    default:
+      break;
+    }
+  }
+
+  // --- MUL rd, qR: 0x40-0x47 ---
+  if (SubOpc >= 0x40 && SubOpc <= 0x47) {
+    unsigned DstEnc = SubOpc & 0x7;
+    unsigned DataReg = decodeGR16(DstEnc);
+    MI.setOpcode(TLCS900::MUL_PBW);
+    MI.addOperand(MCOperand::createReg(DataReg));
+    MI.addOperand(MCOperand::createReg(QReg));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  return MCDisassembler::Fail;
+}
+
 //===----------------------------------------------------------------------===//
 // Main instruction decoder
 //===----------------------------------------------------------------------===//
@@ -1568,7 +1802,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
     case 3: return decodeSRIPrefix(MI, Size, Bytes, false, 1);
     case 4: return decodePIPrefix(MI, Size, Bytes, false, 1, false);
     case 5: return decodePIPrefix(MI, Size, Bytes, false, 1, true);
-    case 7: return decodeERPPrefix(MI, Size, Bytes, 1);
+    case 7: return decodePrevBankPrefix(MI, Size, Bytes);
     default: return MCDisassembler::Fail;
     }
   }
