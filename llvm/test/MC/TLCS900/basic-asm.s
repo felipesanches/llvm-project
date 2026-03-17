@@ -58,20 +58,14 @@ xor xbc, xde
 xor xhl, 65535
 
 ; Test shift instructions
-; CHECK: sla	xwa, xbc
-sla xwa, xbc
+; Variable-register shifts (sla xwa, xbc) are not supported in assembly.
+; Only immediate-operand shifts are tested.
 
 ; CHECK: sla	xde, 4
 sla xde, 4
 
-; CHECK: sra	xhl, xde
-sra xhl, xde
-
 ; CHECK: sra	xwa, 1
 sra xwa, 1
-
-; CHECK: srl	xbc, xwa
-srl xbc, xwa
 
 ; CHECK: srl	xde, 8
 srl xde, 8

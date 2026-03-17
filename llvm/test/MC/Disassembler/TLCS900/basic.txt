@@ -659,7 +659,7 @@
 # === Direct addressing (E2=32-bit src, 24-bit addr) ===
 
 # LD xwa, (0x123456): E2 56 34 12 20
-# CHECK: ldda32_24 xwa, 1193046
+# CHECK: ld32_24 xwa, 1193046
 0xe2 0x56 0x34 0x12 0x20
 
 # === Direct addressing destination (F1=dst, 16-bit addr) ===

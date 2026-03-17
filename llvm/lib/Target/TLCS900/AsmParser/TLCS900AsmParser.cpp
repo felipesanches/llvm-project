@@ -211,6 +211,13 @@ public:
       : MCTargetAsmParser(Options, STI, MII), STI(STI), Parser(Parser) {
     MCAsmParserExtension::Initialize(Parser);
     setAvailableFeatures(ComputeAvailableFeatures(STI.getFeatureBits()));
+
+    // Register directive aliases for data emission.
+    // TLCS-900 uses .hword (16-bit) and .word (32-bit) in MCAsmInfo,
+    // but the generic parser only knows .2byte/.4byte/.8byte.
+    Parser.addAliasForDirective(".hword", ".2byte");
+    Parser.addAliasForDirective(".word", ".4byte");
+    Parser.addAliasForDirective(".dword", ".8byte");
   }
 };
 
