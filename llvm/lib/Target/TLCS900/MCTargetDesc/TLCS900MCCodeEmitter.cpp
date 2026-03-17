@@ -43,10 +43,15 @@ static bool exprContainsDot(const MCExpr *E) {
     return false;
   case MCExpr::SymbolRef: {
     const MCSymbolRefExpr *SR = static_cast<const MCSymbolRefExpr *>(E);
-    // The assembler creates temporary symbols like ".Ltmp0" for "."
-    // references.  Check for the temporary name prefix.
-    return SR->getSymbol().isTemporary() &&
-           SR->getSymbol().getName().starts_with(".Ltmp");
+    // The assembler creates anonymous temporary symbols for "." (current
+    // PC) references.  In text mode they're named ".Ltmp0" etc.; in
+    // object mode they have empty names.  User-defined local labels
+    // (like .Lloop) are also temporary but have non-empty names.
+    const MCSymbol &Sym = SR->getSymbol();
+    if (!Sym.isTemporary())
+      return false;
+    StringRef Name = Sym.getName();
+    return Name.empty() || Name.starts_with(".Ltmp");
   }
   case MCExpr::Unary:
     return exprContainsDot(
@@ -159,14 +164,14 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
     bool HasDotRef = exprContainsDot(Expr);
     if (Kind == (MCFixupKind)TLCS900::fixup_tlcs900_rel8) {
       if (HasDotRef) {
-        FixupKind = FK_Data_1;
+        FixupKind = (MCFixupKind)TLCS900::fixup_tlcs900_branch_expr8;
       } else {
         Expr = MCBinaryExpr::createAdd(
             Expr, MCConstantExpr::create(-1, Ctx), Ctx);
       }
     } else if (Kind == (MCFixupKind)TLCS900::fixup_tlcs900_rel16) {
       if (HasDotRef) {
-        FixupKind = FK_Data_2;
+        FixupKind = (MCFixupKind)TLCS900::fixup_tlcs900_branch_expr16;
       } else {
         Expr = MCBinaryExpr::createAdd(
             Expr, MCConstantExpr::create(-2, Ctx), Ctx);

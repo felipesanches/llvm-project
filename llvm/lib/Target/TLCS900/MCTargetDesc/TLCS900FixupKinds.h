@@ -25,6 +25,12 @@ enum Fixups {
   fixup_tlcs900_disp8,
   // 16-bit displacement for base+d16 addressing.
   fixup_tlcs900_disp16,
+  // 8-bit branch displacement expression (user-computed, contains ".").
+  // Uses FKF_IsTarget so the backend can resolve same-section differences.
+  fixup_tlcs900_branch_expr8,
+  // 16-bit branch displacement expression (user-computed, contains ".").
+  // Uses FKF_IsTarget so the backend can resolve same-section differences.
+  fixup_tlcs900_branch_expr16,
 
   // Marker.
   fixup_tlcs900_invalid,

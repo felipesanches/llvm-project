@@ -57,6 +57,10 @@ unsigned TLCS900ELFObjectWriter::getRelocType(MCContext &Ctx,
     return ELF::R_TLCS900_NONE;
   case TLCS900::fixup_tlcs900_disp16:
     return ELF::R_TLCS900_LO16;
+  case TLCS900::fixup_tlcs900_branch_expr8:
+    return ELF::R_TLCS900_NONE;
+  case TLCS900::fixup_tlcs900_branch_expr16:
+    return ELF::R_TLCS900_LO16;
   }
 }
 

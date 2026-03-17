@@ -53,14 +53,16 @@ void TLCS900AsmBackend::applyFixup(const MCAssembler &Asm,
   // symbols (e.g., absolute .set labels).
 
   // Range checking for PC-relative branch fixups.
-  if (Kind == TLCS900::fixup_tlcs900_rel8) {
+  if (Kind == TLCS900::fixup_tlcs900_rel8 ||
+      Kind == TLCS900::fixup_tlcs900_branch_expr8) {
     if (!isInt<8>(Value))
       Asm.getContext().reportError(
           Fixup.getLoc(),
           "fixup value out of range for 8-bit relative branch "
           "(displacement " +
               Twine((int64_t)Value) + " requires JRL instead of JR)");
-  } else if (Kind == TLCS900::fixup_tlcs900_rel16) {
+  } else if (Kind == TLCS900::fixup_tlcs900_rel16 ||
+             Kind == TLCS900::fixup_tlcs900_branch_expr16) {
     if (!isInt<16>(Value))
       Asm.getContext().reportError(
           Fixup.getLoc(),
@@ -74,6 +76,24 @@ void TLCS900AsmBackend::applyFixup(const MCAssembler &Asm,
   }
 }
 
+bool TLCS900AsmBackend::evaluateTargetFixup(
+    const MCAssembler &Asm, const MCFixup &Fixup, const MCFragment *DF,
+    const MCValue &Target, const MCSubtargetInfo *STI, uint64_t &Value) {
+  // Branch expression fixups (calr (addr - . - 3), etc.) use FKF_IsTarget
+  // so we can manually resolve same-section symbol differences that the
+  // generic ELF writer can't handle.
+  const MCSymbol *Add = Target.getAddSym();
+  const MCSymbol *Sub = Target.getSubSym();
+  Value = Target.getConstant();
+  if (Add && Add->isDefined())
+    Value += Asm.getSymbolOffset(*Add);
+  if (Sub && Sub->isDefined())
+    Value -= Asm.getSymbolOffset(*Sub);
+  // Always mark as resolved — these expressions should be fully evaluable
+  // at assembly time since both sides are in the same section.
+  return true;
+}
+
 const MCFixupKindInfo &
 TLCS900AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
   static const MCFixupKindInfo Infos[TLCS900::NumTargetFixupKinds] = {
@@ -83,6 +103,10 @@ TLCS900AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
       {"fixup_tlcs900_rel16", 0, 16, MCFixupKindInfo::FKF_IsPCRel},
       {"fixup_tlcs900_disp8", 0, 8, 0},
       {"fixup_tlcs900_disp16", 0, 16, 0},
+      {"fixup_tlcs900_branch_expr8", 0, 8,
+       MCFixupKindInfo::FKF_IsTarget},
+      {"fixup_tlcs900_branch_expr16", 0, 16,
+       MCFixupKindInfo::FKF_IsTarget},
   };
 
   if (Kind < FirstTargetFixupKind)

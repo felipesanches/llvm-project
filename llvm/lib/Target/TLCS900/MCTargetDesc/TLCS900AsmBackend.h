@@ -34,6 +34,12 @@ public:
   bool writeNopData(raw_ostream &OS, uint64_t Count,
                     const MCSubtargetInfo *STI) const override;
 
+  // Evaluate target-specific fixups (branch expression fixups with ".").
+  bool evaluateTargetFixup(const MCAssembler &Asm, const MCFixup &Fixup,
+                           const MCFragment *DF, const MCValue &Target,
+                           const MCSubtargetInfo *STI,
+                           uint64_t &Value) override;
+
   // Branch relaxation: JR (2 bytes) -> JRL (3 bytes)
   bool mayNeedRelaxation(const MCInst &Inst,
                          const MCSubtargetInfo &STI) const override;
