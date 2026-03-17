@@ -513,8 +513,9 @@ call 0
 ; CHECK: call 11259375    ; encoding: [0x1d,0xef,0xcd,0xab]
 call 0xABCDEF
 
-; CALR d16: 0x1E, disp16
-; CHECK: calr 0           ; encoding: [0x1e,0x00,0x00]
+; CALR d16: 0x1E, disp16 (PC-relative)
+; CHECK: calr 0           ; encoding: [0x1e,A,A]
+; CHECK:                  ;   fixup A - offset: 1, value: 0-2, kind: fixup_tlcs900_rel16
 calr 0
 
 ; ==========================================================================

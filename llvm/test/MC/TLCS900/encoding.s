@@ -290,8 +290,9 @@ muls xde, xwa
 ; CHECK: call 0           ; encoding: [0x1d,0x00,0x00,0x00]
 call 0
 
-; CALR d16: 0x1E, d16
-; CHECK: calr 0           ; encoding: [0x1e,0x00,0x00]
+; CALR d16: 0x1E, d16 (PC-relative)
+; CHECK: calr 0           ; encoding: [0x1e,A,A]
+; CHECK:                  ;   fixup A - offset: 1, value: 0-2, kind: fixup_tlcs900_rel16
 calr 0
 
 ; === 16-bit PUSH/POP (PrefixPush/PrefixPop: D8+r, opcode) ===

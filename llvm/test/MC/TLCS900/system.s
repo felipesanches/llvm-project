@@ -204,6 +204,7 @@ divs xhl, xwa
 ; DJNZ (decrement and jump if not zero)
 ; ==========================================================================
 
-; DJNZ rd, disp8: D8+r, 0x1C, disp8
-; CHECK: djnz xwa, 0        ; encoding: [0xd8,0x1c,0x00]
+; DJNZ rd, disp8: D8+r, 0x1C, disp8 (PC-relative)
+; CHECK: djnz xwa, 0        ; encoding: [0xd8,0x1c,A]
+; CHECK:                     ;   fixup A - offset: 2, value: 0-1, kind: fixup_tlcs900_rel8
 djnz xwa, 0

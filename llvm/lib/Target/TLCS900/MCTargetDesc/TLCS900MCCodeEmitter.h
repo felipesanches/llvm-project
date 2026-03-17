@@ -40,6 +40,14 @@ class TLCS900MCCodeEmitter : public MCCodeEmitter {
                  MCFixupKind Kind, SmallVectorImpl<char> &CB,
                  SmallVectorImpl<MCFixup> &Fixups) const;
 
+  /// Emit a PC-relative branch target. For numeric immediates, wraps them
+  /// in an MCConstantExpr and routes through the fixup path so PC-relative
+  /// offset computation happens correctly.
+  void emitRelBranchTarget(const MCInst &MI, const MCOperand &Target,
+                           unsigned FixupOffset, MCFixupKind Kind,
+                           SmallVectorImpl<char> &CB,
+                           SmallVectorImpl<MCFixup> &Fixups) const;
+
   /// Emit the memory addressing prefix bytes for MEMri operands.
   /// IsDstMem selects destination memory prefix (B0, for stores) vs
   /// source memory prefix (size-dependent, for loads/ALU).
