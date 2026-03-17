@@ -69,7 +69,8 @@ Defined processors: `generic`, `tlcs900h`, `tlcs900h1`, `tlcs900h2`, `tmp94c241`
 | `TLCS900InstrInfo.td` | Instruction definitions, DAG patterns, operand types |
 | `TLCS900InstrFormats.td` | Encoding format classes (prefix bytes, operand layout, addressing modes) |
 | `TLCS900CallingConv.td` | Calling convention rules (arg/ret register assignment) |
-| `TLCS900Schedule.td` | Scheduling model (currently `NoSchedModel`) |
+| `TLCS900Schedule.td` | Scheduling model (`TMP94C241Model`) |
+| `TLCS900SchedInstRW.td` | Instruction-to-scheduling-class mappings |
 
 ### Code Generation (`*.cpp` / `*.h`)
 
@@ -138,8 +139,11 @@ These are inherent to the current backend, not bugs:
   This produces correct but sometimes verbose code.
 - **Boolean materialization is verbose:** `setcc` results in multi-instruction
   sequences (CP + conditional SET/RES) rather than a single flag-to-register move.
-- **No scheduling model:** All instructions are treated as single-cycle. The
-  `TLCS900Schedule.td` uses `NoSchedModel`.
+- **Scheduling model:** `TMP94C241Model` in `TLCS900Schedule.td` provides
+  cycle-accurate timing for the TMP94C241F (16 MHz, single-issue, in-order).
+  Instruction-to-class mappings are in `TLCS900SchedInstRW.td`. The post-RA
+  scheduler is enabled. `CompleteModel=0` allows assembler-only instructions
+  (~600 extended addressing mode variants) to use a default 1-cycle model.
 - **No compact encodings in ISel:** The assembler supports compact forms
   (`ldb`, `ldw`, `pushw`) but the compiler's instruction selector does not emit them.
   Hand-written assembly can use these for smaller code.

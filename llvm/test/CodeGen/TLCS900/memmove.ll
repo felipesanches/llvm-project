@@ -8,8 +8,8 @@ define void @memmove_dynamic(ptr %dst, ptr %src, i32 %n) {
 ; CHECK-LABEL: memmove_dynamic:
 ; CHECK:       cp xde, xhl
 ; CHECK:       add xde, xbc
-; CHECK:       dec 1, xde
 ; CHECK:       add xhl, xbc
+; CHECK:       dec 1, xde
 ; CHECK:       dec 1, xhl
 ; CHECK:       lddr
 ; CHECK:       ldir

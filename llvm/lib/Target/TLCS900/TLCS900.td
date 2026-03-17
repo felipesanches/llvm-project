@@ -22,6 +22,7 @@ include "TLCS900Schedule.td"
 include "TLCS900RegisterInfo.td"
 include "TLCS900CallingConv.td"
 include "TLCS900InstrInfo.td"
+include "TLCS900SchedInstRW.td"
 
 def TLCS900InstrInfo : InstrInfo;
 
@@ -49,20 +50,20 @@ def FeatureMDMA
 //===----------------------------------------------------------------------===//
 
 // Generic TLCS-900 with no special features (safe baseline).
-def : ProcessorModel<"generic",  NoSchedModel, []>;
+def : ProcessorModel<"generic",  TMP94C241Model, []>;
 
 // TLCS-900/H series — adds hardware multiply/divide.
-def : ProcessorModel<"tlcs900h", NoSchedModel, [FeatureHWMul]>;
+def : ProcessorModel<"tlcs900h", TMP94C241Model, [FeatureHWMul]>;
 
 // TLCS-900/H1 — first revision of H series.
-def : ProcessorModel<"tlcs900h1", NoSchedModel, [FeatureHWMul]>;
+def : ProcessorModel<"tlcs900h1", TMP94C241Model, [FeatureHWMul]>;
 
 // TLCS-900/H2 — second revision, used in TMP94C241 and other modern variants.
-def : ProcessorModel<"tlcs900h2", NoSchedModel, [FeatureHWMul, FeatureMinMax]>;
+def : ProcessorModel<"tlcs900h2", TMP94C241Model, [FeatureHWMul, FeatureMinMax]>;
 
 // Specific CPU models — aliases for the appropriate feature set.
 // TMP94C241: Toshiba TLCS-900/H2 used in Technics KN5000 keyboard.
-def : ProcessorModel<"tmp94c241", NoSchedModel, [FeatureHWMul, FeatureMinMax]>;
+def : ProcessorModel<"tmp94c241", TMP94C241Model, [FeatureHWMul, FeatureMinMax]>;
 
 //===----------------------------------------------------------------------===//
 // TLCS900 Target declaration

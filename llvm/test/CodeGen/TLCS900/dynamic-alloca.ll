@@ -6,7 +6,7 @@
 define ptr @dynamic_alloca(i32 %n) {
 ; CHECK-LABEL: dynamic_alloca:
 ; CHECK:       push xiz
-; CHECK-NEXT:  ld xiz, xsp
+; CHECK:       ld xiz, xsp
 ; Dynamic alloca: aligns size, computes new SP in a register, then sets SP
 ; CHECK:       ld xsp,
 ; Epilogue: restore frame pointer

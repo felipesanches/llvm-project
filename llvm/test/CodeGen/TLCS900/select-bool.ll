@@ -16,8 +16,8 @@ define i32 @select_cc(i32 %a, i32 %b, i32 %x, i32 %y) {
 ; The two diamonds may be reordered by scheduling, so just check key elements.
 define i32 @bool_and(i32 %a, i32 %b, i32 %c, i32 %d) {
 ; CHECK-LABEL: bool_and:
+; CHECK-DAG: lds32 {{.*}}, 1
 ; CHECK: cp
-; CHECK: lds32 {{.*}}, 1
 ; CHECK: jr
 ; CHECK: lds32 {{.*}}, 0
 ; CHECK: and
