@@ -2049,7 +2049,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
   if (FirstByte >= 0xF0 && FirstByte <= 0xF7) {
     unsigned SubType = FirstByte & 0x7;
     switch (SubType) {
-    case 0: return decodeD8Prefix(MI, Size, Bytes, /*OpSize=*/2);
+    case 0: return decodeD8Prefix(MI, Size, Bytes, /*OpSize=*/2, /*IsDst=*/true);
     case 1: return decodeDirectAddr(MI, Size, Bytes, true, 2, 2);
     case 2: return decodeDirectAddr(MI, Size, Bytes, true, 2, 3);
     case 3: return decodeSRIPrefix(MI, Size, Bytes, true, 2);

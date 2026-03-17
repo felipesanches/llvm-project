@@ -3905,16 +3905,61 @@ def SET_DD8 : ExtImmModInst<0xF0, 0xB8, 3, (outs), (ins i32imm:$bit, i32imm:$add
     "set_dd8", "$bit, $addr", []>;
 def BIT_DD8 : ExtImmModInst<0xF0, 0xC8, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
     "bit_dd8", "$bit, $addr", []>;
+def CHG_DD8 : ExtImmModInst<0xF0, 0xC0, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
+    "chg_dd8", "$bit, $addr", []>;
 def LDCF_DD8 : ExtImmModInst<0xF0, 0x98, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
     "ldcf_dd8", "$bit, $addr", []>;
+def TSET_DD8 : ExtImmModInst<0xF0, 0xA8, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
+    "tset_dd8", "$bit, $addr", []>;
+def STCF_DD8 : ExtImmModInst<0xF0, 0xA0, 3, (outs), (ins i32imm:$bit, i32imm:$addr),
+    "stcf_dd8", "$bit, $addr", []>;
+
+// --- DD8 (prefix F0): flag operations with A register ---
+// D8Unary: [F0, addr8, SubOpc]  (3 bytes) — no data register, fixed sub-opcode
+def ANDCF_DD8 : D8UnaryInst<0xF0, 0x28, (outs), (ins i32imm:$addr),
+    "andcf_dd8", "$addr", []>;
+def ORCF_DD8 : D8UnaryInst<0xF0, 0x29, (outs), (ins i32imm:$addr),
+    "orcf_dd8", "$addr", []>;
+def XORCF_DD8 : D8UnaryInst<0xF0, 0x2A, (outs), (ins i32imm:$addr),
+    "xorcf_dd8", "$addr", []>;
+def STCFA_DD8 : D8UnaryInst<0xF0, 0x2C, (outs), (ins i32imm:$addr),
+    "stcfa_dd8", "$addr", []>;
+
+// --- DD8 (prefix F0): control flow operations ---
+// JP cc, (addr8): [F0, addr8, 0xD0 + cc]  (3 bytes)
+def JP_DD8 : ExtImmModInst<0xF0, 0xD0, 3, (outs), (ins i32imm:$cc, i32imm:$addr),
+    "jp_dd8", "$cc, $addr", []>;
+// CALL (addr8): [F0, addr8, 0x08]  (3 bytes)
+def CALL_DD8 : D8UnaryInst<0xF0, 0x08, (outs), (ins i32imm:$addr),
+    "call_dd8", "$addr", []>;
 
 // --- DD8 (prefix F0): register operations ---
 // D8Reg: [F0, addr8, SubOpc + reg_enc]  (3 bytes)
 // Operand 0 = register, Operand 1 = addr8
 def ST_DD8B : D8RegInst<0xF0, 0x40, (outs), (ins GR8:$rs, i32imm:$addr),
     "st_dd8b", "$rs, $addr", []>;
+def ST_DD8W : D8RegInst<0xF0, 0x50, (outs), (ins GR16:$rs, i32imm:$addr),
+    "st_dd8w", "$rs, $addr", []>;
+def ST_DD8L : D8RegInst<0xF0, 0x60, (outs), (ins GPR:$rs, i32imm:$addr),
+    "st_dd8l", "$rs, $addr", []>;
 def LDA_DD8L : D8RegInst<0xF0, 0x30, (outs), (ins GPR:$rd, i32imm:$addr),
     "lda_dd8l", "$rd, $addr", []>;
+
+// --- DD8 (prefix F0): store immediate operations ---
+// D8ImmAfter: [F0, addr8, SubOpc, imm_bytes...]
+// Operand 0 = addr8, remaining = trailing immediate
+def STIB_DD8 : D8ImmAfterInst<0xF0, 0x00, 4,
+    (outs), (ins i32imm:$addr, i32imm:$imm),
+    "stib_dd8", "$addr, $imm", []>;
+def STIW_DD8 : D8ImmAfterInst<0xF0, 0x02, 5,
+    (outs), (ins i32imm:$addr, i32imm:$lo, i32imm:$hi),
+    "stiw_dd8", "$addr, $lo, $hi", []>;
+
+// --- DD8 (prefix F0): stack operations ---
+def POPB_DD8 : D8UnaryInst<0xF0, 0x04, (outs), (ins i32imm:$addr),
+    "popb_dd8", "$addr", []>;
+def POPW_DD8 : D8UnaryInst<0xF0, 0x06, (outs), (ins i32imm:$addr),
+    "popw_dd8", "$addr", []>;
 
 // --- DD16 (prefix F1): bit/flag operations ---
 // Encoding: [F1, addr_lo, addr_hi, SubOpc + bit]  (4 bytes)
