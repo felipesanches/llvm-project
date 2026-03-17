@@ -174,6 +174,16 @@ const char *TLCS900TargetLowering::getTargetNodeName(unsigned Opcode) const {
   }
 }
 
+bool TLCS900TargetLowering::allowsMisalignedMemoryAccesses(
+    EVT VT, unsigned AddrSpace, Align Alignment,
+    MachineMemOperand::Flags Flags, unsigned *Fast) const {
+  // TLCS-900 is a CISC architecture with no alignment requirements.
+  // All memory accesses work at any alignment with no performance penalty.
+  if (Fast)
+    *Fast = 1;
+  return true;
+}
+
 bool TLCS900TargetLowering::shouldConvertConstantLoadToIntImm(
     const APInt &Imm, Type *Ty) const {
   // Always prefer LD rd, #imm over loading from constant pool.

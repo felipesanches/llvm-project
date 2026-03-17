@@ -50,6 +50,11 @@ public:
                              Type *Ty, unsigned AS,
                              Instruction *I = nullptr) const override;
 
+  bool allowsMisalignedMemoryAccesses(
+      EVT VT, unsigned AddrSpace = 0, Align Alignment = Align(1),
+      MachineMemOperand::Flags Flags = MachineMemOperand::MONone,
+      unsigned *Fast = nullptr) const override;
+
   bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
                                          Type *Ty) const override;
 
