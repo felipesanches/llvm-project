@@ -71,7 +71,8 @@ private:
   /// Decode an 8-bit direct address (I/O) prefixed instruction.
   DecodeStatus decodeD8Prefix(MCInst &MI, uint64_t &Size,
                               ArrayRef<uint8_t> Bytes,
-                              unsigned OpSize) const;
+                              unsigned OpSize,
+                              bool IsDst = false) const;
   /// Decode a register-indirect complex (SRI) prefixed instruction.
   DecodeStatus decodeSRIPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes, bool IsDst,
@@ -1109,7 +1110,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
 
 MCDisassembler::DecodeStatus TLCS900Disassembler::decodeD8Prefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes,
-    unsigned OpSize) const {
+    unsigned OpSize, bool IsDst) const {
   // Prefix byte already consumed. Next: addr8, then sub-opcode.
   if (Bytes.size() < 3)
     return MCDisassembler::Fail;
@@ -1118,10 +1119,205 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeD8Prefix(
   uint8_t SubOp = Bytes[2];
 
   // All D8 instructions are at least 3 bytes (prefix + addr8 + sub-opcode).
-  // Emit as raw operands for the instruction printer.
 
-  // For now, emit as generic ExtPrefix format — the operands are all immediates.
-  // The instruction printer handles these with raw byte output.
+  if (IsDst) {
+    // === Destination 8-bit direct (F0 prefix) ===
+
+    // LD (addr8), #imm8: sub-opcode 0x00, followed by 1 imm byte
+    if (SubOp == 0x00) {
+      if (Bytes.size() < 4)
+        return MCDisassembler::Fail;
+      MI.setOpcode(TLCS900::STIB_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      MI.addOperand(MCOperand::createImm(Bytes[3]));
+      Size = 4;
+      return MCDisassembler::Success;
+    }
+
+    // LD (addr8), #imm16: sub-opcode 0x02, followed by 2 imm bytes
+    if (SubOp == 0x02) {
+      if (Bytes.size() < 5)
+        return MCDisassembler::Fail;
+      MI.setOpcode(TLCS900::STIW_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      MI.addOperand(MCOperand::createImm(Bytes[3]));
+      MI.addOperand(MCOperand::createImm(Bytes[4]));
+      Size = 5;
+      return MCDisassembler::Success;
+    }
+
+    // POP byte to (addr8): sub-opcode 0x04
+    if (SubOp == 0x04) {
+      MI.setOpcode(TLCS900::POPB_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // POP word to (addr8): sub-opcode 0x06
+    if (SubOp == 0x06) {
+      MI.setOpcode(TLCS900::POPW_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // CALL (addr8): sub-opcode 0x08
+    if (SubOp == 0x08) {
+      MI.setOpcode(TLCS900::CALL_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // ANDCF A, (addr8): sub-opcode 0x28
+    if (SubOp == 0x28) {
+      MI.setOpcode(TLCS900::ANDCF_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // ORCF A, (addr8): sub-opcode 0x29
+    if (SubOp == 0x29) {
+      MI.setOpcode(TLCS900::ORCF_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // XORCF A, (addr8): sub-opcode 0x2A
+    if (SubOp == 0x2A) {
+      MI.setOpcode(TLCS900::XORCF_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // STCF A, (addr8): sub-opcode 0x2C
+    if (SubOp == 0x2C) {
+      MI.setOpcode(TLCS900::STCFA_DD8);
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // LDA Rd, addr8: sub-opcode 0x30-0x37
+    if (SubOp >= 0x30 && SubOp <= 0x37) {
+      unsigned DstReg = decodeRegForSize(SubOp & 0x7, 2); // always 32-bit
+      MI.setOpcode(TLCS900::LDA_DD8L);
+      MI.addOperand(MCOperand::createReg(DstReg));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // LD (addr8), Rb: sub-opcode 0x40-0x47
+    if (SubOp >= 0x40 && SubOp <= 0x47) {
+      unsigned SrcReg = decodeRegForSize(SubOp & 0x7, 0); // 8-bit
+      MI.setOpcode(TLCS900::ST_DD8B);
+      MI.addOperand(MCOperand::createReg(SrcReg));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // LD (addr8), Rw: sub-opcode 0x50-0x57
+    if (SubOp >= 0x50 && SubOp <= 0x57) {
+      unsigned SrcReg = decodeRegForSize(SubOp & 0x7, 1); // 16-bit
+      MI.setOpcode(TLCS900::ST_DD8W);
+      MI.addOperand(MCOperand::createReg(SrcReg));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // LD (addr8), Rl: sub-opcode 0x60-0x67
+    if (SubOp >= 0x60 && SubOp <= 0x67) {
+      unsigned SrcReg = decodeRegForSize(SubOp & 0x7, 2); // 32-bit
+      MI.setOpcode(TLCS900::ST_DD8L);
+      MI.addOperand(MCOperand::createReg(SrcReg));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // LDCF bit, (addr8): sub-opcode 0x98-0x9F
+    if (SubOp >= 0x98 && SubOp <= 0x9F) {
+      MI.setOpcode(TLCS900::LDCF_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0x7));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // STCF bit, (addr8): sub-opcode 0xA0-0xA7
+    if (SubOp >= 0xA0 && SubOp <= 0xA7) {
+      MI.setOpcode(TLCS900::STCF_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0x7));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // TSET bit, (addr8): sub-opcode 0xA8-0xAF
+    if (SubOp >= 0xA8 && SubOp <= 0xAF) {
+      MI.setOpcode(TLCS900::TSET_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0x7));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // RES bit, (addr8): sub-opcode 0xB0-0xB7
+    if (SubOp >= 0xB0 && SubOp <= 0xB7) {
+      MI.setOpcode(TLCS900::RES_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0x7));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // SET bit, (addr8): sub-opcode 0xB8-0xBF
+    if (SubOp >= 0xB8 && SubOp <= 0xBF) {
+      MI.setOpcode(TLCS900::SET_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0x7));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // CHG bit, (addr8): sub-opcode 0xC0-0xC7
+    if (SubOp >= 0xC0 && SubOp <= 0xC7) {
+      MI.setOpcode(TLCS900::CHG_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0x7));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // BIT bit, (addr8): sub-opcode 0xC8-0xCF
+    if (SubOp >= 0xC8 && SubOp <= 0xCF) {
+      MI.setOpcode(TLCS900::BIT_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0x7));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    // JP cc, (addr8): sub-opcode 0xD0-0xDF
+    if (SubOp >= 0xD0 && SubOp <= 0xDF) {
+      MI.setOpcode(TLCS900::JP_DD8);
+      MI.addOperand(MCOperand::createImm(SubOp & 0xF));
+      MI.addOperand(MCOperand::createImm(Addr8));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+
+    return MCDisassembler::Fail;
+  }
+
+  // === Source 8-bit direct (C0/D0/E0 prefix) ===
 
   // LD rd, (addr8): sub-opcode 0x20-0x27
   if (SubOp >= 0x20 && SubOp <= 0x27) {
@@ -1143,31 +1339,49 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeD8Prefix(
 MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSRIPrefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, bool IsDst,
     unsigned OpSize) const {
-  // Prefix byte consumed. Next: mode byte, optional disp16, then sub-opcode.
+  // SRI prefix format: [C3/D3/E3/F3] [mode_byte] [d16_lo d16_hi]? [sub-opcode]
+  // Mode byte: bits 7-2 = register file address >> 2, bits 1-0 = mode type.
+  //   Mode type 00: (Xrr) — register indirect, no displacement
+  //   Mode type 01: (Xrr+d16) — 16-bit displacement
+  //   Mode type 11: (Xrr+Rn) — register index (not yet supported)
+  // Register encoding: BaseReg = (ModeByte >> 2) - 0x38 = (ModeByte - 0xE0) >> 2
+
   if (Bytes.size() < 3)
     return MCDisassembler::Fail;
 
   uint8_t Mode = Bytes[1];
   unsigned ModeType = Mode & 0x03;
-  unsigned AddrLen = (ModeType != 0) ? 2 : 0; // Extra bytes for d16 or Rn
-  unsigned SubOpIdx = 2 + AddrLen;
 
-  if (Bytes.size() <= SubOpIdx)
+  // Decode the base register from the mode byte.
+  // Encoder produces: 0xE0 + (BaseReg << 2) + ModeType
+  // So BaseReg = (Mode - ModeType - 0xE0) >> 2
+  if (Mode < 0xE0)
+    return MCDisassembler::Fail;
+  unsigned BaseReg = ((Mode - ModeType) - 0xE0) >> 2;
+  if (BaseReg > 7)
     return MCDisassembler::Fail;
 
-  uint8_t SubOp = Bytes[SubOpIdx];
+  int64_t Disp = 0;
+  unsigned PrefixSize; // Total bytes consumed before the sub-opcode.
 
-  // Emit as raw bytes — the SRI instructions use opaque MEMsri operands.
-  // All bytes after the prefix are emitted as immediate operands.
-  // The instruction format handlers in the printer know how to interpret them.
+  if (ModeType == 0x00) {
+    // (Xrr) — no displacement. Prefix = 2 bytes (SRI prefix + mode byte).
+    PrefixSize = 2;
+  } else if (ModeType == 0x01) {
+    // (Xrr+d16) — 16-bit signed displacement.
+    if (Bytes.size() < 5) // prefix + mode + d16(2) + sub-opcode(1)
+      return MCDisassembler::Fail;
+    Disp = static_cast<int16_t>(readU16LE(Bytes, 2));
+    PrefixSize = 4; // prefix(1) + mode(1) + d16(2)
+  } else {
+    // Mode types 2 and 3 (register index, etc.) not yet supported.
+    return MCDisassembler::Fail;
+  }
 
-  // For generic SRI, emit all raw bytes as an ExtPrefix instruction.
-  MI.setOpcode(TLCS900::NOP); // Placeholder — SRI needs specific instruction mapping
-
-  // For now, return Fail for unrecognized SRI sub-opcodes.
-  // TODO: Map each sub-opcode to the appropriate TLCS900 instruction.
-  (void)SubOp;
-  return MCDisassembler::Fail;
+  // Delegate to the unified memory prefix decoder with the extracted
+  // base register, displacement, and prefix size.
+  return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, PrefixSize,
+                         /*MemSize=*/OpSize, IsDst);
 }
 
 //===----------------------------------------------------------------------===//
