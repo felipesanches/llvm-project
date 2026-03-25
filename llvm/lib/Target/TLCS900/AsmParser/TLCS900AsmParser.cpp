@@ -57,6 +57,7 @@ public:
   bool isImm() const override { return Kind == k_Immediate; }
   bool isMem() const override { return Kind == k_Memory; }
   bool isMemri() const { return Kind == k_Memory; }
+  bool isDirectAddr() const { return Kind == k_Immediate; }
   bool isCondCode() const { return Kind == k_CondCode; }
 
   SMLoc getStartLoc() const override { return StartLoc; }
@@ -93,6 +94,10 @@ public:
       Inst.addOperand(MCOperand::createImm(CE->getValue()));
     else
       Inst.addOperand(MCOperand::createExpr(getImm()));
+  }
+
+  void addDirectAddrOperands(MCInst &Inst, unsigned N) const {
+    addImmOperands(Inst, N);
   }
 
   void addMemriOperands(MCInst &Inst, unsigned N) const {
@@ -200,6 +205,7 @@ class TLCS900AsmParser : public MCTargetAsmParser {
   ParseStatus parseDirective(AsmToken DirectiveID) override;
 
   // Custom operand parsers (called by MatchOperandParserImpl)
+  ParseStatus parseDirectAddrOperand(OperandVector &Operands);
   ParseStatus parseMemriOperand(OperandVector &Operands);
   ParseStatus parseCondCodeOperand(OperandVector &Operands);
 
@@ -280,6 +286,36 @@ ParseStatus TLCS900AsmParser::tryParseRegister(MCRegister &Reg,
   StartLoc = getLexer().getLoc();
   EndLoc = SMLoc::getFromPointer(StartLoc.getPointer() + Name.size());
   Parser.Lex(); // consume register name
+  return ParseStatus::Success;
+}
+
+/// parseDirectAddrOperand - Parse a parenthesized direct address: (expr)
+/// Returns an immediate operand containing the address value.
+ParseStatus TLCS900AsmParser::parseDirectAddrOperand(OperandVector &Operands) {
+  SMLoc S = getLexer().getLoc();
+
+  if (getLexer().isNot(AsmToken::LParen))
+    return ParseStatus::NoMatch;
+
+  // Peek: if next token is a register, this is register-indirect, not direct
+  const AsmToken &Next = getLexer().peekTok();
+  if (Next.is(AsmToken::Identifier) &&
+      MatchRegisterName(Next.getString().lower()) != 0)
+    return ParseStatus::NoMatch;
+
+  Parser.Lex(); // consume '('
+
+  const MCExpr *Addr;
+  if (getParser().parseExpression(Addr))
+    return ParseStatus::Failure;
+
+  if (getLexer().isNot(AsmToken::RParen))
+    return Error(getLexer().getLoc(), "expected ')'");
+
+  SMLoc E = SMLoc::getFromPointer(getLexer().getLoc().getPointer() + 1);
+  Parser.Lex(); // consume ')'
+
+  Operands.push_back(TLCS900Operand::createImm(Addr, S, E));
   return ParseStatus::Success;
 }
 

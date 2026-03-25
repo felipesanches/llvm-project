@@ -54,6 +54,13 @@ void TLCS900InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   Op.getExpr()->print(O, &MAI, true);
 }
 
+void TLCS900InstPrinter::printDirectAddr(const MCInst *MI, unsigned OpNo,
+                                          raw_ostream &O) {
+  O << "(";
+  printOperand(MI, OpNo, O);
+  O << ")";
+}
+
 void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
                                           raw_ostream &O) {
   const MCOperand &Base = MI->getOperand(OpNo);
