@@ -14,6 +14,8 @@
 #include "TLCS900AsmBackend.h"
 #include "TLCS900FixupKinds.h"
 #include "TLCS900MCTargetDesc.h"
+#include "llvm/ADT/StringSwitch.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
@@ -94,6 +96,20 @@ bool TLCS900AsmBackend::evaluateTargetFixup(
   return true;
 }
 
+std::optional<MCFixupKind>
+TLCS900AsmBackend::getFixupKind(StringRef Name) const {
+  unsigned Type = StringSwitch<unsigned>(Name)
+      .Case("R_TLCS900_NONE", ELF::R_TLCS900_NONE)
+      .Case("R_TLCS900_24", ELF::R_TLCS900_24)
+      .Case("R_TLCS900_32", ELF::R_TLCS900_32)
+      .Case("R_TLCS900_LO16", ELF::R_TLCS900_LO16)
+      .Case("R_TLCS900_HI16", ELF::R_TLCS900_HI16)
+      .Default(-1u);
+  if (Type != -1u)
+    return static_cast<MCFixupKind>(FirstLiteralRelocationKind + Type);
+  return std::nullopt;
+}
+
 const MCFixupKindInfo &
 TLCS900AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
   static const MCFixupKindInfo Infos[TLCS900::NumTargetFixupKinds] = {
@@ -108,6 +124,9 @@ TLCS900AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
       {"fixup_tlcs900_branch_expr16", 0, 16,
        MCFixupKindInfo::FKF_IsTarget},
   };
+
+  if (Kind >= FirstLiteralRelocationKind)
+    return MCAsmBackend::getFixupKindInfo(FK_NONE);
 
   if (Kind < FirstTargetFixupKind)
     return MCAsmBackend::getFixupKindInfo(Kind);
