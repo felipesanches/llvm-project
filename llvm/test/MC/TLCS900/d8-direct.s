@@ -69,15 +69,15 @@ st_dd8l xwa, 52
 ; ==========================================================================
 
 ; STIB_DD8: LD (addr8), #imm8: [F0, addr, 0x00, imm]
-; CHECK: stib_dd8 41, 64         ; encoding: [0xf0,0x29,0x00,0x40]
-stib_dd8 41, 64
+; CHECK: stib_d8 41, 64         ; encoding: [0xf0,0x29,0x00,0x40]
+stib_d8 41, 64
 
-; CHECK: stib_dd8 0, 255         ; encoding: [0xf0,0x00,0x00,0xff]
-stib_dd8 0, 255
+; CHECK: stib_d8 0, 255         ; encoding: [0xf0,0x00,0x00,0xff]
+stib_d8 0, 255
 
 ; STIW_DD8: LD (addr8), #imm16: [F0, addr, 0x02, lo, hi]
-; CHECK: stiw_dd8 41, 52, 18     ; encoding: [0xf0,0x29,0x02,0x34,0x12]
-stiw_dd8 41, 52, 18
+; CHECK: stiw_d8 41, 52, 18     ; encoding: [0xf0,0x29,0x02,0x34,0x12]
+stiw_d8 41, 52, 18
 
 ; ==========================================================================
 ; Destination 8-bit direct: Bit operations — prefix F0

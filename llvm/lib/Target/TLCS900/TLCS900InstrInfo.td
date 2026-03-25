@@ -1315,7 +1315,7 @@ def OR16mi  : MemALUInst<0x3E, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
                           "ormi16", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def ADD16mi : MemALUInst<0x38, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "addmi16", "$addr, $imm", []>,
+                          "addiw_da", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def SUB16mi : MemALUInst<0x3A, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
                           "submi16", "$addr, $imm", []>,
@@ -2406,14 +2406,14 @@ let mayLoad = 1, hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in
 def LD8_da16 : DirectSrcRegInst<0x20, 4, (outs GPR:$dst),
                                  (ins i32imm:$addr),
-                                 "ldda8", "$dst, $addr", []>,
+                                 "ldb_d8", "$dst, $addr", []>,
                Sched<[WriteLDW]>;
 
 // 16-bit loads from 16-bit address: D1 + addr16 + (0x20+reg)
 let OpSize = OpSize16.Value in
 def LD16_da16 : DirectSrcRegInst<0x20, 4, (outs GPR:$dst),
                                   (ins i32imm:$addr),
-                                  "ldda16", "$dst, $addr", []>,
+                                  "ldw_d16", "$dst, $addr", []>,
                 Sched<[WriteLDW]>;
 
 // 32-bit loads from 16-bit address: E1 + addr16 + (0x20+reg)
@@ -2427,21 +2427,21 @@ def LD32_da16 : DirectSrcRegInst<0x20, 4, (outs GPR:$dst),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8_da24 : DirectSrcRegInst<0x20, 5, (outs GPR:$dst),
                                  (ins i32imm:$addr),
-                                 "ld8_24", "$dst, $addr", []>,
+                                 "ldb_da", "$dst, $addr", []>,
                Sched<[WriteLDW]>;
 
 // 16-bit loads from 24-bit address: D2 + addr24 + (0x20+reg)
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16_da24 : DirectSrcRegInst<0x20, 5, (outs GPR:$dst),
                                   (ins i32imm:$addr),
-                                  "ld16_24", "$dst, $addr", []>,
+                                  "ldw_da", "$dst, $addr", []>,
                 Sched<[WriteLDW]>;
 
 // 32-bit loads from 24-bit address: E2 + addr24 + (0x20+reg)
 let OpSize = OpSize32.Value, AddrWidth = 1 in
 def LD32_da24 : DirectSrcRegInst<0x20, 5, (outs GPR:$dst),
                                   (ins i32imm:$addr),
-                                  "ld32_24", "$dst, $addr", []>,
+                                  "ldl_da", "$dst, $addr", []>,
                 Sched<[WriteLDW]>;
 
 } // mayLoad, hasSideEffects
@@ -2451,12 +2451,12 @@ let mayLoad = 1, hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in
 def LD8_da16_r8 : DirectSrcRegInst<0x20, 4, (outs GR8:$dst),
                                      (ins i32imm:$addr),
-                                     "ldda8", "$dst, $addr", []>,
+                                     "ldb_d8", "$dst, $addr", []>,
                   Sched<[WriteLDW]>;
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8_da24_r8 : DirectSrcRegInst<0x20, 5, (outs GR8:$dst),
                                      (ins i32imm:$addr),
-                                     "ld8_24", "$dst, $addr", []>,
+                                     "ldb_da", "$dst, $addr", []>,
                   Sched<[WriteLDW]>;
 } // mayLoad, hasSideEffects
 
@@ -2465,12 +2465,12 @@ let mayLoad = 1, hasSideEffects = 0 in {
 let OpSize = OpSize16.Value in
 def LD16_da16_r16 : DirectSrcRegInst<0x20, 4, (outs GR16:$dst),
                                        (ins i32imm:$addr),
-                                       "ldda16", "$dst, $addr", []>,
+                                       "ldw_d16", "$dst, $addr", []>,
                     Sched<[WriteLDW]>;
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16_da24_r16 : DirectSrcRegInst<0x20, 5, (outs GR16:$dst),
                                        (ins i32imm:$addr),
-                                       "ld16_24", "$dst, $addr", []>,
+                                       "ldw_da", "$dst, $addr", []>,
                     Sched<[WriteLDW]>;
 } // mayLoad, hasSideEffects
 
@@ -2765,7 +2765,7 @@ let isCompare = 1, mayStore = 0 in {
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def CP16i_da24 : DirectSrcImmInst<0x3F, 7, (outs),
                                     (ins i32imm:$addr, i16imm:$val),
-                                    "cpdi16_24", "$addr, $val", []>,
+                                    "cpw_da", "$addr, $val", []>,
                  Sched<[WriteIALU]>;
 } // isCompare, mayStore
 let OpSize = OpSize16.Value, AddrWidth = 1 in {
@@ -2922,7 +2922,7 @@ def OR32_da24 : DirectSrcRegInst<0xE0, 5, (outs GPR:$dst),
 let Constraints = "" in {
 def ADD32m_da24 : DirectSrcRegInst<0x88, 5, (outs),
                                      (ins i32imm:$addr, GPR:$src),
-                                     "addm32_24", "$addr, $src", []>,
+                                     "addl_da", "$addr, $src", []>,
                   Sched<[WriteSTW]>;
 def SUB32m_da24 : DirectSrcRegInst<0xA8, 5, (outs),
                                      (ins i32imm:$addr, GPR:$src),
@@ -2977,7 +2977,7 @@ def OR8i_da24 : DirectSrcImmInst<0x3E, 6, (outs),
 let isCompare = 1, mayStore = 0, OpSize = OpSize8.Value, AddrWidth = 1 in
 def CP8i_da24 : DirectSrcImmInst<0x3F, 6, (outs),
                                    (ins i32imm:$addr, i8imm:$val),
-                                   "cpi8_24", "$addr, $val", []>,
+                                   "cpib_da", "$addr, $val", []>,
                 Sched<[WriteIALU]>;
 
 // 24-bit address: ALU reg, (addr24) — load direction for C2 (8-bit)
@@ -3201,7 +3201,7 @@ let mayStore = 1, hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in
 def LD8m_da16 : DirectDstRegInst<0x40, 4, (outs),
                                   (ins i32imm:$addr, GPR:$src),
-                                  "stda8", "$addr, $src", []>,
+                                  "stb_d8", "$addr, $src", []>,
                 Sched<[WriteSTW]>;
 
 // 16-bit stores to 16-bit address: F1 + addr16 + (0x50+reg16)
@@ -3215,14 +3215,14 @@ def LD16m_da16 : DirectDstRegInst<0x50, 4, (outs),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8m_da24 : DirectDstRegInst<0x40, 5, (outs),
                                   (ins i32imm:$addr, GPR:$src),
-                                  "st8_24", "$addr, $src", []>,
+                                  "stb_da", "$addr, $src", []>,
                 Sched<[WriteSTW]>;
 
 // 16-bit stores to 24-bit address: F2 + addr24 + (0x50+reg16)
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16m_da24 : DirectDstRegInst<0x50, 5, (outs),
                                    (ins i32imm:$addr, GPR:$src),
-                                   "st16_24", "$addr, $src", []>,
+                                   "stw_da", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 
 } // mayStore, hasSideEffects
@@ -3238,7 +3238,7 @@ def LD32m_da16 : DirectDstRegInst<0x60, 4, (outs),
 let OpSize = OpSize32.Value, AddrWidth = 1 in
 def LD32m_da24 : DirectDstRegInst<0x60, 5, (outs),
                                     (ins i32imm:$addr, GPR:$src),
-                                    "st32_24", "$addr, $src", []>,
+                                    "stl_da", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 
 // GR8 variants for 8-bit stores LD (addr), reg8 — allows W, B, D, H
@@ -3246,12 +3246,12 @@ let mayStore = 1, hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in
 def LD8m_da16_r8 : DirectDstRegInst<0x40, 4, (outs),
                                       (ins i32imm:$addr, GR8:$src),
-                                      "stda8", "$addr, $src", []>,
+                                      "stb_d8", "$addr, $src", []>,
                    Sched<[WriteSTW]>;
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8m_da24_r8 : DirectDstRegInst<0x40, 5, (outs),
                                       (ins i32imm:$addr, GR8:$src),
-                                      "st8_24", "$addr, $src", []>,
+                                      "stb_da", "$addr, $src", []>,
                    Sched<[WriteSTW]>;
 } // mayStore, hasSideEffects
 
@@ -3265,7 +3265,7 @@ def LD16m_da16_r16 : DirectDstRegInst<0x50, 4, (outs),
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16m_da24_r16 : DirectDstRegInst<0x50, 5, (outs),
                                         (ins i32imm:$addr, GR16:$src),
-                                        "st16_24", "$addr, $src", []>,
+                                        "stw_da", "$addr, $src", []>,
                      Sched<[WriteSTW]>;
 } // mayStore, hasSideEffects
 
@@ -3291,14 +3291,14 @@ def LD16mi_da16 : DirectDstImmInst<0x02, 6, (outs),
 let OpSize = OpSize8.Value, AddrWidth = 1 in
 def LD8mi_da24 : DirectDstImmInst<0x00, 6, (outs),
                                    (ins i32imm:$addr, i8imm:$val),
-                                   "sti8_24", "$addr, $val", []>,
+                                   "stib_da", "$addr, $val", []>,
                  Sched<[WriteSTW]>;
 
 // 16-bit store imm to 24-bit address: F2 + addr24 + 0x02 + imm16
 let OpSize = OpSize16.Value, AddrWidth = 1 in
 def LD16mi_da24 : DirectDstImmInst<0x02, 7, (outs),
                                     (ins i32imm:$addr, i16imm:$val),
-                                    "sti16_24", "$addr, $val", []>,
+                                    "stiw_da", "$addr, $val", []>,
                   Sched<[WriteSTW]>;
 
 } // mayStore, hasSideEffects
@@ -3311,7 +3311,7 @@ let mayLoad = 0, mayStore = 0, hasSideEffects = 0 in {
 let OpSize = OpSize32.Value in
 def LDA_da16 : DirectDstRegInst<0x30, 4, (outs GPR:$dst),
                                  (ins i32imm:$addr),
-                                 "ldada", "$dst, $addr", []>,
+                                 "lda_d16", "$dst, $addr", []>,
                Sched<[WriteLDW]>;
 
 // LDA to 24-bit address: F2 + addr24 + (0x30+reg32)
@@ -3622,55 +3622,55 @@ def DJNZ16 : PrefixDJNZInst<0x1C, (outs GR16:$rd),
 // 8-bit ERP operations with register operand
 let OpSize = OpSize8.Value in {
 def LDTO_BERP : ERPRegInst<0x88, (outs), (ins GR8:$rd, i32imm:$bank),
-    "ldto_berp", "$rd, $bank", []>, Sched<[WriteSTW]>;
+    "stb_erp", "$rd, $bank", []>, Sched<[WriteSTW]>;
 def LDFR_BERP : ERPRegInst<0x98, (outs), (ins GR8:$rs, i32imm:$bank),
-    "ldfr_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "ldb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def ADD_BERP : ERPRegInst<0x80, (outs), (ins GR8:$rs, i32imm:$bank),
-    "add_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "addb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def SUB_BERP : ERPRegInst<0xA0, (outs), (ins GR8:$rs, i32imm:$bank),
-    "sub_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "subb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def AND_BERP : ERPRegInst<0xC0, (outs), (ins GR8:$rs, i32imm:$bank),
-    "and_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "andb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def OR_BERP : ERPRegInst<0xE0, (outs), (ins GR8:$rs, i32imm:$bank),
-    "or_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "orb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def CP_BERP : ERPRegInst<0xF0, (outs), (ins GR8:$rs, i32imm:$bank),
-    "cp_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "cpb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def LDI_BERP : ERPSmallImmInst<0xA8, (outs), (ins i32imm:$bank, i32imm:$imm),
-    "ldi_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+    "ldib_erp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def CPI_BERP : ERPSmallImmInst<0xD8, (outs), (ins i32imm:$bank, i32imm:$imm),
-    "cpi_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+    "cpib_erp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def INC_BERP : ERPSmallImmInst<0x60, (outs), (ins i32imm:$bank, i32imm:$imm),
-    "inc_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+    "incb_erp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def DEC_BERP : ERPSmallImmInst<0x68, (outs), (ins i32imm:$bank, i32imm:$imm),
-    "dec_berp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+    "decb_erp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def XOR_BERP : ERPRegInst<0xD0, (outs), (ins GR8:$rs, i32imm:$bank),
-    "xor_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "xorb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 } // OpSize8
 
 // 16-bit ERP operations with register operand
 let OpSize = OpSize16.Value in {
 def LDTO_WERP : ERPRegInst<0x88, (outs), (ins GR16:$rd, i32imm:$bank),
-    "ldto_werp", "$rd, $bank", []>, Sched<[WriteSTW]>;
+    "stw_erp", "$rd, $bank", []>, Sched<[WriteSTW]>;
 def LDFR_WERP : ERPRegInst<0x98, (outs), (ins GR16:$rs, i32imm:$bank),
-    "ldfr_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "ldw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def ADD_WERP : ERPRegInst<0x80, (outs), (ins GR16:$rs, i32imm:$bank),
-    "add_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "addw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def SUB_WERP : ERPRegInst<0xA0, (outs), (ins GR16:$rs, i32imm:$bank),
-    "sub_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "subw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def AND_WERP : ERPRegInst<0xC0, (outs), (ins GR16:$rs, i32imm:$bank),
-    "and_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "andw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def OR_WERP : ERPRegInst<0xE0, (outs), (ins GR16:$rs, i32imm:$bank),
-    "or_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "orw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def CP_WERP : ERPRegInst<0xF0, (outs), (ins GR16:$rs, i32imm:$bank),
-    "cp_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "cpw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def MUL_WERP : ERPRegInst<0x40, (outs), (ins GR16:$rs, i32imm:$bank),
-    "mul_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "mulw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def EX_WERP : ERPRegInst<0xB8, (outs), (ins GR16:$rs, i32imm:$bank),
-    "ex_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "exw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def LDI_WERP : ERPSmallImmInst<0xA8, (outs), (ins i32imm:$bank, i32imm:$imm),
-    "ldi_werp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+    "ldiw_erp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def CPI_WERP : ERPSmallImmInst<0xD8, (outs), (ins i32imm:$bank, i32imm:$imm),
-    "cpi_werp", "$bank, $imm", []>, Sched<[WriteSTW]>;
+    "cpiw_erp", "$bank, $imm", []>, Sched<[WriteSTW]>;
 } // OpSize16
 
 // 32-bit ERP operations with register operand
@@ -3689,35 +3689,35 @@ let Opcode = 0xC7 in {
 // B extended register prefix suffix instructions
 let OpSize = OpSize8.Value in {
 def XORCF_A_BERP : ERPUnaryInst< 0x2A, (outs), (ins i32imm:$b0),
-    "xorcf_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+    "xorcfb_erp", "$b0", []>, Sched<[WriteSTW]>;
 def INC1_BERP : ERPUnaryInst< 0x61, (outs), (ins i32imm:$b0),
-    "inc1_berp", "$b0", []>, Sched<[WriteSTW]>;
+    "inc1b_erp", "$b0", []>, Sched<[WriteSTW]>;
 def DEC1_BERP : ERPUnaryInst< 0x69, (outs), (ins i32imm:$b0),
-    "dec1_berp", "$b0", []>, Sched<[WriteSTW]>;
+    "dec1b_erp", "$b0", []>, Sched<[WriteSTW]>;
 def SLL_A_BERP : ERPUnaryInst< 0xFE, (outs), (ins i32imm:$b0),
-    "sll_a_berp", "$b0", []>, Sched<[WriteSTW]>;
+    "sllb_erp", "$b0", []>, Sched<[WriteSTW]>;
 } // OpSize8
 
 // W extended register prefix suffix instructions
 let OpSize = OpSize16.Value in {
 def PUSH_WERP : ERPUnaryInst< 0x04, (outs), (ins i32imm:$b0),
-    "push_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "pushw_erp", "$b0", []>, Sched<[WriteSTW]>;
 def POP_WERP : ERPUnaryInst< 0x05, (outs), (ins i32imm:$b0),
-    "pop_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "popw_erp", "$b0", []>, Sched<[WriteSTW]>;
 def CPL_WERP : ERPUnaryInst< 0x06, (outs), (ins i32imm:$b0),
-    "cpl_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "cplw_erp", "$b0", []>, Sched<[WriteSTW]>;
 def XORCF_A_WERP : ERPUnaryInst< 0x2A, (outs), (ins i32imm:$b0),
-    "xorcf_a_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "xorcfw_erp", "$b0", []>, Sched<[WriteSTW]>;
 def STCF_A_WERP : ERPUnaryInst< 0x2C, (outs), (ins i32imm:$b0),
-    "stcf_a_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "stcfw_erp", "$b0", []>, Sched<[WriteSTW]>;
 def INC1_WERP : ERPUnaryInst< 0x61, (outs), (ins i32imm:$b0),
-    "inc1_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "inc1w_erp", "$b0", []>, Sched<[WriteSTW]>;
 def INC4_WERP : ERPUnaryInst< 0x64, (outs), (ins i32imm:$b0),
-    "inc4_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "inc4w_erp", "$b0", []>, Sched<[WriteSTW]>;
 def DEC1_WERP : ERPUnaryInst< 0x69, (outs), (ins i32imm:$b0),
-    "dec1_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "dec1w_erp", "$b0", []>, Sched<[WriteSTW]>;
 def SLA_A_WERP : ERPUnaryInst< 0xFC, (outs), (ins i32imm:$b0),
-    "sla_a_werp", "$b0", []>, Sched<[WriteSTW]>;
+    "slaw_erp", "$b0", []>, Sched<[WriteSTW]>;
 } // OpSize16
 
 // L extended register prefix suffix instructions
@@ -3877,7 +3877,7 @@ let Opcode = 0xC5 in {
 let OpSize = OpSize8.Value in {
 // Load: LD r8, (R+)
 def LD_SPIB : ERPRegInst<0x20, (outs), (ins GR8:$rd, i32imm:$base),
-    "ld_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
+    "ldb_spi", "$rd, $base", []>, Sched<[WriteSTW]>;
 // ALU reg,(mem): ADD/ADC/SUB/SBC/AND/XOR/OR/CP r8, (R+)
 def ADD_SPIB : ERPRegInst<0x80, (outs), (ins GR8:$rd, i32imm:$base),
     "add_spib", "$rd, $base", []>, Sched<[WriteSTW]>;
@@ -4122,10 +4122,10 @@ def LDA_DD8L : D8RegInst<0xF0, 0x30, (outs), (ins GPR:$rd, i32imm:$addr),
 // Operand 0 = addr8, remaining = trailing immediate
 def STIB_DD8 : D8ImmAfterInst<0xF0, 0x00, 4,
     (outs), (ins i32imm:$addr, i32imm:$imm),
-    "stib_dd8", "$addr, $imm", []>;
+    "stib_d8", "$addr, $imm", []>;
 def STIW_DD8 : D8ImmAfterInst<0xF0, 0x02, 5,
     (outs), (ins i32imm:$addr, i32imm:$lo, i32imm:$hi),
-    "stiw_dd8", "$addr, $lo, $hi", []>;
+    "stiw_d8", "$addr, $lo, $hi", []>;
 
 // --- DD8 (prefix F0): stack operations ---
 def POPB_DD8 : D8UnaryInst<0xF0, 0x04, (outs), (ins i32imm:$addr),
@@ -4187,17 +4187,17 @@ def LDCF_DRI : RIImmModInst<0xF3, 0x98, 5, (outs), (ins i32imm:$bit, i32imm:$b0,
 def XORCF_DRI : RIImmModInst<0xF3, 0x90, 5, (outs), (ins i32imm:$bit, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "xorcf_dri", "$bit, $b0, $b1, $b2", []>;
 def JP_DRI : RIImmModInst<0xF3, 0xD0, 5, (outs), (ins i32imm:$cc, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "jp_dri", "$cc, $b0, $b1, $b2", []>;
+    "jp_ind", "$cc, $b0, $b1, $b2", []>;
 
 // --- DRI (prefix F3): store immediate ---
 // RIImmAfter: [F3, MEMsri_bytes..., SubOpc, imm_bytes...]
 // Operands 0-2 = MEMsri (mode, lo, hi), remaining = trailing immediate
 def STIB_DRI : RIImmAfterInst<0xF3, 0x00, 6, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$imm),
-    "stib_dri", "$b0, $b1, $b2, $imm", []>;
+    "stib_ind", "$b0, $b1, $b2, $imm", []>;
 def STIW_DRI : RIImmAfterInst<0xF3, 0x02, 7, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$lo, i32imm:$hi),
-    "stiw_dri", "$b0, $b1, $b2, $lo, $hi", []>;
+    "stiw_ind", "$b0, $b1, $b2, $lo, $hi", []>;
 
 // --- DRI (prefix F3): memory-to-memory ---
 // RIImmAfter: [F3, MEMsri_bytes..., SubOpc, src_lo, src_hi]
@@ -4348,12 +4348,12 @@ def STIB_DPD : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
 // 1 pre-op (base register byte), then SubOpcode, then trailing imm
 def STIB_DPI : ExtAddrModeOpImmInst<4, 0x00, 1, (outs),
     (ins i32imm:$reg, i32imm:$imm),
-    "stib_dpi", "$reg, $imm", []> {
+    "stib_dsp", "$reg, $imm", []> {
   let Opcode = 0xF5;
 }
 def STIW_DPI : ExtAddrModeOpImmInst<5, 0x02, 1, (outs),
     (ins i32imm:$reg, i32imm:$lo, i32imm:$hi),
-    "stiw_dpi", "$reg, $lo, $hi", []> {
+    "stiw_dsp", "$reg, $lo, $hi", []> {
   let Opcode = 0xF5;
 }
 
@@ -4634,13 +4634,13 @@ def AND8_IMM_RID8 : MemRegDispImmAfterInst<0x88, 0x3C, 4, (outs),
 let Opcode = 0xC3 in {
 let OpSize = OpSize8.Value in {
 def LD_SRIB3 : RIRegInst<0xC3, 0x20, 5, (outs), (ins GR8:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "ld_srib3", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "ldb_sri", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def LD_SRIB1 : RIRegInst<0xC3, 0x20, 3, (outs), (ins GR8:$rd, i32imm:$b0),
     "ld_srib1", "$rd, $b0", []>, Sched<[WriteSTW]>;
 } // OpSize8
 let OpSize = OpSize16.Value in {
 def LD_SRIW3 : RIRegInst<0xC3, 0x20, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "ld_sriw3", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "ldw_sri", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def LD_SRIW1 : RIRegInst<0xC3, 0x20, 3, (outs), (ins GR16:$rd, i32imm:$b0),
     "ld_sriw1", "$rd, $b0", []>, Sched<[WriteSTW]>;
 } // OpSize16
@@ -4658,11 +4658,11 @@ def LD_SRIL1 : RIRegInst<0xC3, 0x20, 3, (outs), (ins GPR:$rd, i32imm:$b0),
 let Opcode = 0xC3 in {
 let OpSize = OpSize8.Value in {
 def LD_SRIB_D16 : SriD16RegInst<0xC3, 0x20, (outs), (ins GR8:$rd, MEMri:$addr),
-    "ld_srib", "$rd, $addr", []>, Sched<[WriteSTW]>;
+    "ldb_sri0", "$rd, $addr", []>, Sched<[WriteSTW]>;
 } // OpSize8
 let OpSize = OpSize16.Value in {
 def LD_SRIW_D16 : SriD16RegInst<0xC3, 0x20, (outs), (ins GR16:$rd, MEMri:$addr),
-    "ld_sriw", "$rd, $addr", []>, Sched<[WriteSTW]>;
+    "ldw_sri0", "$rd, $addr", []>, Sched<[WriteSTW]>;
 } // OpSize16
 let OpSize = OpSize32.Value in {
 def LD_SRIL_D16 : SriD16RegInst<0xC3, 0x20, (outs), (ins GPR:$rd, MEMri:$addr),
@@ -4693,16 +4693,16 @@ let Opcode = 0xC0 in {
 let Opcode = 0xF3 in {
 let OpSize = OpSize8.Value in {
 def ST_DRI3B : RIRegInst<0xF3, 0x30, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "st_dri3b", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "stb_dri", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // OpSize8
 def LDA_DRI3 : RIRegInst<0xF3, 0x40, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "lda_dri3", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "lda_dri", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 let OpSize = OpSize16.Value in {
 def ST_DRI3W : RIRegInst<0xF3, 0x50, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "st_dri3w", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "stw_dri", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // OpSize16
 def ST_DRI3L : RIRegInst<0xF3, 0x60, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "st_dri3l", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "stl_dri", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // Opcode = 0xF3
 
 
@@ -4721,16 +4721,16 @@ def ST_DRI3L : RIRegInst<0xF3, 0x60, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm
 let Opcode = 0xF5 in {
 let OpSize = OpSize8.Value in {
 def ST_DPIB : ERPRegInst<0x30, (outs), (ins GR8:$rs, i32imm:$base),
-    "st_dpib", "$rs, $base", []>, Sched<[WriteSTW]>;
+    "stb_dpi", "$rs, $base", []>, Sched<[WriteSTW]>;
 } // OpSize8
 def LDA_DPI : ERPRegInst<0x40, (outs), (ins GPR:$rd, i32imm:$base),
     "lda_dpi", "$rd, $base", []>, Sched<[WriteSTW]>;
 let OpSize = OpSize16.Value in {
 def ST_DPIW : ERPRegInst<0x50, (outs), (ins GR16:$rs, i32imm:$base),
-    "st_dpiw", "$rs, $base", []>, Sched<[WriteSTW]>;
+    "stw_dpi", "$rs, $base", []>, Sched<[WriteSTW]>;
 } // OpSize16
 def ST_DPIL : ERPRegInst<0x60, (outs), (ins GPR:$rs, i32imm:$base),
-    "st_dpil", "$rs, $base", []>, Sched<[WriteSTW]>;
+    "stl_dpi", "$rs, $base", []>, Sched<[WriteSTW]>;
 // POP to (R+)
 def POPB_DPI : ERPUnaryInst<0x04, (outs), (ins i32imm:$base),
     "popb_dpi", "$base", []>, Sched<[WriteSTW]>;
@@ -4820,9 +4820,9 @@ def OR_SRIB_RM : RIRegInst<0xC3, 0xE0, 5, (outs), (ins GR8:$rd, i32imm:$b0, i32i
 def OR_SRIB_MR : RIRegInst<0xC3, 0xE8, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "or_srib_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def CP_SRIB_RM : RIRegInst<0xC3, 0xF0, 5, (outs), (ins GR8:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "cp_srib_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "cpb_sri_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def CP_SRIB_MR : RIRegInst<0xC3, 0xF8, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "cp_srib_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "cpb_sri_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // OpSize8
 
 // --- Word SRI ALU ---
@@ -4842,9 +4842,9 @@ def OR_SRIW_RM : RIRegInst<0xC3, 0xE0, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32
 def OR_SRIW_MR : RIRegInst<0xC3, 0xE8, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "or_sriw_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def CP_SRIW_RM : RIRegInst<0xC3, 0xF0, 5, (outs), (ins GR16:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "cp_sriw_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "cpw_sri_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def CP_SRIW_MR : RIRegInst<0xC3, 0xF8, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "cp_sriw_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "cpw_sri_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // OpSize16
 
 // --- Long SRI ALU ---
@@ -4858,9 +4858,9 @@ def SUB_SRIL_RM : RIRegInst<0xC3, 0xA0, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32
 def SUB_SRIL_MR : RIRegInst<0xC3, 0xA8, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "sub_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def CP_SRIL_RM : RIRegInst<0xC3, 0xF0, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "cp_sril_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "cpl_sri_rm", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def CP_SRIL_MR : RIRegInst<0xC3, 0xF8, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "cp_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
+    "cpl_sri_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def ADC_SRIL_MR : RIRegInst<0xC3, 0x98, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "adc_sril_mr", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def OR_SRIL_RM : RIRegInst<0xC3, 0xE0, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
@@ -4994,7 +4994,7 @@ def AND_SRIB_IM : RIImmAfterInst<0xC3, 0x3C, 6, (outs), (ins i32imm:$b0, i32imm:
 def OR_SRIB_IM : RIImmAfterInst<0xC3, 0x3E, 6, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$imm),
     "or_srib_im", "$b0, $b1, $b2, $imm", []>, Sched<[WriteSTW]>;
 def CP_SRIB_IM : RIImmAfterInst<0xC3, 0x3F, 6, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$imm),
-    "cp_srib_im", "$b0, $b1, $b2, $imm", []>, Sched<[WriteSTW]>;
+    "cpib_sri", "$b0, $b1, $b2, $imm", []>, Sched<[WriteSTW]>;
 // SRI byte INC/DEC: [C3, MEMsri(3), 0x60+count / 0x68+count]
 def INC_SRIB : RIImmModInst<0xC3, 0x60, 5, (outs), (ins i32imm:$count, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "inc_srib", "$count, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
@@ -5014,7 +5014,7 @@ def AND_SRIW_IM : RIImmAfterInst<0xC3, 0x3C, 7, (outs), (ins i32imm:$b0, i32imm:
 def OR_SRIW_IM : RIImmAfterInst<0xC3, 0x3E, 7, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$lo, i32imm:$hi),
     "or_sriw_im", "$b0, $b1, $b2, $lo, $hi", []>, Sched<[WriteSTW]>;
 def CP_SRIW_IM : RIImmAfterInst<0xC3, 0x3F, 7, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$lo, i32imm:$hi),
-    "cp_sriw_im", "$b0, $b1, $b2, $lo, $hi", []>, Sched<[WriteSTW]>;
+    "cpiw_sri", "$b0, $b1, $b2, $lo, $hi", []>, Sched<[WriteSTW]>;
 // SRI word PUSH: [D3, MEMsri(3), 0x04]
 def PUSH_SRIW : RIUnaryInst<0xC3, 0x04, 5,
     (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
@@ -5092,7 +5092,7 @@ def LDMM_SD24B : ExtAddrModeOpImmInst<7, 0x19, 3,
 let OpSize = OpSize16.Value in {
 def PUSH_SD24W : ExtAddrModeSuffixInst<5, 0x04,
     (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
-    "push_sd24w", "$b0, $b1, $b2", []>;
+    "pushw_da", "$b0, $b1, $b2", []>;
 def LDMM_SD24W : ExtAddrModeOpImmInst<7, 0x19, 3,
     (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$lo, i32imm:$hi),
     "ldmm_sd24w", "$b0, $b1, $b2, $lo, $hi", []>;
@@ -5140,7 +5140,7 @@ def MRDL3 : ExtPrefixInst<3, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
 
 // Destination, no displacement (B0-B7)
 def MRID2 : ExtPrefixInst<2, (outs), (ins i32imm:$b0, i32imm:$b1),
-    "mrid2", "$b0, $b1", []>, Sched<[WriteSTW]>;
+    "mri_d2", "$b0, $b1", []>, Sched<[WriteSTW]>;
 def MRID3 : ExtPrefixInst<3, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "mrid3", "$b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 def MRID4 : ExtPrefixInst<4, (outs), (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),

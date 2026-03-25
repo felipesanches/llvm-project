@@ -377,10 +377,10 @@
 
 # === Additional single-byte instructions ===
 
-# CHECK: push_sr
+# CHECK: push sr
 0x02
 
-# CHECK: pop_sr
+# CHECK: pop sr
 0x03
 
 # CHECK: incf
@@ -659,7 +659,7 @@
 # === Direct addressing (E2=32-bit src, 24-bit addr) ===
 
 # LD xwa, (0x123456): E2 56 34 12 20
-# CHECK: ld32_24 xwa, 1193046
+# CHECK: ldl_da xwa, 1193046
 0xe2 0x56 0x34 0x12 0x20
 
 # === Direct addressing destination (F1=dst, 16-bit addr) ===
@@ -669,5 +669,5 @@
 0xf1 0x34 0x12 0x60
 
 # LDA xwa, 0x1234: F1 34 12 30
-# CHECK: ldada xwa, 4660
+# CHECK: lda_d16 xwa, 4660
 0xf1 0x34 0x12 0x30

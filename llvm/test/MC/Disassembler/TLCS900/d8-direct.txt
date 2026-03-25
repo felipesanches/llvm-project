@@ -28,11 +28,11 @@
 0xf0 0x0a 0x61
 
 # STIB_DD8: LD (addr8), #imm8: [F0, addr, 0x00, imm]
-# CHECK: stib_dd8 41, 64
+# CHECK: stib_d8 41, 64
 0xf0 0x29 0x00 0x40
 
 # STIW_DD8: LD (addr8), #imm16: [F0, addr, 0x02, lo, hi]
-# CHECK: stiw_dd8 41, 52, 18
+# CHECK: stiw_d8 41, 52, 18
 0xf0 0x29 0x02 0x34 0x12
 
 # RES bit, (addr8): [F0, addr, 0xB0+bit]

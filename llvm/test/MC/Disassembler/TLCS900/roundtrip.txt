@@ -16,7 +16,7 @@
 #
 # === Known round-trip issues (documented, not tested here): ===
 # - 32-bit DJNZ: disassembles as "djnz xwa" but reassembles to 16-bit prefix
-# - E2 prefix (24-bit direct addr): disassembles as ld32_24 (asm-only mnemonic)
+# - E2 prefix (24-bit direct addr): disassembles as ldl_da (asm-only mnemonic)
 
 # ==========================================================================
 # Single-byte system instructions
@@ -38,10 +38,10 @@
 # Flag manipulation
 # ==========================================================================
 
-# CHECK: push_sr{{.*}}encoding: [0x02]
+# CHECK: push{{.*}}sr{{.*}}encoding: [0x02]
 0x02
 
-# CHECK: pop_sr{{.*}}encoding: [0x03]
+# CHECK: pop{{.*}}sr{{.*}}encoding: [0x03]
 0x03
 
 # CHECK: incf{{.*}}encoding: [0x0c]
@@ -931,7 +931,7 @@
 # CHECK: stda32 4660, xwa{{.*}}encoding: [0xf1,0x34,0x12,0x60]
 0xf1 0x34 0x12 0x60
 
-# CHECK: ldada xwa, 4660{{.*}}encoding: [0xf1,0x34,0x12,0x30]
+# CHECK: lda_d16 xwa, 4660{{.*}}encoding: [0xf1,0x34,0x12,0x30]
 0xf1 0x34 0x12 0x30
 
 # ==========================================================================

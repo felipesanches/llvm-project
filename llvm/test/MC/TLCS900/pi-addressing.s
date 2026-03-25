@@ -14,9 +14,9 @@
 ; ======= SPI Byte (prefix C5) =======
 
 ; --- Load ---
-; CHECK: ld_spib a, 224 ; encoding: [0xc5,0xe0,0x21]
-; DISASM: ld_spib a, 224
-ld_spib A, 0xe0
+; CHECK: ldb_spi a, 224 ; encoding: [0xc5,0xe0,0x21]
+; DISASM: ldb_spi a, 224
+ldb_spi A, 0xe0
 
 ; --- ALU reg,(mem) ---
 ; CHECK: add_spib c, 236 ; encoding: [0xc5,0xec,0x83]
@@ -169,25 +169,25 @@ ld_spdw DE, 0xe0
 
 ; ======= DPI (prefix F5) =======
 
-; CHECK: st_dpib a, 226 ; encoding: [0xf5,0xe2,0x31]
-; DISASM: st_dpib a, 226
-st_dpib A, 0xe2
+; CHECK: stb_dpi a, 226 ; encoding: [0xf5,0xe2,0x31]
+; DISASM: stb_dpi a, 226
+stb_dpi A, 0xe2
 
-; CHECK: st_dpiw ix, 237 ; encoding: [0xf5,0xed,0x54]
-; DISASM: st_dpiw ix, 237
-st_dpiw IX, 0xed
+; CHECK: stw_dpi ix, 237 ; encoding: [0xf5,0xed,0x54]
+; DISASM: stw_dpi ix, 237
+stw_dpi IX, 0xed
 
-; CHECK: st_dpil xbc, 224 ; encoding: [0xf5,0xe0,0x61]
-; DISASM: st_dpil xbc, 224
-st_dpil XBC, 0xe0
+; CHECK: stl_dpi xbc, 224 ; encoding: [0xf5,0xe0,0x61]
+; DISASM: stl_dpi xbc, 224
+stl_dpi XBC, 0xe0
 
 ; CHECK: lda_dpi xbc, 224 ; encoding: [0xf5,0xe0,0x41]
 ; DISASM: lda_dpi xbc, 224
 lda_dpi XBC, 0xe0
 
-; CHECK: stib_dpi 224, 42 ; encoding: [0xf5,0xe0,0x00,0x2a]
-; DISASM: stib_dpi 224, 42
-stib_dpi 0xe0, 0x2a
+; CHECK: stib_dsp 224, 42 ; encoding: [0xf5,0xe0,0x00,0x2a]
+; DISASM: stib_dsp 224, 42
+stib_dsp 0xe0, 0x2a
 
 ; CHECK: popb_dpi 224 ; encoding: [0xf5,0xe0,0x04]
 ; DISASM: popb_dpi 224
