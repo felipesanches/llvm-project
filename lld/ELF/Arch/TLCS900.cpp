@@ -75,6 +75,8 @@ void TLCS900::relocate(uint8_t *loc, const Relocation &rel,
     break;
   }
   case R_TLCS900_LO16:
+    write16le(loc, val);  // Truncate to low 16 bits, no range check
+    break;
   case R_TLCS900_PC16:
     checkIntUInt(ctx, loc, val, 16, rel);
     write16le(loc, val);
