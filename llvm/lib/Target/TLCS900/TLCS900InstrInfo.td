@@ -804,13 +804,13 @@ def PUSHW_imm : SingleByteImm8Inst<0x0B, (outs), (ins i16imm:$imm),
 // PUSH SR — Push status register (0x02, 1 byte)
 let Defs = [XSP], Uses = [XSP, SR], hasSideEffects = 0, mayStore = 1 in
 def PUSH_SR : SingleByteInst<0x02, (outs), (ins),
-                              "push_sr", "", []>,
+                              "push\tsr", "", []>,
               Sched<[WritePush]>;
 
 // POP SR — Pop status register (0x03, 1 byte)
 let Defs = [XSP, SR], Uses = [XSP], hasSideEffects = 0, mayLoad = 1 in
 def POP_SR : SingleByteInst<0x03, (outs), (ins),
-                             "pop_sr", "", []>,
+                             "pop\tsr", "", []>,
              Sched<[WritePop]>;
 
 //===----------------------------------------------------------------------===//
