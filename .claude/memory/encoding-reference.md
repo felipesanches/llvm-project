@@ -142,5 +142,5 @@ Encoded in bits 0-3 of the opcode byte:
 ## Reference Files
 - MAME disassembler: `/tmp/dasm900.cpp`, `/tmp/900tbl.hxx`, `/tmp/900htbl.hxx`
 - Ghidra SLEIGH: `/tmp/ghidra_tlcs900h.sinc`, `/tmp/ghidra_src_mem.sinc`, `/tmp/ghidra_dst_mem.sinc`
-- Local macros: `/mnt/shared/kn5000-roms-disasm/tmp94c241.inc`
-- Local macros: `/mnt/shared/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`
+- Local macros: `/home/fsanches/compartilhado/kn5000-roms-disasm/tmp94c241.inc`
+- Local macros: `/home/fsanches/compartilhado/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`

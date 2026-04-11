@@ -8,7 +8,7 @@
 ## Project Context
 - Target: TMP94C241 (TLCS-900/H2) for Technics KN5000 keyboard
 - Branch: `tlcs900_backend` — rebased onto modern `main`
-- Reference docs: `/mnt/shared/kn5000-docs/`, `/mnt/shared/kn5000-roms-disasm/tmp94c241.inc`, `/mnt/shared/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`
+- Reference docs: `/home/fsanches/compartilhado/kn5000-docs/`, `/home/fsanches/compartilhado/kn5000-roms-disasm/tmp94c241.inc`, `/home/fsanches/compartilhado/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`
 
 ## Key API Changes (old branch → modern main)
 See [api-changes.md](api-changes.md) for full details.

@@ -152,7 +152,7 @@ These are inherent to the current backend, not bugs:
 
 ```bash
 # Configure (first time or after CMake changes)
-cd /mnt/shared/llvm-project
+cd /home/fsanches/compartilhado/llvm-project
 bash build_tlcs900.sh
 
 # Incremental build

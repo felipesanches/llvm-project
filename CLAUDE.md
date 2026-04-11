@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **(A) Building is allowed.** Use `ninja -Cbuild` for incremental builds, or `ninja -Cbuild llc` for just the compiler. Reconfigure with `bash build_tlcs900.sh` only if CMake config changes. Run TLCS-900 tests with `build/bin/llvm-lit llvm/test/CodeGen/TLCS900/`.
 - **(B) Make frequent commits**, always keeping the working directory clean.
 - **(C) Store new policies** in both memory and this CLAUDE.md file. Use progressive disclosure when structuring information here.
-- **(D) Update the issue tracker after meaningful work.** Issues are tracked centrally using [Beads](https://github.com/beads-ai/beads) in `/mnt/shared/kn5000_project/.beads/issues.jsonl`. Use `/mnt/shared/tools/bd` commands (never edit JSONL directly). After meaningful work: (1) update relevant issues with progress, (2) open new issues for next steps, (3) sync to website (`cd /mnt/shared/kn5000-roms-disasm && make issues`), (4) pick the next task. LLVM-related issue: `kn5000-raw` (TLCS-900/H2 backend tracking).
+- **(D) Update the issue tracker after meaningful work.** Issues are tracked centrally using [Beads](https://github.com/beads-ai/beads) in `/home/fsanches/compartilhado/kn5000_project/.beads/issues.jsonl`. Use `/home/fsanches/compartilhado/tools/bd` commands (never edit JSONL directly). After meaningful work: (1) update relevant issues with progress, (2) open new issues for next steps, (3) sync to website (`cd /home/fsanches/compartilhado/kn5000-roms-disasm && make issues`), (4) pick the next task. LLVM-related issue: `kn5000-raw` (TLCS-900/H2 backend tracking).
 
 ## Project Goal
 
@@ -15,10 +15,10 @@ LLVM backend for the TLCS-900 family, targeting the **TMP94C241** CPU variant us
 
 ## Reference Materials
 
-- **KN5000 docs**: `/mnt/shared/kn5000-docs/` (cpu-subsystem.md, memory-map.md, hardware-architecture.md)
-- **ROM disassembly**: `/mnt/shared/kn5000-roms-disasm/` (includes `tmp94c241.inc` with instruction encoding macros)
-- **Additional encoding macros**: `/mnt/shared/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`
-- **ASL assembler**: `/mnt/shared/asl-current/asl` (reference output, but encoding not always accurate)
+- **KN5000 docs**: `/home/fsanches/compartilhado/kn5000-docs/` (cpu-subsystem.md, memory-map.md, hardware-architecture.md)
+- **ROM disassembly**: `/home/fsanches/compartilhado/kn5000-roms-disasm/` (includes `tmp94c241.inc` with instruction encoding macros)
+- **Additional encoding macros**: `/home/fsanches/compartilhado/custom-kn5000-roms/anotherworld/src/includes/local_macros.inc`
+- **ASL assembler**: `/home/fsanches/compartilhado/asl-current/asl` (reference output, but encoding not always accurate)
 
 ## Repository Overview
 
@@ -195,4 +195,4 @@ None. All previously reported bugs have been fixed or resolved.
 | Bug #10 | N/A | Register x/y swap when inlining — **not reproducible**. Original analysis assumed XBC=first param; actual calling convention is XDE-first (`CCAssignToReg<[XDE, XBC, XIX, XIY]>`). Generated code is correct. `__attribute__((noinline))` workaround can be removed. |
 | Bug #11 | `eba2fe6622ee` | `for` loop with `uint16_t` counter exited after 1 iteration. Root cause: EXTS32/EXTZ32 were declared with `Defs=[SR]` but do NOT set flags on TLCS-900/H. RedundantCmpElim incorrectly removed CP instructions after EXTZ. |
 
-Full bug documentation: `/mnt/shared/Mines/LLVM_TLCS900_BUGS.md`
+Full bug documentation: `/home/fsanches/compartilhado/Mines/LLVM_TLCS900_BUGS.md`
