@@ -182,6 +182,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
       break;
     }
     break;
+  case ELF::EM_TLCS900:
+    switch (Type) {
+#include "llvm/BinaryFormat/ELFRelocs/TLCS900.def"
+    default:
+      break;
+    }
+    break;
   default:
     break;
   }
