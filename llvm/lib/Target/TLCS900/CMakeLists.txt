@@ -52,5 +52,6 @@ add_llvm_target(TLCS900CodeGen
   TLCS900
   )
 
+add_subdirectory(AsmParser)
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
