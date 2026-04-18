@@ -85,6 +85,7 @@ llvm_config.feature_config(
                 "RISCV": "riscv",
                 "Sparc": "sparc",
                 "SystemZ": "systemz",
+                "TLCS900": "tlcs900",
                 "WebAssembly": "wasm",
                 "X86": "x86",
             },

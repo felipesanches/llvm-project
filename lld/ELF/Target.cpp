@@ -81,6 +81,8 @@ void elf::setTarget(Ctx &ctx) {
     return setSPARCV9TargetInfo(ctx);
   case EM_S390:
     return setSystemZTargetInfo(ctx);
+  case EM_TLCS900:
+    return setTLCS900TargetInfo(ctx);
   case EM_X86_64:
     return setX86_64TargetInfo(ctx);
   default:
