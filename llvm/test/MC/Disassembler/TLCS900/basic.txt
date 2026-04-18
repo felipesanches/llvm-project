@@ -1,0 +1,673 @@
+# RUN: llvm-mc -triple=tlcs900 -disassemble < %s | FileCheck %s
+
+# === Single-byte instructions ===
+
+# CHECK: nop
+0x00
+
+# CHECK: halt
+0x05
+
+# CHECK: reti
+0x07
+
+# CHECK: ret
+0x0e
+
+# === EI / DI (0x06 + level byte) ===
+
+# DI is EI 0
+# CHECK: di
+0x06 0x00
+
+# CHECK: ei 3
+0x06 0x03
+
+# CHECK: ei 7
+0x06 0x07
+
+# === RETD (return and deallocate) ===
+
+# CHECK: retd 0
+0x0f 0x00 0x00
+
+# CHECK: retd 8
+0x0f 0x08 0x00
+
+# CHECK: retd 256
+0x0f 0x00 0x01
+
+# === SWI (software interrupt) ===
+
+# CHECK: swi 0
+0xf8
+
+# CHECK: swi 3
+0xfb
+
+# CHECK: swi 7
+0xff
+
+# === Block transfer instructions (0x80 prefix + sub-opcode) ===
+
+# CHECK: ldi
+0x80 0x10
+
+# CHECK: ldir
+0x80 0x11
+
+# CHECK: ldd
+0x80 0x12
+
+# CHECK: lddr
+0x80 0x13
+
+# CHECK: cpi
+0x80 0x14
+
+# CHECK: cpir
+0x80 0x15
+
+# CHECK: cpd
+0x80 0x16
+
+# CHECK: cpdr
+0x80 0x17
+
+# === PUSH/POP ===
+
+# CHECK: push xwa
+0x38
+
+# CHECK: push xbc
+0x39
+
+# CHECK: push xsp
+0x3f
+
+# CHECK: pop xwa
+0x58
+
+# CHECK: pop xbc
+0x59
+
+# === LD r32, #imm32 ===
+
+# CHECK: ld xwa, 0
+0x40 0x00 0x00 0x00 0x00
+
+# CHECK: ld xbc, 1
+0x41 0x01 0x00 0x00 0x00
+
+# CHECK: ld xde, 255
+0x42 0xff 0x00 0x00 0x00
+
+# CHECK: ld xhl, 305419896
+0x43 0x78 0x56 0x34 0x12
+
+# === Prefix unary instructions (E8+r) ===
+
+# CHECK: neg xwa
+0xe8 0x07
+
+# CHECK: cpl xbc
+0xe9 0x06
+
+# CHECK: exts xwa
+0xe8 0x13
+
+# CHECK: extz xwa
+0xe8 0x12
+
+# CHECK: daa xwa
+0xe8 0x10
+
+# === Prefix reg-reg ALU (E8+src, opcode+dst) ===
+
+# CHECK: add xwa, xbc
+0xe9 0x80
+
+# CHECK: sub xwa, xbc
+0xe9 0xa0
+
+# CHECK: and xwa, xbc
+0xe9 0xc0
+
+# CHECK: or xwa, xbc
+0xe9 0xe0
+
+# CHECK: xor xwa, xbc
+0xe9 0xd0
+
+# CHECK: ld xwa, xbc
+0xe9 0x88
+
+# CHECK: cp xwa, xbc
+0xe9 0xf0
+
+# CHECK: adc xwa, xbc
+0xe9 0x90
+
+# CHECK: sbc xwa, xbc
+0xe9 0xb0
+
+# === Prefix reg-imm ALU (E8+dst, opcode, imm32) ===
+
+# CHECK: add xwa, 42
+0xe8 0xc8 0x2a 0x00 0x00 0x00
+
+# CHECK: sub xwa, 1
+0xe8 0xca 0x01 0x00 0x00 0x00
+
+# CHECK: cp xwa, 0
+0xe8 0xcf 0x00 0x00 0x00 0x00
+
+# CHECK: and xwa, 255
+0xe8 0xcc 0xff 0x00 0x00 0x00
+
+# CHECK: or xwa, 15
+0xe8 0xce 0x0f 0x00 0x00 0x00
+
+# CHECK: xor xwa, 65535
+0xe8 0xcd 0xff 0xff 0x00 0x00
+
+# === INC/DEC (E8+r, 0x60+(n&7) / 0x68+(n&7)) ===
+# I3 field: 1→0x61, 2→0x62, ..., 7→0x67, 8→0x60
+
+# CHECK: inc 1, xwa
+0xe8 0x61
+
+# CHECK: inc 4, xde
+0xea 0x64
+
+# CHECK: inc 8, xhl
+0xeb 0x60
+
+# CHECK: dec 1, xwa
+0xe8 0x69
+
+# CHECK: dec 3, xbc
+0xe9 0x6b
+
+# CHECK: dec 8, xde
+0xea 0x68
+
+# === Shift instructions (E8+r, opcode, amount) ===
+
+# CHECK: sla xwa, 1
+0xe8 0xec 0x01
+
+# CHECK: sra xwa, 4
+0xe8 0xed 0x04
+
+# CHECK: srl xwa, 8
+0xe8 0xef 0x08
+
+# === Rotate instructions (E8+r, opcode, 0x01) ===
+
+# CHECK: rlc xwa
+0xe8 0xe8 0x01
+
+# CHECK: rrc xbc
+0xe9 0xe9 0x01
+
+# CHECK: rl xde
+0xea 0xea 0x01
+
+# CHECK: rr xhl
+0xeb 0xeb 0x01
+
+# === Bit manipulation (E8+r, opcode, bit) ===
+
+# CHECK: set 3, xde
+0xea 0x31 0x03
+
+# CHECK: res 7, xwa
+0xe8 0x30 0x07
+
+# CHECK: chg 0, xbc
+0xe9 0x32 0x00
+
+# CHECK: bit 5, xhl
+0xeb 0x33 0x05
+
+# CHECK: tset 1, xwa
+0xe8 0x34 0x01
+
+# === Memory load (A0+base[+d8], 0x20+dst) ===
+
+# ld xwa, (xsp): A0+7=A7, 0x20+0=20
+# CHECK: ld xwa, (xsp)
+0xa7 0x20
+
+# ld xde, (xhl): A0+3=A3, 0x20+2=22
+# CHECK: ld xde, (xhl)
+0xa3 0x22
+
+# ld xde, (xsp+4): A8+7=AF, d8=04, 0x20+2=22
+# CHECK: ld xde, (xsp+4)
+0xaf 0x04 0x22
+
+# ld xwa, (xsp-4): AF, d8=FC (signed), 0x20
+# CHECK: ld xwa, (xsp-4)
+0xaf 0xfc 0x20
+
+# === Memory store (B0+base[+d8], 0x60+src) ===
+
+# ld (xsp), xwa: B0+7=B7, 0x60+0=60
+# CHECK: ld (xsp), xwa
+0xb7 0x60
+
+# ld (xhl), xde: B0+3=B3, 0x60+2=62
+# CHECK: ld (xhl), xde
+0xb3 0x62
+
+# ld (xsp+8), xwa: B8+7=BF, d8=08, 0x60+0=60
+# CHECK: ld (xsp+8), xwa
+0xbf 0x08 0x60
+
+# ld (xsp-8), xde: BF, d8=F8, 0x60+2=62
+# CHECK: ld (xsp-8), xde
+0xbf 0xf8 0x62
+
+# === LDA (B0+base[+d8], 0x30+dst) ===
+
+# lda xde, (xhl): B0+3=B3, 0x30+2=32
+# CHECK: lda xde, (xhl)
+0xb3 0x32
+
+# lda xwa, (xsp+64): B8+7=BF, d8=40, 0x30+0=30
+# CHECK: lda xwa, (xsp+64)
+0xbf 0x40 0x30
+
+# === Memory ALU (A0+base[+d8], opcode+src) ===
+
+# add (xhl), xwa: A0+3=A3, 0x88+0=88
+# CHECK: add (xhl), xwa
+0xa3 0x88
+
+# sub (xsp+4), xde: A8+7=AF, d8=04, 0xA8+2=AA
+# CHECK: sub (xsp+4), xde
+0xaf 0x04 0xaa
+
+# cp (xhl), xwa: A0+3=A3, 0xF8+0=F8
+# CHECK: cp (xhl), xwa
+0xa3 0xf8
+
+# and (xix), xbc: A0+4=A4, 0xC8+1=C9
+# CHECK: and (xix), xbc
+0xa4 0xc9
+
+# or (xiy+8), xwa: A8+5=AD, d8=08, 0xE8+0=E8
+# CHECK: or (xiy+8), xwa
+0xad 0x08 0xe8
+
+# xor (xhl+2), xde: A8+3=AB, d8=02, 0xD8+2=DA
+# CHECK: xor (xhl+2), xde
+0xab 0x02 0xda
+
+# === CALL indirect (B0+reg, 0xE8) ===
+
+# CHECK: call (xwa)
+0xb0 0xe8
+
+# CHECK: call (xhl)
+0xb3 0xe8
+
+# === JP indirect (B0+reg, 0xD8) ===
+
+# CHECK: jp (xwa)
+0xb0 0xd8
+
+# CHECK: jp (xhl)
+0xb3 0xd8
+
+# === CALL / CALR with immediate ===
+
+# CHECK: call 0
+0x1d 0x00 0x00 0x00
+
+# CHECK: calr 0
+0x1e 0x00 0x00
+
+# === JP absolute ===
+
+# CHECK: jp 0
+0x1b 0x00 0x00 0x00
+
+# CHECK: jp 1193046
+0x1b 0x56 0x34 0x12
+
+# === JR (relative 8-bit) ===
+
+# CHECK: jr 0
+0x68 0x00
+
+# === JRL (relative 16-bit) ===
+
+# CHECK: jrl 0
+0x78 0x00 0x00
+
+# === Conditional JR ===
+
+# nz = condition 14 = 0xE
+# CHECK: jr nz, 0
+0x6e 0x00
+
+# === Conditional JRL ===
+
+# c = condition 7
+# CHECK: jrl c, 0
+0x77 0x00 0x00
+
+# === DJNZ ===
+
+# CHECK: djnz xwa, 0
+0xe8 0x1c 0x00
+
+# === MUL / MULS (D8+src, opcode+dst) ===
+
+# mul xwa, xbc: D8+1=D9, 0x40+0=40
+# CHECK: mul xwa, xbc
+0xd9 0x40
+
+# muls xwa, xbc: D8+1=D9, 0x48+0=48
+# CHECK: muls xwa, xbc
+0xd9 0x48
+
+# === Additional single-byte instructions ===
+
+# CHECK: push sr
+0x02
+
+# CHECK: pop sr
+0x03
+
+# CHECK: incf
+0x0c
+
+# CHECK: decf
+0x0d
+
+# CHECK: rcf
+0x10
+
+# CHECK: scf
+0x11
+
+# CHECK: ccf
+0x12
+
+# CHECK: zcf
+0x13
+
+# CHECK: push_a
+0x14
+
+# CHECK: pop_a
+0x15
+
+# CHECK: ex_ff
+0x16
+
+# CHECK: push_f
+0x18
+
+# CHECK: pop_f
+0x19
+
+# === LD (I/O) instructions ===
+
+# CHECK: ldio 66, 255
+0x08 0x42 0xff
+
+# CHECK: ldwio 66, 4660
+0x0a 0x42 0x34 0x12
+
+# === PUSHW immediate ===
+
+# CHECK: pushw 4660
+0x0b 0x34 0x12
+
+# === Short-encoded register instructions ===
+
+# CHECK: ldb w, 42
+0x20 0x2a
+
+# CHECK: ldb a, 255
+0x21 0xff
+
+# CHECK: pushw wa
+0x28
+
+# CHECK: pushw bc
+0x29
+
+# CHECK: ldw wa, 4660
+0x30 0x34 0x12
+
+# CHECK: ldw bc, 0
+0x31 0x00 0x00
+
+# CHECK: popw wa
+0x48
+
+# CHECK: popw bc
+0x49
+
+# === 8-bit register prefix operations (C8+r) ===
+
+# NEG A: C8+1=C9, 0x07
+# CHECK: neg a
+0xc9 0x07
+
+# CPL B: C8+2=CA, 0x06
+# CHECK: cpl b
+0xca 0x06
+
+# EXTS A: C8+1=C9, 0x13
+# CHECK: exts a
+0xc9 0x13
+
+# EXTZ A: C8+1=C9, 0x12
+# CHECK: extz a
+0xc9 0x12
+
+# 8-bit reg-imm ALU: ADD A, 42 → C9, C8, 2A
+# CHECK: add a, 42
+0xc9 0xc8 0x2a
+
+# 8-bit reg-imm: SUB B, 1 → CA, CA, 01
+# CHECK: sub b, 1
+0xca 0xca 0x01
+
+# 8-bit reg-imm: CP A, 0 → C9, CF, 00
+# CHECK: cp a, 0
+0xc9 0xcf 0x00
+
+# 8-bit reg-reg ALU: ADD A, B → src=B(CA), 80+1(A)=81
+# CHECK: add a, b
+0xca 0x81
+
+# 8-bit reg-reg: LD A, B → src=B(CA), 88+1(A)=89
+# CHECK: ld a, b
+0xca 0x89
+
+# 8-bit shift: SLA A, 2 → C9 EC 02
+# CHECK: sla a, 2
+0xc9 0xec 0x02
+
+# 8-bit shift: SRA A, 4 → C9 ED 04
+# CHECK: sra a, 4
+0xc9 0xed 0x04
+
+# 8-bit rotate: RLC B → CA E8 01
+# CHECK: rlc b
+0xca 0xe8 0x01
+
+# 8-bit rotate: RR A → C9 EB 01
+# CHECK: rr a
+0xc9 0xeb 0x01
+
+# 8-bit bit: SET 3, A → C9 31 03
+# CHECK: set 3, a
+0xc9 0x31 0x03
+
+# 8-bit bit: RES 0, B → CA 30 00
+# CHECK: res 0, b
+0xca 0x30 0x00
+
+# 8-bit bit: BIT 7, A → C9 33 07
+# CHECK: bit 7, a
+0xc9 0x33 0x07
+
+# 8-bit INC/DEC: INC 1, A → C9 61
+# CHECK: inc 1, a
+0xc9 0x61
+
+# 8-bit INC/DEC: DEC 1, B → CA 69
+# CHECK: dec 1, b
+0xca 0x69
+
+# 8-bit DJNZ: DJNZ A, 0 → C9 1C 00
+# CHECK: djnz8 a, 0
+0xc9 0x1c 0x00
+
+# 8-bit MUL: MUL A, 5 → C9 08 05
+# CHECK: mul a, 5
+0xc9 0x08 0x05
+
+# 8-bit DIV: DIV A, 3 → C9 0A 03
+# CHECK: div a, 3
+0xc9 0x0a 0x03
+
+# 8-bit EX: EX A, B → src=B(CA), B8+1(A)=B9
+# CHECK: ex8 a, b
+0xca 0xb9
+
+# 8-bit SCC: SCC T, A → C9 78 (cc=8=T)
+# CHECK: scc8 t, a
+0xc9 0x78
+
+# 8-bit LD small: LD A, 3 → C9 AB
+# CHECK: lds8 a, 3
+0xc9 0xab
+
+# 8-bit CP small: CP A, 0 → C9 D8
+# CHECK: cps a, 0
+0xc9 0xd8
+
+# 8-bit PUSH: C9 04
+# CHECK: push a
+0xc9 0x04
+
+# 8-bit POP: C9 05
+# CHECK: pop a
+0xc9 0x05
+
+# 8-bit LD imm via prefix: C9 03 2A
+# CHECK: ld a, 42
+0xc9 0x03 0x2a
+
+# === 16-bit register prefix operations (D8+r) ===
+
+# 16-bit unary: NEG WA → D8 07
+# CHECK: neg wa
+0xd8 0x07
+
+# 16-bit reg-reg: ADD WA, BC → D9 80
+# CHECK: add wa, bc
+0xd9 0x80
+
+# 16-bit reg-imm: SUB WA, 100 → D8 CA 64 00
+# CHECK: sub wa, 100
+0xd8 0xca 0x64 0x00
+
+# 16-bit INC: INC 1, WA → D8 61
+# CHECK: inc 1, wa
+0xd8 0x61
+
+# 16-bit shift: SLA WA, 1 → D8 EC 01
+# CHECK: sla wa, 1
+0xd8 0xec 0x01
+
+# 16-bit rotate: RLC WA → D8 E8 01
+# CHECK: rlc wa
+0xd8 0xe8 0x01
+
+# 16-bit bit: BIT 5, WA → D8 33 05
+# CHECK: bit 5, wa
+0xd8 0x33 0x05
+
+# 16-bit EX: EX WA, BC → D9 B8
+# CHECK: ex16 wa, bc
+0xd9 0xb8
+
+# 16-bit DJNZ: D8 1C 00
+# CHECK: djnz16 wa, 0
+0xd8 0x1c 0x00
+
+# 16-bit DIV rr: DIV XWA, XBC → D9 4A+0=4A  (wait, 16-bit uses GPR for MUL)
+# (16-bit MUL/MULS already tested above)
+
+# === 8-bit memory loads/ALU ===
+
+# LD A, (xhl): 83 21 (8-bit src mem, no disp)
+# CHECK: ld a, (xhl)
+0x83 0x21
+
+# LD WA, (xhl): 93 20 (16-bit src mem, no disp)
+# CHECK: ld wa, (xhl)
+0x93 0x20
+
+# ADD (xhl), A: 83 89 (8-bit src mem ALU)
+# CHECK: add (xhl), a
+0x83 0x89
+
+# SUB (xhl), WA: 93 A8 (16-bit src mem ALU)
+# CHECK: sub (xhl), wa
+0x93 0xa8
+
+# CP (xhl), A: 83 F9 (8-bit src mem CP)
+# CHECK: cp (xhl), a
+0x83 0xf9
+
+# === RETcc (B0 + F0+cc) ===
+
+# RET T: B0 F8 (cc=8=T)
+# CHECK: ret t
+0xb0 0xf8
+
+# RET NZ: B0 FE (cc=14=NZ)
+# CHECK: ret nz
+0xb0 0xfe
+
+# === Direct addressing (E1=32-bit src, 16-bit addr) ===
+
+# LD xwa, (0x1234): E1 34 12 20
+# CHECK: ldda32 xwa, (4660)
+0xe1 0x34 0x12 0x20
+
+# LD xbc, (0x1234): E1 34 12 21
+# CHECK: ldda32 xbc, (4660)
+0xe1 0x34 0x12 0x21
+
+# ADD (0x1234), xwa: E1 34 12 88
+# CHECK: adddm32 (4660), xwa
+0xe1 0x34 0x12 0x88
+
+# === Direct addressing (E2=32-bit src, 24-bit addr) ===
+
+# LD xwa, (0x123456): E2 56 34 12 20
+# CHECK: ldl_da xwa, (1193046)
+0xe2 0x56 0x34 0x12 0x20
+
+# === Direct addressing destination (F1=dst, 16-bit addr) ===
+
+# LD (0x1234), xwa: F1 34 12 60
+# CHECK: stda32 (4660), xwa
+0xf1 0x34 0x12 0x60
+
+# LDA xwa, 0x1234: F1 34 12 30
+# CHECK: lda_d16 xwa, (4660)
+0xf1 0x34 0x12 0x30
