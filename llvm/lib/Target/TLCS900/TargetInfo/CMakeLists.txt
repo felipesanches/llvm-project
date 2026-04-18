@@ -11,3 +11,5 @@ add_llvm_component_library(LLVMTLCS900Info
   ADD_TO_COMPONENT
   TLCS900
 )
+
+add_dependencies(LLVMTLCS900Info TLCS900CommonTableGen)

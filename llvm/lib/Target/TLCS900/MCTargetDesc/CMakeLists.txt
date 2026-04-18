@@ -1,14 +1,19 @@
-include_directories( ${CMAKE_CURRENT_BINARY_DIR}/..
-                     ${CMAKE_CURRENT_SOURCE_DIR}/.. )
-
 add_llvm_component_library(LLVMTLCS900Desc
+  TLCS900AsmBackend.cpp
+  TLCS900ELFObjectWriter.cpp
+  TLCS900MCAsmInfo.cpp
+  TLCS900MCCodeEmitter.cpp
   TLCS900MCTargetDesc.cpp
+  TLCS900InstPrinter.cpp
 
   LINK_COMPONENTS
   MC
-  Support
   TLCS900Info
+  Support
+  TargetParser
 
   ADD_TO_COMPONENT
   TLCS900
 )
+
+add_dependencies(LLVMTLCS900Desc TLCS900CommonTableGen)
