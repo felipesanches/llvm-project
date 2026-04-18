@@ -47,6 +47,7 @@
 #include "ToolChains/SYCL.h"
 #include "ToolChains/Solaris.h"
 #include "ToolChains/TCE.h"
+#include "ToolChains/TLCS900.h"
 #include "ToolChains/UEFI.h"
 #include "ToolChains/VEToolchain.h"
 #include "ToolChains/WebAssembly.h"
@@ -6910,6 +6911,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         break;
       case llvm::Triple::avr:
         TC = std::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
+        break;
+      case llvm::Triple::tlcs900:
+        TC =
+            std::make_unique<toolchains::TLCS900ToolChain>(*this, Target, Args);
         break;
       case llvm::Triple::msp430:
         TC =
