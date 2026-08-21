@@ -5252,3 +5252,10 @@ def : InstAlias<"setm $bit, $addr", (SETm MEMri:$addr, i32imm:$bit)>;
 def : InstAlias<"resm $bit, $addr", (RESm MEMri:$addr, i32imm:$bit)>;
 def : InstAlias<"ldcfm $bit, $addr", (LDCFm MEMri:$addr, i32imm:$bit)>;
 def : InstAlias<"stcfm $bit, $addr", (STCFm MEMri:$addr, i32imm:$bit)>;
+
+// SCC under its real mnemonic. SCC8/SCC16 are the encodable forms and were
+// reachable only as "scc8"/"scc16"; SCC32 above is a codegen pseudo that already
+// holds the plain "scc" AsmString, so these go in as aliases rather than a
+// rename to avoid two definitions printing the same string.
+def : InstAlias<"scc $cc, $rd", (SCC8 GR8:$rd, cc:$cc)>;
+def : InstAlias<"scc $cc, $rd", (SCC16 GR16:$rd, cc:$cc)>;
