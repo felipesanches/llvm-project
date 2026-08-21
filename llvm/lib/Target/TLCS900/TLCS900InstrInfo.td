@@ -1294,7 +1294,7 @@ def CP8mi  : MemALUInst<0x3F, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
                          "cp", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def AND8mi : MemALUInst<0x3C, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "andmi8", "$addr, $imm", []>,
+                         "and", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def OR8mi  : MemALUInst<0x3E, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
                          "ormi8", "$addr, $imm", []>,
@@ -1321,7 +1321,7 @@ def CP16mi  : MemALUInst<0x3F, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
                           "cpw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def AND16mi : MemALUInst<0x3C, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "andmi16", "$addr, $imm", []>,
+                          "andw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def OR16mi  : MemALUInst<0x3E, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
                           "ormi16", "$addr, $imm", []>,
@@ -1460,27 +1460,27 @@ def DEC16m : MemIncDecInst<0x68, 2, (outs),
 let mayLoad = 1, hasSideEffects = 0 in {
 def BITm : MemDstBitOpInst<0xC8, 2, (outs),
                             (ins MEMri:$addr, i32imm:$bit),
-                            "bitm", "$bit, $addr", []>,
+                            "bit", "$bit, $addr", []>,
            Sched<[WriteIALU, ReadMemBase]>;
 let Defs = [SR] in
 def LDCFm : MemDstBitOpInst<0x98, 2, (outs),
                               (ins MEMri:$addr, i32imm:$bit),
-                              "ldcfm", "$bit, $addr", []>,
+                              "ldcf", "$bit, $addr", []>,
             Sched<[WriteIALU, ReadMemBase]>;
 } // mayLoad, hasSideEffects
 let mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
 def SETm : MemDstBitOpInst<0xB8, 2, (outs),
                             (ins MEMri:$addr, i32imm:$bit),
-                            "setm", "$bit, $addr", []>,
+                            "set", "$bit, $addr", []>,
            Sched<[WriteSTW, ReadMemBase]>;
 def RESm : MemDstBitOpInst<0xB0, 2, (outs),
                             (ins MEMri:$addr, i32imm:$bit),
-                            "resm", "$bit, $addr", []>,
+                            "res", "$bit, $addr", []>,
            Sched<[WriteSTW, ReadMemBase]>;
 let Uses = [SR] in
 def STCFm : MemDstBitOpInst<0xA0, 2, (outs),
                               (ins MEMri:$addr, i32imm:$bit),
-                              "stcfm", "$bit, $addr", []>,
+                              "stcf", "$bit, $addr", []>,
             Sched<[WriteSTW, ReadMemBase]>;
 def CHGm : MemDstBitOpInst<0xC0, 2, (outs),
                              (ins MEMri:$addr, i32imm:$bit),
@@ -5231,3 +5231,24 @@ def EXTPFX10 : ExtPrefixInst<10, (outs),
 
 
 } // hasSideEffects, mayLoad, mayStore
+
+
+// ---------------------------------------------------------------------------
+// Real TLCS-900 mnemonics for the memory-operand forms.
+//
+// These instructions always encoded correctly, but were only reachable under
+// invented spellings ("andmi8", "bitm", "ldcfm"), so a disassembly could not
+// write `and (xix), 0x7f` even though the encoder produced 84 3C 7F for it.
+// CP8mi already used the real "cp", which is the pattern followed here.
+//
+// The old spellings are kept as aliases: kn5000-roms-disasm uses them in
+// hundreds of files (bitm in 53, incm in 80), and renaming alone would break
+// every one of them.
+// ---------------------------------------------------------------------------
+def : InstAlias<"andmi8 $addr, $imm", (AND8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"andmi16 $addr, $imm", (AND16mi MEMri:$addr, i16imm:$imm)>;
+def : InstAlias<"bitm $bit, $addr", (BITm MEMri:$addr, i32imm:$bit)>;
+def : InstAlias<"setm $bit, $addr", (SETm MEMri:$addr, i32imm:$bit)>;
+def : InstAlias<"resm $bit, $addr", (RESm MEMri:$addr, i32imm:$bit)>;
+def : InstAlias<"ldcfm $bit, $addr", (LDCFm MEMri:$addr, i32imm:$bit)>;
+def : InstAlias<"stcfm $bit, $addr", (STCFm MEMri:$addr, i32imm:$bit)>;
