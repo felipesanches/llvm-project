@@ -4717,6 +4717,32 @@ def ST_DRI3L : RIRegInst<0xF3, 0x60, 5, (outs), (ins GPR:$rs, i32imm:$b0, i32imm
     "stl_dri", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // Opcode = 0xF3
 
+// --- Register-indexed LOAD (C3/D3/E3) ---
+// The store direction above exists; the load direction did not, so a
+// disassembly could not write `ld A,(XIX+HL)` at all. Encodings read off the
+// KN5000 v7 ROM, which contains all three:
+//     c3 07 f0 ec 21   ld A,(XIX+HL)      8-bit,  A   = reg 1 -> 0x20|1
+//     d3 07 f0 ec 20   ld WA,(XIX+HL)     16-bit, WA  = reg 0 -> 0x20|0
+//     e3 07 ec f4 25   ld XIY,(XHL+IY)    32-bit, XIY = reg 5 -> 0x20|5
+// Same [prefix, sub-mode, base byte, index byte, SubOpc|reg] shape as the
+// stores, with SubOpc 0x20. All three take BASE opcode 0xC3 and let OpSize
+// pick the prefix: RIRegInst adds 0x10 for OpSize16 and 0x20 for 32-bit, an
+// adjustment the 0xF3 stores never see because it is skipped above 0xF0.
+// Writing 0xD3/0xE3 literally here yielded 0xE3 and 0x03 instead.
+let mayLoad = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def LD_DRI3B : RIRegInst<0xC3, 0x20, 5, (outs GR8:$rd),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ldb_dri", "$rd, $b0, $b1, $b2", []>, Sched<[WriteLDW]>;
+let OpSize = OpSize16.Value in
+def LD_DRI3W : RIRegInst<0xC3, 0x20, 5, (outs GR16:$rd),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ldw_dri", "$rd, $b0, $b1, $b2", []>, Sched<[WriteLDW]>;
+def LD_DRI3L : RIRegInst<0xC3, 0x20, 5, (outs GPR:$rd),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2),
+    "ldl_dri", "$rd, $b0, $b1, $b2", []>, Sched<[WriteLDW]>;
+} // mayLoad
+
 
 // --- Destination Post-Increment (F5) — consolidated defs ---
 // Format: [F5, base_reg_addr_byte, SubOpc + data_reg_enc]
