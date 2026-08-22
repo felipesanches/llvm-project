@@ -4949,6 +4949,18 @@ def CP_ERPB_RR : ERPRegInst<0xF0, (outs), (ins GR8:$rd, i32imm:$bank),
     "cp_erpb_rr", "$rd, $bank", []>, Sched<[WriteSTW]>;
 def OR_ERPB_RR : ERPRegInst<0xE0, (outs), (ins GR8:$rs, i32imm:$bank),
     "or_erpb_rr", "$rs, $bank", []>, Sched<[WriteSTW]>;
+
+// --- ERP byte: LD short-immediate and LD register, both missing ---
+// The KN5000 v7 ROM uses both and neither had a mnemonic, so `ld QIZH,1` and
+// `ld C,QIZH` could not be written at all. 86 instances between them.
+//     c7 fb a9   ld QIZH,1     [C7, bank, 0xA8 + imm3]   imm 1 -> 0xA9
+//     c7 fb 8b   ld C,QIZH     [C7, bank, 0x88 + reg]    C = reg 3 -> 0x8B
+// LDI_ERPB above covers the LONG immediate form (c7 fb 03 0f); this is the
+// three-bit one, which is a different encoding rather than a shorter spelling.
+def LDS_ERPB : ERPSmallImmInst<0xA8, (outs), (ins i32imm:$bank, i32imm:$imm),
+    "lds_erpb", "$bank, $imm", []>, Sched<[WriteSTW]>;
+def LD_ERPB_RR : ERPRegInst<0x88, (outs GR8:$rd), (ins i32imm:$bank),
+    "ld_erpb_rr", "$rd, $bank", []>, Sched<[WriteSTW]>;
 } // Opcode = 0xC7, OpSize8
 
 // --- Consolidated ERP Word operations (prefix D7) ---
