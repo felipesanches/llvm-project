@@ -4257,13 +4257,18 @@ def ST_RRB : SriRRRegInst<0xF3, 0x40, (outs),
     Sched<[WriteSTW, ReadMemBase]> {
   let OpSize = OpSize8.Value;
 }
-def ST_RRW : SriRRRegInst<0xF3, 0x40, (outs),
+// ⚠ The SubOpc must be spelled out per size. The comment above says "OpSize
+// selects sub-opcode range", but the emitter only applies that adjustment when
+// Opcode < 0xF0 (TLCS900MCCodeEmitter.cpp), and this prefix is 0xF3 -- so all
+// three defs carrying 0x40 made st_rrw and st_rrl emit the BYTE sub-opcode,
+// silently and identically to st_rrb.
+def ST_RRW : SriRRRegInst<0xF3, 0x50, (outs),
     (ins GR16:$src, GPR:$base, GR16:$idx),
     "st_rrw", "$src, $base, $idx", []>,
     Sched<[WriteSTW, ReadMemBase]> {
   let OpSize = OpSize16.Value;
 }
-def ST_RRL : SriRRRegInst<0xF3, 0x40, (outs),
+def ST_RRL : SriRRRegInst<0xF3, 0x60, (outs),
     (ins GPR:$src, GPR:$base, GR16:$idx),
     "st_rrl", "$src, $base, $idx", []>,
     Sched<[WriteSTW, ReadMemBase]> {
@@ -4704,10 +4709,16 @@ let Opcode = 0xC0 in {
 
 let Opcode = 0xF3 in {
 let OpSize = OpSize8.Value in {
-def ST_DRI3B : RIRegInst<0xF3, 0x30, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+// ⚠ These two SubOpcs were SWAPPED. SubOpc 0x30 is LDA and 0x40 is the byte
+// store, which the neighbouring stw_dri=0x50 / stl_dri=0x60 already implied.
+// The KN5000 v7 ROM settles it: `f3 07 e4 e0 31` disassembles as
+// `lda XBC,XBC+WA`, and 0x31 = 0x30 | reg. Before this fix you had to write
+// `stb_dri` to obtain an LDA, so every disassembly using it named a store
+// where the CPU computes an address.
+def ST_DRI3B : RIRegInst<0xF3, 0x40, 5, (outs), (ins GR8:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "stb_dri", "$rs, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 } // OpSize8
-def LDA_DRI3 : RIRegInst<0xF3, 0x40, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
+def LDA_DRI3 : RIRegInst<0xF3, 0x30, 5, (outs), (ins GPR:$rd, i32imm:$b0, i32imm:$b1, i32imm:$b2),
     "lda_dri", "$rd, $b0, $b1, $b2", []>, Sched<[WriteSTW]>;
 let OpSize = OpSize16.Value in {
 def ST_DRI3W : RIRegInst<0xF3, 0x50, 5, (outs), (ins GR16:$rs, i32imm:$b0, i32imm:$b1, i32imm:$b2),
@@ -4961,6 +4972,18 @@ def LDS_ERPB : ERPSmallImmInst<0xA8, (outs), (ins i32imm:$bank, i32imm:$imm),
     "lds_erpb", "$bank, $imm", []>, Sched<[WriteSTW]>;
 def LD_ERPB_RR : ERPRegInst<0x88, (outs GR8:$rd), (ins i32imm:$bank),
     "ld_erpb_rr", "$rd, $bank", []>, Sched<[WriteSTW]>;
+
+// The mirror images of the two above, both also used by the v7 ROM and both
+// also absent. The backend kept having one direction of a pair:
+//     c7 fb db   cp QIZH,3    [C7, bank, 0xD8 + imm3]   3 -> 0xDB
+//     c7 f0 99   ld IXL,A     [C7, bank, 0x98 + reg]    A = reg 1 -> 0x99
+// cps_erpb is to CP what lds_erpb is to LD; st_erpb_rr stores a plain register
+// INTO the ERP byte, where ld_erpb_rr reads one out of it.
+let Defs = [SR] in
+def CPS_ERPB : ERPSmallImmInst<0xD8, (outs), (ins i32imm:$bank, i32imm:$imm),
+    "cps_erpb", "$bank, $imm", []>, Sched<[WriteIALU]>;
+def ST_ERPB_RR : ERPRegInst<0x98, (outs), (ins GR8:$rs, i32imm:$bank),
+    "st_erpb_rr", "$rs, $bank", []>, Sched<[WriteSTW]>;
 } // Opcode = 0xC7, OpSize8
 
 // --- Consolidated ERP Word operations (prefix D7) ---
