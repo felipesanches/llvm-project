@@ -4207,6 +4207,26 @@ def JP_DRI : RIImmModInst<0xF3, 0xD0, 5, (outs), (ins i32imm:$cc, i32imm:$b0, i3
 def STIB_DRI : RIImmAfterInst<0xF3, 0x00, 6, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$imm),
     "stib_ind", "$b0, $b1, $b2, $imm", []>;
+
+// Register-indexed COMPARE with an immediate. The store direction exists above
+// (0xF3 prefix, sub-opcode 0x00); the compare direction had no mnemonic at all,
+// so `cp (XIX+IZ),0x0c` -- `c3 07 f0 f8 3f 0c` in the KN5000 v7 ROM -- could
+// not be written in any spelling.
+//
+// CP8mi covers `cp (r+d),imm` via MEMri and collapses to the 2-byte core `3f 0c`
+// here; it cannot express the three addressing bytes. The prefix is 0xC3, the
+// same one ldb_dri uses for the register-indexed LOAD, and 0x3F is CP in the
+// memory-immediate ALU table documented at the ADD=0x38 comment above.
+// ⚠ OpSize MUST BE PINNED. The emitter adjusts the prefix by size whenever
+// Opcode < 0xF0 (TLCS900MCCodeEmitter.cpp): C3 = 8-bit, D3 = 16-bit,
+// E3 = 32-bit. STIB_DRI above escapes this only because 0xF3 >= 0xF0. Leaving
+// it unset here emitted 0xE3 instead of 0xC3 -- the same trap that made
+// st_rrw/st_rrl silently emit the byte sub-opcode before today's fix.
+def CPIB_DRI : RIImmAfterInst<0xC3, 0x3F, 6, (outs),
+    (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$imm),
+    "cpib_ind", "$b0, $b1, $b2, $imm", []> {
+  let OpSize = OpSize8.Value;
+}
 def STIW_DRI : RIImmAfterInst<0xF3, 0x02, 7, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$lo, i32imm:$hi),
     "stiw_ind", "$b0, $b1, $b2, $lo, $hi", []>;
