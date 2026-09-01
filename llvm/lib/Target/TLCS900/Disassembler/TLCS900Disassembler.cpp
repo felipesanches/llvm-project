@@ -712,11 +712,21 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     return MCDisassembler::Success;
   }
   if (IsDstMem && OpByte == 0x02 && MemSize <= 2) {
-    // LD (mem), #imm16
+    // LDW (mem), #imm16 -- sub-opcode 0x02, distinct from the redundant
+    // 0x14 hardware encoding (TLCS900::LD16mi_dst, mnemonic "ldmi16").
+    // Both produce identical 16-bit stores, but they are NOT the same
+    // instruction definition: LD16mi_dst's declared opcode is 0x14, so
+    // setting it here for 0x02 bytes made the disassembler print text
+    // ("ldmi16 (mem), #imm") whose own encoder emits the WRONG sub-opcode
+    // (0x14) when re-assembled -- a decode/encode asymmetry caught by the
+    // subcpu v142 DSP_Bytecode round-trip (bf 04 02 01 00 -> "ldmi16
+    // (xsp+4), 1" -> re-encoded as bf 04 14 01 00). Use the matching
+    // LD16mi_dst_02 definition (mnemonic "ldw") instead, already proven at
+    // ~30 real ROM sites (e.g. v142/subcpu/kn5000_subprogram_v142.s).
     if (Bytes.size() < OpByteIdx + 3)
       return MCDisassembler::Fail;
     uint16_t Imm = readU16LE(Bytes, OpByteIdx + 1);
-    MI.setOpcode(TLCS900::LD16mi_dst);
+    MI.setOpcode(TLCS900::LD16mi_dst_02);
     MI.addOperand(MCOperand::createReg(Base));
     MI.addOperand(MCOperand::createImm(Disp));
     MI.addOperand(MCOperand::createImm(Imm));
@@ -1051,20 +1061,42 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
         if (Opc == 0)
           return MCDisassembler::Fail;
         MI.setOpcode(Opc);
+        // Every entry in DALUOps (reg-dst ADD/SUB/AND/XOR/OR/CP *and*
+        // mem-dst ADDm/SUBm/...) declares its register operand as plain
+        // GPR (the 32-bit xNN class) in TLCS900InstrInfo.td, at every data
+        // width (8/16/32) -- confirmed by ~20 already-shipped ROM sites
+        // that spell it "cpda16_24 xhl, (addr)", never "hl, (addr)". There
+        // is no GR8/GR16-class overload for this family (unlike the plain
+        // `ld reg,(addr)` forms just above, which have one). So the
+        // register here must always decode as GPR regardless of OpSize;
+        // decodeRegForSize(RegEnc, OpSize) produced an 8/16-bit register
+        // name (e.g. "wa") that the sole matching definition's GPR operand
+        // class then rejects on re-assembly -- caught by round-tripping
+        // subcpu v142's TaskSched/TaskEvent .byte runs (bytes d1 40 10 80
+        // decoded as "addda16 wa, (4160)", which does not re-encode; the
+        // correct, encodable spelling is "addda16 xwa, (4160)").
+        unsigned Reg = decodeGPR(RegEnc);
         if (Op.IsRegDst) {
           // reg = reg op (addr): 3 operands (dst, src1_tied, addr)
-          unsigned Reg = decodeRegForSize(RegEnc, OpSize);
           MI.addOperand(MCOperand::createReg(Reg));
           MI.addOperand(MCOperand::createReg(Reg));
           MI.addOperand(MCOperand::createImm(Addr));
-        } else if (AluBase >= 0x88) {
-          // (addr) = (addr) op reg: 2 operands (addr, src)
-          unsigned Reg = decodeRegForSize(RegEnc, OpSize);
+        } else if (AluBase & 0x08) {
+          // (addr) = (addr) op reg: 2 operands (addr, src).
+          // The mem-dst sub-opcodes are 0x88/0xA8/0xC8/0xD8/0xE8/0xF8 --
+          // bit 3 set -- versus the reg-dst/CP family 0x80/0xA0/.../0xF0
+          // with bit 3 clear.  The previous `AluBase >= 0x88` test does
+          // not distinguish them: CP's base 0xF0 (240) is numerically
+          // >= 0x88 (136) too, so `cpda16`/`cpda16_24` were wrongly routed
+          // into this branch with (addr, src) operand order -- printed
+          // backwards, e.g. "cpda16 4160, (wa)" instead of "cpda16 xwa,
+          // (4160)" -- while CP16_da16's declared operand order is
+          // (src, addr), so the wrong-order MCOperands never matched the
+          // instruction actually selected by MI.setOpcode(Opc) above.
           MI.addOperand(MCOperand::createImm(Addr));
           MI.addOperand(MCOperand::createReg(Reg));
         } else {
           // CP reg, (addr): 2 operands (src, addr)
-          unsigned Reg = decodeRegForSize(RegEnc, OpSize);
           MI.addOperand(MCOperand::createReg(Reg));
           MI.addOperand(MCOperand::createImm(Addr));
         }
