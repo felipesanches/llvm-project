@@ -53,6 +53,8 @@ def InstFormatMemStoreImm : InstFormat<31>;
 def InstFormatMemIncDec : InstFormat<32>;
 def InstFormatMemPush : InstFormat<33>;
 def InstFormatMemDstBitOp : InstFormat<34>;
+def InstFormatMemDstUnary : InstFormat<79>;
+def InstFormatMemDstCC : InstFormat<80>;
 def InstFormatDirectSrcReg : InstFormat<35>;
 def InstFormatDirectSrcImm : InstFormat<36>;
 def InstFormatDirectSrcIncDec : InstFormat<37>;
@@ -493,6 +495,27 @@ class MemPushInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
                   string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatMemPush.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// MemDstUnaryInst: dst_mem_prefix [+disp] + opcode, no register or modifier.
+// POP/POPW (mem) and the carry-flag group ANDCF/ORCF/XORCF/LDCF/STCF A,(mem).
+class MemDstUnaryInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                      string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemDstUnary.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// MemDstCCInst: dst_mem_prefix [+disp] + (opcode + cc)
+// JP cc,(mem) and CALL cc,(mem).  The condition is FOUR bits, not the three
+// a bit number takes, so this cannot share MemDstBitOpInst.
+class MemDstCCInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                   string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemDstCC.Value;
   let Opcode = opc;
   let Size = sz;
 }

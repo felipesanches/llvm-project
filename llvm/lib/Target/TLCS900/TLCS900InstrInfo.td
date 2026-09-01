@@ -1297,22 +1297,22 @@ def AND8mi : MemALUInst<0x3C, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
                          "and", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def OR8mi  : MemALUInst<0x3E, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "ormi8", "$addr, $imm", []>,
+                         "or", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def ADD8mi : MemALUInst<0x38, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "addmi8", "$addr, $imm", []>,
+                         "add", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def SUB8mi : MemALUInst<0x3A, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "submi8", "$addr, $imm", []>,
+                         "sub", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def ADC8mi : MemALUInst<0x39, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "adcmi8", "$addr, $imm", []>,
+                         "adc", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def SBC8mi : MemALUInst<0x3B, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "sbcmi8", "$addr, $imm", []>,
+                         "sbc", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 def XOR8mi : MemALUInst<0x3D, 4, (outs), (ins MEMri:$addr, i8imm:$imm),
-                         "xormi8", "$addr, $imm", []>,
+                         "xor", "$addr, $imm", []>,
              Sched<[WriteLDW, ReadMemBase]>;
 }
 
@@ -1324,22 +1324,22 @@ def AND16mi : MemALUInst<0x3C, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
                           "andw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def OR16mi  : MemALUInst<0x3E, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "ormi16", "$addr, $imm", []>,
+                          "orw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def ADD16mi : MemALUInst<0x38, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "addiw_da", "$addr, $imm", []>,
+                          "addw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def SUB16mi : MemALUInst<0x3A, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "submi16", "$addr, $imm", []>,
+                          "subw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def ADC16mi : MemALUInst<0x39, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "adcmi16", "$addr, $imm", []>,
+                          "adcw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def SBC16mi : MemALUInst<0x3B, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "sbcmi16", "$addr, $imm", []>,
+                          "sbcw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 def XOR16mi : MemALUInst<0x3D, 5, (outs), (ins MEMri:$addr, i16imm:$imm),
-                          "xormi16", "$addr, $imm", []>,
+                          "xorw", "$addr, $imm", []>,
               Sched<[WriteLDW, ReadMemBase]>;
 }
 
@@ -1435,24 +1435,122 @@ let Defs = [SR], mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in {
 def INC8m : MemIncDecInst<0x60, 2, (outs),
                            (ins MEMri:$addr, i32imm:$count),
-                           "incm8", "$count, $addr", []>,
+                           "inc", "$count, $addr", []>,
             Sched<[WriteSTW, ReadMemBase]>;
 def DEC8m : MemIncDecInst<0x68, 2, (outs),
                            (ins MEMri:$addr, i32imm:$count),
-                           "decm8", "$count, $addr", []>,
+                           "dec", "$count, $addr", []>,
             Sched<[WriteSTW, ReadMemBase]>;
 } // OpSize8
 let OpSize = OpSize16.Value in {
 def INC16m : MemIncDecInst<0x60, 2, (outs),
                             (ins MEMri:$addr, i32imm:$count),
-                            "incm", "$count, $addr", []>,
+                            "incw", "$count, $addr", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 def DEC16m : MemIncDecInst<0x68, 2, (outs),
                             (ins MEMri:$addr, i32imm:$count),
-                            "decm", "$count, $addr", []>,
+                            "decw", "$count, $addr", []>,
              Sched<[WriteSTW, ReadMemBase]>;
 } // OpSize16
 } // Defs, mayLoad, mayStore, hasSideEffects
+
+// Memory MUL/MULS/DIV/DIVS — the second operand read from memory.
+// Encoding: src_mem_prefix(base [+disp]) + (0x40/0x48/0x50/0x58 + reg).
+// Only the register-direct and immediate forms existed before, so
+// `mul WA,(0x1234)` matched `mul WA,#0x1234` and silently multiplied by the
+// ADDRESS.  The size of the operand comes from the prefix, as it does for
+// every other memory form.
+let Defs = [SR], mayLoad = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+def MUL8m  : MemLoadInst<0x40, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+                          "mul", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def MULS8m : MemLoadInst<0x48, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+                          "muls", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def DIV8m  : MemLoadInst<0x50, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+                          "div", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def DIVS8m : MemLoadInst<0x58, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+                          "divs", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def EX8m   : MemLoadInst<0x30, 2, (outs), (ins GR8:$rs, MEMri:$addr),
+                          "ex", "$addr, $rs", []>, Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def MUL16m  : MemLoadInst<0x40, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+                           "mul", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def MULS16m : MemLoadInst<0x48, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+                           "muls", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def DIV16m  : MemLoadInst<0x50, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+                           "div", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def DIVS16m : MemLoadInst<0x58, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+                           "divs", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
+def EX16m   : MemLoadInst<0x30, 2, (outs), (ins GR16:$rs, MEMri:$addr),
+                           "ex", "$addr, $rs", []>, Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize16
+} // Defs, mayLoad, hasSideEffects
+
+// Memory SHIFT/ROTATE — the operand is a memory location, shifted by one.
+// Encoding: src_mem_prefix(base [+disp]) + 0x78..0x7F.
+// ⚠ The sub-opcode order is rlc rrc rl rr sla sra sll srl -- not alphabetical,
+// and sla/sll are adjacent in a way that has already been transposed once in
+// this project's macro file.
+let Defs = [SR], mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+def RLC8m : MemPushInst<0x78, 2, (outs), (ins MEMri:$addr), "rlc", "$addr", []>;
+def RRC8m : MemPushInst<0x79, 2, (outs), (ins MEMri:$addr), "rrc", "$addr", []>;
+def RL8m  : MemPushInst<0x7A, 2, (outs), (ins MEMri:$addr), "rl",  "$addr", []>;
+def RR8m  : MemPushInst<0x7B, 2, (outs), (ins MEMri:$addr), "rr",  "$addr", []>;
+def SLA8m : MemPushInst<0x7C, 2, (outs), (ins MEMri:$addr), "sla", "$addr", []>;
+def SRA8m : MemPushInst<0x7D, 2, (outs), (ins MEMri:$addr), "sra", "$addr", []>;
+def SLL8m : MemPushInst<0x7E, 2, (outs), (ins MEMri:$addr), "sll", "$addr", []>;
+def SRL8m : MemPushInst<0x7F, 2, (outs), (ins MEMri:$addr), "srl", "$addr", []>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def RLC16m : MemPushInst<0x78, 2, (outs), (ins MEMri:$addr), "rlcw", "$addr", []>;
+def RRC16m : MemPushInst<0x79, 2, (outs), (ins MEMri:$addr), "rrcw", "$addr", []>;
+def RL16m  : MemPushInst<0x7A, 2, (outs), (ins MEMri:$addr), "rlw",  "$addr", []>;
+def RR16m  : MemPushInst<0x7B, 2, (outs), (ins MEMri:$addr), "rrw",  "$addr", []>;
+def SLA16m : MemPushInst<0x7C, 2, (outs), (ins MEMri:$addr), "slaw", "$addr", []>;
+def SRA16m : MemPushInst<0x7D, 2, (outs), (ins MEMri:$addr), "sraw", "$addr", []>;
+def SLL16m : MemPushInst<0x7E, 2, (outs), (ins MEMri:$addr), "sllw", "$addr", []>;
+def SRL16m : MemPushInst<0x7F, 2, (outs), (ins MEMri:$addr), "srlw", "$addr", []>;
+} // OpSize16
+} // Defs, mayLoad, mayStore, hasSideEffects
+
+// Memory POP and the carry-flag group — destination sub-opcode table, no
+// register and no modifier in the opcode byte.
+let mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in
+def POPB_m : MemDstUnaryInst<0x04, 2, (outs), (ins MEMri:$addr),
+                              "pop", "$addr", []>;
+let OpSize = OpSize16.Value in
+def POPW_m : MemDstUnaryInst<0x06, 2, (outs), (ins MEMri:$addr),
+                              "popw", "$addr", []>;
+} // mayLoad, mayStore, hasSideEffects
+
+// ANDCF/ORCF/XORCF/LDCF/STCF A,(mem) — the bit number comes from A, so there
+// is no bit operand and the opcode byte is fixed.
+let Defs = [SR], mayLoad = 1, hasSideEffects = 0, OpSize = OpSize8.Value in {
+def ANDCFA_m : MemDstUnaryInst<0x28, 2, (outs), (ins MEMri:$addr),
+                                "andcf\ta,", "$addr", []>;
+def ORCFA_m  : MemDstUnaryInst<0x29, 2, (outs), (ins MEMri:$addr),
+                                "orcf\ta,", "$addr", []>;
+def XORCFA_m : MemDstUnaryInst<0x2A, 2, (outs), (ins MEMri:$addr),
+                                "xorcf\ta,", "$addr", []>;
+def LDCFA_m  : MemDstUnaryInst<0x2B, 2, (outs), (ins MEMri:$addr),
+                                "ldcf\ta,", "$addr", []>;
+def STCFA_m  : MemDstUnaryInst<0x2C, 2, (outs), (ins MEMri:$addr),
+                                "stcf\ta,", "$addr", []>;
+} // Defs, mayLoad, hasSideEffects
+
+// JP cc,(mem) and CALL cc,(mem) — destination table, condition in the low
+// four bits of the opcode byte.
+// ⚠ unidasm prints these WITHOUT parentheses, because for these two the
+// operand address IS the branch target rather than a place to read.
+let isBranch = 1, isTerminator = 1, OpSize = OpSize8.Value in
+def JPCC_m : MemDstCCInst<0xD0, 2, (outs), (ins MEMri:$addr, cc:$cc),
+                           "jp", "$cc, $addr", []>;
+let isCall = 1, OpSize = OpSize8.Value in
+def CALLCC_m : MemDstCCInst<0xE0, 2, (outs), (ins MEMri:$addr, cc:$cc),
+                             "call", "$cc, $addr", []>;
 
 // Memory BIT/SET/RES/LDCF/STCF — bit operations on memory via B0/B8 prefix.
 // Encoding: dst_mem_prefix(base [+disp]) + (base_opcode + bit_number)
@@ -1497,9 +1595,14 @@ def TSETm : MemDstBitOpInst<0xA8, 2, (outs),
 // Encoding: src_mem_prefix(base [+disp]) + 0x04
 // 16-bit (PUSHW): uses 0x90-0x9F source memory prefix.
 let mayLoad = 1, mayStore = 1, hasSideEffects = 0, Uses = [XSP] in {
+// 8-bit (PUSH): uses the 0x80-0x8F / 0xC0-0xC2 source memory prefixes.
+let OpSize = OpSize8.Value in
+def PUSHB_m : MemPushInst<0x04, 2, (outs), (ins MEMri:$addr),
+                           "push", "$addr", []>,
+              Sched<[WritePush, ReadMemBase]>;
 let OpSize = OpSize16.Value in
 def PUSHW_m : MemPushInst<0x04, 2, (outs), (ins MEMri:$addr),
-                           "pushm", "$addr", []>,
+                           "pushw", "$addr", []>,
               Sched<[WritePush, ReadMemBase]>;
 } // mayLoad, mayStore, hasSideEffects, Uses
 
@@ -5327,6 +5430,23 @@ def EXTPFX10 : ExtPrefixInst<10, (outs),
 // every one of them.
 // ---------------------------------------------------------------------------
 def : InstAlias<"andmi8 $addr, $imm", (AND8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"ormi8 $addr, $imm", (OR8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"addmi8 $addr, $imm", (ADD8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"submi8 $addr, $imm", (SUB8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"xormi8 $addr, $imm", (XOR8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"adcmi8 $addr, $imm", (ADC8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"sbcmi8 $addr, $imm", (SBC8mi MEMri:$addr, i8imm:$imm)>;
+def : InstAlias<"ormi16 $addr, $imm", (OR16mi MEMri:$addr, i16imm:$imm)>;
+def : InstAlias<"addiw_da $addr, $imm", (ADD16mi MEMri:$addr, i16imm:$imm)>;
+def : InstAlias<"submi16 $addr, $imm", (SUB16mi MEMri:$addr, i16imm:$imm)>;
+def : InstAlias<"xormi16 $addr, $imm", (XOR16mi MEMri:$addr, i16imm:$imm)>;
+def : InstAlias<"adcmi16 $addr, $imm", (ADC16mi MEMri:$addr, i16imm:$imm)>;
+def : InstAlias<"sbcmi16 $addr, $imm", (SBC16mi MEMri:$addr, i16imm:$imm)>;
+def : InstAlias<"pushm $addr", (PUSHW_m MEMri:$addr)>;
+def : InstAlias<"incm8 $count, $addr", (INC8m MEMri:$addr, i32imm:$count)>;
+def : InstAlias<"decm8 $count, $addr", (DEC8m MEMri:$addr, i32imm:$count)>;
+def : InstAlias<"incm $count, $addr", (INC16m MEMri:$addr, i32imm:$count)>;
+def : InstAlias<"decm $count, $addr", (DEC16m MEMri:$addr, i32imm:$count)>;
 def : InstAlias<"andmi16 $addr, $imm", (AND16mi MEMri:$addr, i16imm:$imm)>;
 def : InstAlias<"bitm $bit, $addr", (BITm MEMri:$addr, i32imm:$bit)>;
 def : InstAlias<"setm $bit, $addr", (SETm MEMri:$addr, i32imm:$bit)>;
