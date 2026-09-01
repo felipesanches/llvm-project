@@ -157,13 +157,13 @@ ld (xhl+1000), wa
 ; ==========================================================================
 
 ; LD (nn), rs32: F2, addr24, 0x60+src
-; CHECK: ld (0), xwa        ; encoding: [0xf2,A,A,A,0x60]
+; CHECK: ld (0), xwa        ; encoding: [0xf2,0x00,0x00,0x00,0x60]
 ld (0), xwa
-; CHECK: ld (4660), xwa     ; encoding: [0xf2,A,A,A,0x60]
+; CHECK: ld (4660), xwa     ; encoding: [0xf2,0x34,0x12,0x00,0x60]
 ld (0x1234), xwa
 
 ; LD rd32, (nn): E2, addr24, 0x20+dst
-; CHECK: ld xwa, (22136)    ; encoding: [0xe2,A,A,A,0x20]
+; CHECK: ld xwa, (22136)    ; encoding: [0xe2,0x78,0x56,0x00,0x20]
 ld xwa, (0x5678)
 
 ; ==========================================================================
@@ -181,7 +181,7 @@ lda xwa, (xsp+64)
 lda xde, (xsp+16)
 
 ; LDA rd, (nn): F2, addr24, 0x30+dst
-; CHECK: lda xwa, (1193046) ; encoding: [0xf2,A,A,A,0x30]
+; CHECK: lda xwa, (1193046) ; encoding: [0xf2,0x56,0x34,0x12,0x30]
 lda xwa, (0x123456)
 
 ; ==========================================================================

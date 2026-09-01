@@ -28,6 +28,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/EndianStream.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -189,30 +190,57 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     SmallVectorImpl<MCFixup> &Fixups) const {
   const MCOperand &BaseOp = MI.getOperand(BaseOpIdx);
 
-  // Direct addressing: base is a symbol expression (global address).
-  // Destination memory uses F2 prefix (dispatches to B0/F0 table — all sizes).
-  // Source memory uses E2 prefix (dispatches to E0 table — 32-bit ONLY).
-  // Byte/word source memory loads from globals must be lowered by ISel into
-  // address materialization + register-indirect load, since the E0 table
-  // has no 8/16-bit load sub-opcodes.
+  // Direct addressing: the base operand is the address expression.
+  //
+  // The prefix carries both the OPERAND SIZE and the ADDRESS WIDTH:
+  //   source       C0/C1/C2 byte, D0/D1/D2 word, E0/E1/E2 long
+  //   destination  F0/F1/F2, size-independent
+  // with the low two bits selecting 1, 2 or 3 address bytes.  All three
+  // source sizes are encodable; this used to emit 0xE2 unconditionally and
+  // reject anything but a 32-bit operand, which is why byte/word direct
+  // memory had to be written as raw bytes.
+  //
+  // The address WIDTH is not derivable from the address value -- firmware
+  // routinely uses a wide form for a small address -- so it is requested
+  // explicitly and carried in the displacement operand as a sentinel
+  // (assembly syntax `(0x8a:24)`).  Operands that do not request one keep
+  // the historical 24-bit default, which is also the only width a
+  // relocation against an unresolved symbol can use.
   if (BaseOp.isExpr()) {
-    if (!IsDstMem && OpSize != TLCS900II::OpSize32) {
-      Ctx.reportError(MI.getLoc(),
-          "byte/word direct memory load not encodable; "
-          "ISel should have materialized the address first");
-      return 0;
-    }
     const MCOperand &DispOp = MI.getOperand(DispOpIdx);
-    int64_t Disp = DispOp.isImm() ? DispOp.getImm() : 0;
-    CB.push_back(IsDstMem ? 0xF2 : 0xE2);
-    // Emit 24-bit address with fixup.  If there's a displacement (e.g.
-    // global+offset), we'd need to fold it into the symbol expression,
-    // but in practice the ISel folds offsets into the symbol operand.
-    Fixups.push_back(MCFixup::create(
-        CB.size() - StartByte, BaseOp.getExpr(),
-        (MCFixupKind)TLCS900::fixup_tlcs900_24));
-    emitImmediate(Disp, 3, CB);
-    return 4;
+    int64_t DispVal = DispOp.isImm() ? DispOp.getImm() : 0;
+    unsigned NumBytes = TLCS900II::getDirectAddrBytes(DispVal);
+
+    CB.push_back(IsDstMem ? TLCS900II::getDstDirectPrefixN(NumBytes)
+                          : TLCS900II::getSrcDirectPrefixN(OpSize, NumBytes));
+
+    int64_t Addr;
+    if (BaseOp.getExpr()->evaluateAsAbsolute(Addr)) {
+      // A constant address is emitted here rather than through a fixup, so
+      // that an address too wide for the requested form is REFUSED instead
+      // of silently losing its high bytes.
+      unsigned Bits = NumBytes * 8;
+      if (!isUIntN(Bits, uint64_t(Addr)) && !isIntN(Bits, Addr)) {
+        std::string ErrMsg;
+        raw_string_ostream OS(ErrMsg);
+        OS << "direct address 0x";
+        OS.write_hex(uint64_t(Addr));
+        OS << " does not fit in the " << Bits
+           << "-bit form requested for this memory operand";
+        Ctx.reportError(MI.getLoc(), ErrMsg);
+        return 0;
+      }
+      emitImmediate(Addr, NumBytes, CB);
+    } else {
+      MCFixupKind Kind = NumBytes == 1   ? MCFixupKind(FK_Data_1)
+                         : NumBytes == 2 ? MCFixupKind(FK_Data_2)
+                                         : MCFixupKind(TLCS900::fixup_tlcs900_24);
+      Fixups.push_back(
+          MCFixup::create(CB.size() - StartByte, BaseOp.getExpr(), Kind));
+      for (unsigned i = 0; i < NumBytes; ++i)
+        CB.push_back(0);
+    }
+    return 1 + NumBytes;
   }
 
   // Register-indirect addressing.
@@ -846,6 +874,26 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // PUSH (mem): op 0 = base, op 1 = disp.
     emitMemPrefix(MI, 0, 1, /*IsDstMem=*/false, OpSize, StartByte, CB, Fixups);
     CB.push_back(Opcode);
+    break;
+  }
+
+  case TLCS900II::MemDstUnary: {
+    // dst_mem_prefix [+disp] + opcode.
+    // POP/POPW (mem), ANDCF/ORCF/XORCF/LDCF/STCF A,(mem): op 0 = base,
+    // op 1 = disp.  These live in the destination sub-opcode table and take
+    // neither a register nor a modifier in the opcode byte.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
+    CB.push_back(Opcode);
+    break;
+  }
+
+  case TLCS900II::MemDstCC: {
+    // dst_mem_prefix [+disp] + (opcode + cc).
+    // JP cc,(mem) / CALL cc,(mem): op 0 = base, op 1 = disp, op 2 = cc.
+    // The condition is four bits wide, unlike the three of a bit number.
+    emitMemPrefix(MI, 0, 1, /*IsDstMem=*/true, OpSize, StartByte, CB, Fixups);
+    unsigned CC = MI.getOperand(2).isImm() ? MI.getOperand(2).getImm() : 0;
+    CB.push_back(Opcode + (CC & 0xF));
     break;
   }
 

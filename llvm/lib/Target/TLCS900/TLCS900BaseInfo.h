@@ -125,6 +125,8 @@ enum InstFormat : uint8_t {
   // 16-bit absolute addressing (JP/CALL with 16-bit target)
   Branch16,           // [opcode, addr16_lo, addr16_hi]
   Call16,             // [opcode, addr16_lo, addr16_hi]
+  MemDstUnary,        // Dst mem prefix + fixed opcode — POP/ANDCF/ORCF (mem)
+  MemDstCC,           // Dst mem prefix + (opc + cc) — JP cc,(mem) / CALL cc,(mem)
 };
 
 // TSFlags bit field positions and masks.
@@ -212,6 +214,52 @@ inline unsigned getSrcDirectPrefix(unsigned OpSize, bool Is24Bit) {
 // 0xF1 (16-bit addr), 0xF2 (24-bit addr) — size-independent.
 inline unsigned getDstDirectPrefix(bool Is24Bit) {
   return Is24Bit ? 0xF2 : 0xF1;
+}
+
+// --- Direct-memory address width ------------------------------------------
+// A DIRECT memory operand `(addr)` reaches the encoder as a MEMri whose base
+// operand is an expression; its displacement operand is otherwise unused, so
+// it carries the requested ADDRESS WIDTH as one of the sentinels below.
+//
+// The width is a property of the encoding, not of the address value: the
+// TMP95C061 firmware really does write `set 7,(0x00008a)` as F2 8A 00 00 BF,
+// the 24-bit form, for an address that fits in eight bits.  So the assembler
+// must never pick a width by looking at the number.  Assembly spells the
+// width `(0x8a:24)`; the historical default, kept for every operand that does
+// not spell one, is 24 bits.
+enum DirectAddrWidth : int64_t {
+  DirectAddrDefault = 0,
+  DirectAddrW8 = 0x900001,
+  DirectAddrW16 = 0x900002,
+  DirectAddrW24 = 0x900003,
+};
+
+// Address bytes requested by a MEMri displacement sentinel (1, 2 or 3).
+inline unsigned getDirectAddrBytes(int64_t DispSentinel) {
+  switch (DispSentinel) {
+  case DirectAddrW8:
+    return 1;
+  case DirectAddrW16:
+    return 2;
+  default:
+    return 3;
+  }
+}
+
+// True if the displacement operand of a direct MEMri is a width sentinel
+// rather than a (meaningless, always-zero) displacement.
+inline bool isDirectAddrWidth(int64_t DispSentinel) {
+  return DispSentinel >= DirectAddrW8 && DispSentinel <= DirectAddrW24;
+}
+
+// Direct-memory prefix for an address width of Bytes (1, 2 or 3):
+//   source:      C0/C1/C2 (byte), D0/D1/D2 (word), E0/E1/E2 (long)
+//   destination: F0/F1/F2 -- size-independent
+inline unsigned getSrcDirectPrefixN(unsigned OpSize, unsigned Bytes) {
+  return 0xC0 + (OpSize * 0x10) + (Bytes - 1);
+}
+inline unsigned getDstDirectPrefixN(unsigned Bytes) {
+  return 0xF0 + (Bytes - 1);
 }
 
 // Get the source memory prefix base byte for a given operand size.

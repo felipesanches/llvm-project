@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TLCS900.h"
+#include "TLCS900BaseInfo.h"
 #include "TargetInfo/TLCS900TargetInfo.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -38,6 +39,11 @@ class TLCS900Operand : public MCParsedAsmOperand {
   struct MemOp {
     MCRegister Base;
     const MCExpr *Disp;
+    // For a DIRECT memory operand `(addr)`, the address width the source
+    // asked for, in bytes (1, 2 or 3); 0 means "unspecified".  See
+    // TLCS900II::DirectAddrWidth -- the width is part of the encoding and
+    // cannot be inferred from the address value.
+    unsigned AddrBytes;
   };
 
   union {
@@ -111,9 +117,18 @@ public:
       else
         Inst.addOperand(MCOperand::createExpr(Mem.Disp));
     } else {
-      // Direct memory: (addr_expr) — expression as base, 0 as disp
+      // Direct memory: (addr_expr) — expression as base.  The displacement
+      // slot is unused by the direct form, so it carries the requested
+      // address width instead (0 = the default 24-bit form).
       Inst.addOperand(MCOperand::createExpr(Mem.Disp));
-      Inst.addOperand(MCOperand::createImm(0));
+      int64_t WidthSentinel = TLCS900II::DirectAddrDefault;
+      switch (Mem.AddrBytes) {
+      case 1: WidthSentinel = TLCS900II::DirectAddrW8; break;
+      case 2: WidthSentinel = TLCS900II::DirectAddrW16; break;
+      case 3: WidthSentinel = TLCS900II::DirectAddrW24; break;
+      default: break;
+      }
+      Inst.addOperand(MCOperand::createImm(WidthSentinel));
     }
   }
 
@@ -144,10 +159,12 @@ public:
 
   static std::unique_ptr<TLCS900Operand> createMem(MCRegister Base,
                                                     const MCExpr *Disp,
-                                                    SMLoc S, SMLoc E) {
+                                                    SMLoc S, SMLoc E,
+                                                    unsigned AddrBytes = 0) {
     auto Op = std::make_unique<TLCS900Operand>(k_Memory, S, E);
     Op->Mem.Base = Base;
     Op->Mem.Disp = Disp;
+    Op->Mem.AddrBytes = AddrBytes;
     return Op;
   }
 
@@ -365,12 +382,36 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
   if (getParser().parseExpression(Addr))
     return ParseStatus::Failure;
 
+  // Optional address-width request: (0x8a:8), (0x2075:16), (0x8a:24).
+  // The TLCS-900 has three direct-address widths and picks between them in
+  // the prefix byte, so the width is a spelling choice the source has to
+  // make -- `set 7,(0x00008a)` really is F2 8A 00 00 BF in shipped firmware.
+  // Without a suffix the operand keeps the 24-bit default.
+  unsigned AddrBytes = 0;
+  if (getLexer().is(AsmToken::Colon)) {
+    Parser.Lex(); // consume ':'
+    if (getLexer().isNot(AsmToken::Integer))
+      return Error(getLexer().getLoc(),
+                   "expected an address width of 8, 16 or 24 after ':'");
+    int64_t Bits = getLexer().getTok().getIntVal();
+    switch (Bits) {
+    case 8: AddrBytes = 1; break;
+    case 16: AddrBytes = 2; break;
+    case 24: AddrBytes = 3; break;
+    default:
+      return Error(getLexer().getLoc(),
+                   "address width must be 8, 16 or 24");
+    }
+    Parser.Lex(); // consume the width
+  }
+
   if (getLexer().isNot(AsmToken::RParen))
     return Error(getLexer().getLoc(), "expected ')'");
 
   SMLoc E = SMLoc::getFromPointer(getLexer().getLoc().getPointer() + 1);
   Parser.Lex(); // consume ')'
-  Operands.push_back(TLCS900Operand::createMem(MCRegister(), Addr, S, E));
+  Operands.push_back(
+      TLCS900Operand::createMem(MCRegister(), Addr, S, E, AddrBytes));
   return ParseStatus::Success;
 }
 

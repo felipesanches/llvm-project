@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TLCS900InstPrinter.h"
+#include "TLCS900BaseInfo.h"
 
 #include "TLCS900MCTargetDesc.h"
 #include "llvm/ADT/StringExtras.h"
@@ -76,10 +77,16 @@ void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
 
   if (Disp.isImm()) {
     int64_t DispVal = Disp.getImm();
-    if (DispVal > 0)
+    if (!Base.isReg() && TLCS900II::isDirectAddrWidth(DispVal)) {
+      // A DIRECT memory operand has no displacement; the slot carries the
+      // requested address width, which prints back as the `:8`/`:16`/`:24`
+      // suffix the assembler accepts.
+      O << ":" << (TLCS900II::getDirectAddrBytes(DispVal) * 8);
+    } else if (DispVal > 0) {
       O << "+" << DispVal;
-    else if (DispVal < 0)
+    } else if (DispVal < 0) {
       O << DispVal;
+    }
   }
 
   O << ")";

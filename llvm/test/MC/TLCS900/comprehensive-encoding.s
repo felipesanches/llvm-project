@@ -453,14 +453,14 @@ ld (xsp+8), de
 ; ==========================================================================
 
 ; LD (nn), rs: F2, addr24, 0x60+src (address emitted as fixup)
-; CHECK: ld (0), xwa      ; encoding: [0xf2,A,A,A,0x60]
+; CHECK: ld (0), xwa      ; encoding: [0xf2,0x00,0x00,0x00,0x60]
 ld (0), xwa
 
-; CHECK: ld (4660), xwa   ; encoding: [0xf2,A,A,A,0x60]
+; CHECK: ld (4660), xwa   ; encoding: [0xf2,0x34,0x12,0x00,0x60]
 ld (0x1234), xwa
 
 ; LD rd, (nn): E2, addr24, 0x20+dst (address emitted as fixup)
-; CHECK: ld xwa, (22136)  ; encoding: [0xe2,A,A,A,0x20]
+; CHECK: ld xwa, (22136)  ; encoding: [0xe2,0x78,0x56,0x00,0x20]
 ld xwa, (0x5678)
 
 ; ==========================================================================
