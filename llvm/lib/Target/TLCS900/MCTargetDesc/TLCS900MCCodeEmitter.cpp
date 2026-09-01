@@ -1267,6 +1267,41 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::SriRRImm: {
+    // [prefix, 0x07, base_addr, idx_addr, SubOpc, imm bytes...]
+    // Operand 0: base GPR, Operand 1: index GR16, Operand 2..: immediate.
+    unsigned PrefixI = Opcode;
+    if (Opcode < 0xF0)
+      PrefixI += OpSize * 0x10;
+    CB.push_back(static_cast<char>(PrefixI));
+    CB.push_back(static_cast<char>(0x07)); // R+R 16-bit index mode
+    CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(0)) * 4));
+    CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(1)) * 4));
+    CB.push_back(static_cast<char>(TLCS900II::getSubOpcode(TSFlags)));
+    unsigned ImmBytesRR = Desc.getSize() - 5;
+    for (unsigned i = 0; i < ImmBytesRR; ++i)
+      CB.push_back(static_cast<char>(MI.getOperand(2 + i).getImm() & 0xFF));
+    break;
+  }
+
+  case TLCS900II::SriRRQReg: {
+    // [prefix, 0x07, base_addr, idx_addr + 2, SubOpc + data_reg_enc]
+    // Same as SriRRReg, but the index names a PREVIOUS-BANK register: the
+    // register-file address of a previous-bank word register is the current
+    // bank's plus 2, which is how `lda xiz,xbc+qwa` reaches idx byte 0xE2.
+    unsigned PrefixQ = Opcode;
+    if (Opcode < 0xF0)
+      PrefixQ += OpSize * 0x10;
+    CB.push_back(static_cast<char>(PrefixQ));
+    CB.push_back(static_cast<char>(0x07)); // R+R 16-bit index mode
+    CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(1)) * 4));
+    CB.push_back(
+        static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(2)) * 4 + 2));
+    CB.push_back(static_cast<char>(TLCS900II::getSubOpcode(TSFlags) +
+                                   getRegEncoding(MI.getOperand(0), OpSize)));
+    break;
+  }
+
   case TLCS900II::SriRR8Reg: {
     // [prefix, 0x03, base_addr, idx_addr, SubOpc + data_reg_enc]
     // Same as SriRRReg but with 0x03 mode byte (8-bit index).
@@ -1278,9 +1313,16 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     unsigned BaseEnc8 = getRegEncoding(MI.getOperand(1));
     CB.push_back(static_cast<char>(0xE0 + BaseEnc8 * 4));
     unsigned IdxEnc8 = getRegEncoding(MI.getOperand(2));
-    // 8-bit register file address: W=0xE0, A=0xE1, B=0xE4, C=0xE5, ...
-    // Formula: 0xE0 + (enc >> 1) * 4 + (enc & 1)
-    CB.push_back(static_cast<char>(0xE0 + (IdxEnc8 >> 1) * 4 + (IdxEnc8 & 1)));
+    // 8-bit register file address.  The file is byte-addressed and the parts
+    // are little-endian, so the LOW half of a word register sits at offset 0
+    // and the HIGH half at offset 1: A=0xE0, W=0xE1, C=0xE4, B=0xE5, E=0xE8,
+    // D=0xE9, L=0xEC, H=0xED (offsets 2 and 3 are the previous bank, which is
+    // why LDA_RRQ adds 2).  This was written the other way round, so `ld_rr8w
+    // bc,xix,w` emitted 0xE0 -- the address of A -- and only the one call site
+    // in the tree kept the byte gate green, by naming the wrong register.
+    // GR8 HWEncoding is W=0,A=1,B=2,C=3,D=4,E=5,H=6,L=7, hence the 1 - lsb.
+    CB.push_back(
+        static_cast<char>(0xE0 + (IdxEnc8 >> 1) * 4 + (1 - (IdxEnc8 & 1))));
     unsigned SubOpcRR8 = TLCS900II::getSubOpcode(TSFlags);
     unsigned RegEncRR8 = getRegEncoding(MI.getOperand(0), OpSize);
     CB.push_back(static_cast<char>(SubOpcRR8 + RegEncRR8));

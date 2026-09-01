@@ -127,6 +127,9 @@ enum InstFormat : uint8_t {
   Call16,             // [opcode, addr16_lo, addr16_hi]
   MemDstUnary,        // Dst mem prefix + fixed opcode — POP/ANDCF/ORCF (mem)
   MemDstCC,           // Dst mem prefix + (opc + cc) — JP cc,(mem) / CALL cc,(mem)
+  // SRI Register+Register (R+R) addressing — immediate, and previous-bank index
+  SriRRImm,           // [prefix, 0x07, base_addr, idx_addr, SubOpc, imm...]
+  SriRRQReg,          // [prefix, 0x07, base_addr, idx_addr + 2, SubOpc + reg]
 };
 
 // TSFlags bit field positions and masks.

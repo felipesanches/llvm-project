@@ -103,6 +103,9 @@ def InstFormatSriRRUnary : InstFormat<75>;
 def InstFormatSriRR8Reg : InstFormat<76>;
 def InstFormatBranch16 : InstFormat<77>;
 def InstFormatCall16 : InstFormat<78>;
+// SRI Register+Register (R+R) addressing, immediate and previous-bank index
+def InstFormatSriRRImm : InstFormat<81>;
+def InstFormatSriRRQReg : InstFormat<82>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -1047,6 +1050,31 @@ class SriRRUnaryInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
                       string opcodestr, string argstr, list<dag> pattern>
     : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
   let InstFormat = InstFormatSriRRUnary.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 5;
+}
+
+// SriRRImmInst: R+R addressing with a trailing immediate and no data register.
+// Encoding: [prefix, 0x07, base_addr, idx_addr, SubOpc, imm_bytes...]
+// Operand 0: base GPR, Operand 1: index GR16, remaining: immediate bytes.
+class SriRRImmInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
+                    string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriRRImm.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = sz;
+}
+
+// SriRRQRegInst: R+R addressing whose INDEX is a previous-bank register.
+// Encoding: [prefix, 0x07, base_addr, idx_addr, SubOpc + data_reg_enc], with
+// idx_addr = 0xE0 + idx_reg_enc * 4 + 2 -- the +2 is what selects the previous
+// bank in the register-file address, exactly as the D7 prefix does elsewhere.
+class SriRRQRegInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                     string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriRRQReg.Value;
   let Opcode = opc;
   let SubOpcode = sub_opc;
   let Size = 5;

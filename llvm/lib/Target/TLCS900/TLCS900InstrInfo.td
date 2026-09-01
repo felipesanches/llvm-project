@@ -4430,6 +4430,34 @@ def CALL_RR : SriRRUnaryInst<0xF3, 0x08, (outs),
 }
 } // isCall
 
+// ALU (base + index), #imm16 — the R+R operand with an immediate rather than a
+// data register: [prefix, 0x07, base_addr, idx_addr, SubOpc, imm16 le].  The
+// sub-opcode row is the same one the (Xrr) and (Xrr+d8) tables use, OR = 0x3E.
+//     d3 07 e4 e0 3e 08 00   or (xbc+wa), 0x0008
+let Defs = [SR], hasSideEffects = 0, mayLoad = 1, mayStore = 1 in {
+def OR_RRW_IM : SriRRImmInst<0xC3, 0x3E, 7, (outs),
+    (ins GPR:$base, GR16:$idx, i32imm:$lo, i32imm:$hi),
+    "or_rrw_im", "$base, $idx, $lo, $hi", []>,
+    Sched<[WriteIALU, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+} // Defs = [SR]
+
+// LDA with a PREVIOUS-BANK index register.  The index is a register-file
+// address, and the previous bank's word registers sit two bytes above the
+// current bank's, so `lda xiz,xbc+qwa` is idx byte 0xE2 where `lda xiz,xbc+wa`
+// is 0xE0.  The current-bank emitter can only produce 0xE0 + enc*4.
+//     f3 07 e4 e2 36   lda xiz, xbc, qwa
+//     f3 07 e4 e2 31   lda xbc, xbc, qwa
+let hasSideEffects = 0, mayLoad = 0 in {
+def LDA_RRQ : SriRRQRegInst<0xF3, 0x30, (outs GPR:$dst),
+    (ins GPR:$base, PrevGR16:$idx),
+    "lda_rrq", "$dst, $base, $idx", []>,
+    Sched<[WriteIALU]> {
+  let OpSize = OpSize32.Value;
+}
+} // hasSideEffects, mayLoad
+
 // R+R with 8-bit index register (mode byte 0x03 instead of 0x07)
 // Source loads: ld reg, (base + index8)
 let hasSideEffects = 0, mayLoad = 1 in {
@@ -4693,6 +4721,23 @@ def XOR8_MEM_RID8 : MemRegRegDispSuffixInst<0x88, 0xD8, (outs),
 def SUB16_MEM_RID8 : MemRegRegDispSuffixInst<0x98, 0xA8, (outs),
     (ins GPR:$addr, i32imm:$disp, GR16:$data),
     "sub16_mem_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
+// The r,(mem) direction of the LONG table (A0/A8) had no def at any
+// sub-opcode, so `add xwa,(xsp)` and `add xwa,(xsp+4)` -- 26 sites in the
+// KN5000 v1.42 sub-CPU payload, all of them stack-frame arithmetic -- could
+// not be written.  ADD in the r,(mem) direction is sub base 0x80.
+//     a7 80      add xwa,(xsp)          A0 + XSP(7),        0x80 + XWA(0)
+//     af 04 80   add xwa,(xsp+4)        A8 + XSP(7), d8=04, 0x80 + XWA(0)
+//     af 04 84   add xix,(xsp+4)        A8 + XSP(7), d8=04, 0x80 + XIX(4)
+def ADD32_SRC_RI : MemRegRegSuffixInst<0xA0, 0x80, (outs),
+    (ins GPR:$addr, GPR:$data),
+    "add32_src_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
+def ADD32_SRC_RID8 : MemRegRegDispSuffixInst<0xA8, 0x80, (outs),
+    (ins GPR:$addr, i32imm:$disp, GPR:$data),
+    "add32_src_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
+// CP r16,(mem+d8): sub base = 0xF0.  9a fa f4 = cp ix,(xde-6).
+def CP16_SRC_RID8 : MemRegRegDispSuffixInst<0x98, 0xF0, (outs),
+    (ins GPR:$addr, i32imm:$disp, GR16:$data),
+    "cp16_src_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
 }
 
 // --- CALL/JP/RET cc with dest-memory register indirect ---
@@ -4765,6 +4810,20 @@ def XOR16_IMM_RI : MemRegImmAfterInst<0x90, 0x3D, 4, (outs),
 def AND8_IMM_RID8 : MemRegDispImmAfterInst<0x88, 0x3C, 4, (outs),
     (ins GPR:$reg, i32imm:$disp, i32imm:$imm),
     "and8_imm_rid8", "$reg, $disp, $imm", []>, Sched<[WriteIALU]>;
+// CP (mem),#imm8 is sub-opcode 0x3F in the same row as AND 0x3C / XOR 0x3D /
+// OR 0x3E, and was the one member of it with no def, in either the (Xrr) or
+// the (Xrr+d8) prefix table.  32 sites in the KN5000 v1.42 sub-CPU payload.
+//     86 3f 40      cp (xiz),0x40
+//     88 02 3f 00   cp (xwa+2),0x00
+//     8f 06 3f 00   cp (xsp+6),0x00
+let isCompare = 1 in {
+def CP8_IMM_RI : MemRegImmAfterInst<0x80, 0x3F, 3, (outs),
+    (ins GPR:$reg, i32imm:$imm),
+    "cp8_imm_ri", "$reg, $imm", []>, Sched<[WriteIALU]>;
+def CP8_IMM_RID8 : MemRegDispImmAfterInst<0x88, 0x3F, 4, (outs),
+    (ins GPR:$reg, i32imm:$disp, i32imm:$imm),
+    "cp8_imm_rid8", "$reg, $disp, $imm", []>, Sched<[WriteIALU]>;
+}
 }
 
 // --- Consolidated SRI LD defs (C3/D3/E3) with register operand ---
