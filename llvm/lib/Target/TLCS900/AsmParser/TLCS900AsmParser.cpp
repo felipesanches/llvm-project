@@ -358,6 +358,18 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
       const MCExpr *Disp = MCConstantExpr::create(0, getContext());
       if (getLexer().is(AsmToken::Plus)) {
         Parser.Lex(); // consume '+'
+        // ⚠ `(Xrr+Rn)` is the REGISTER-INDEXED operand, a different encoding
+        // from `(Xrr+d16)`: [prefix, 0x07, base_addr, idx_addr, sub_opcode].
+        // It has no support here yet, and letting parseExpression have the
+        // index register turns it into an undefined SYMBOL, so `ld wa,(xix+iz)`
+        // assembled to the d16 form -- d3 f1 00 00 20 where the hardware wants
+        // d3 07 f0 f8 20 -- and only failed later, at link time, and only
+        // because nothing happened to define a symbol named `iz`.  Refuse it.
+        if (getLexer().is(AsmToken::Identifier) &&
+            MatchRegisterName(getLexer().getTok().getString().lower()) != 0)
+          return Error(getLexer().getLoc(),
+                       "register-indexed memory operand (Xrr+Rn) is not "
+                       "encodable yet; it is not a (Xrr+displacement) operand");
         if (getParser().parseExpression(Disp))
           return ParseStatus::Failure;
       } else if (getLexer().is(AsmToken::Minus)) {

@@ -32,8 +32,11 @@ class TLCS900MCCodeEmitter : public MCCodeEmitter {
                           unsigned OpSize = TLCS900II::OpSize32) const;
 
   /// Emit a little-endian immediate of the given byte size.
+  // MI is optional: when given, an immediate that fits the field neither
+  // signed nor unsigned is reported as an error instead of being truncated.
   void emitImmediate(int64_t Value, unsigned NumBytes,
-                     SmallVectorImpl<char> &CB) const;
+                     SmallVectorImpl<char> &CB,
+                     const MCInst *MI = nullptr) const;
 
   /// Emit a fixup for a symbolic operand (address/displacement).
   void emitFixup(const MCInst &MI, const MCOperand &MO, unsigned FixupOffset,
