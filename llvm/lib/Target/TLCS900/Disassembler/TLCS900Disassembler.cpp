@@ -391,6 +391,32 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGenericRegPrefix(
     return MCDisassembler::Success;
   }
 
+  // LINK r32, d16: prefix(rs) + 0x0C + d16 — 4 bytes.
+  // ⚠ The displacement is 16-bit at every register width, so this cannot go
+  // through the ImmBytes-from-OpSize path above; LINK32r carries its own
+  // format for that reason.  Long prefix only: MAME's unidasm reads `e8 0c`
+  // as "link XWA" and only the 0xE8-0xEF prefixes reach here with OpSize 2.
+  case 0x0C: {
+    if (OpSize != 2 || Bytes.size() < 4)
+      return MCDisassembler::Fail;
+    MI.setOpcode(TLCS900::LINK32r);
+    MI.addOperand(MCOperand::createReg(Reg));
+    MI.addOperand(
+        MCOperand::createImm(static_cast<int16_t>(readU16LE(Bytes, 2))));
+    Size = 4;
+    return MCDisassembler::Success;
+  }
+
+  // UNLK r32: prefix(rs) + 0x0D — 2 bytes.  One operand, not the tied pair
+  // decodePrefixUnary produces, because UNLK32 declares only (ins GPR:$rs1).
+  case 0x0D:
+    if (OpSize != 2)
+      return MCDisassembler::Fail;
+    MI.setOpcode(TLCS900::UNLK32);
+    MI.addOperand(MCOperand::createReg(Reg));
+    Size = 2;
+    return MCDisassembler::Success;
+
   // DAA: only valid for 32-bit
   case 0x10:
     if (OpSize != 2)

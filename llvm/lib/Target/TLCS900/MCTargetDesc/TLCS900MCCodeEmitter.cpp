@@ -1146,6 +1146,18 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::PrefixDisp16: {
+    // reg_prefix(rs1) + Opcode + d16.  op 0 = register, op 1 = displacement.
+    CB.push_back(0xE8 + getRegEncoding(MI.getOperand(0)));
+    CB.push_back(Opcode);
+    const MCOperand &D = MI.getOperand(1);
+    if (D.isImm())
+      emitImmediate(D.getImm(), 2, CB, &MI);
+    else
+      emitFixup(MI, D, CB.size() - StartByte, FK_Data_2, CB, Fixups);
+    break;
+  }
+
   case TLCS900II::ExtPrefix: {
     // Generic extended prefix: emit all operands as literal bytes.
     for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {

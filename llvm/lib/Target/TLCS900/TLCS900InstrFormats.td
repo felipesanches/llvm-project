@@ -106,6 +106,8 @@ def InstFormatCall16 : InstFormat<78>;
 // SRI Register+Register (R+R) addressing, immediate and previous-bank index
 def InstFormatSriRRImm : InstFormat<81>;
 def InstFormatSriRRQReg : InstFormat<82>;
+// Register prefix + fixed sub-opcode + 16-bit displacement (LINK).
+def InstFormatPrefixDisp16 : InstFormat<83>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -412,6 +414,19 @@ class PrefixLDImmInst<bits<8> opc, int sz, dag outs, dag ins,
   let InstFormat = InstFormatPrefixLDImm.Value;
   let Opcode = opc;
   let Size = sz;
+}
+
+// PrefixDisp16Inst: reg_prefix + opcode + 16-bit displacement.
+// LINK r32, d16 — the displacement is 16-bit at every register width, which is
+// why this cannot be PrefixLDImmInst (that one sizes its immediate from
+// OpSize, and OpSize32 would ask for four bytes).
+// Operand 0: GPR register, operand 1: the 16-bit displacement.
+class PrefixDisp16Inst<bits<8> opc, dag outs, dag ins, string opcodestr,
+                       string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatPrefixDisp16.Value;
+  let Opcode = opc;
+  let Size = 4;
 }
 
 // PrefixPushInst: reg_prefix + 0x04 (PUSH via prefix — 16-bit/8-bit)

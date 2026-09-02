@@ -3672,6 +3672,14 @@ def LINK32 : ExtPrefixInst<4, (outs),
     (ins i32imm:$b0, i32imm:$b1, i32imm:$b2, i32imm:$b3),
     "link32", "$b0, $b1, $b2, $b3", []>, Sched<[WriteSTW]>;
 
+// The same instruction with its operands typed, which is what the
+// disassembler prints. `link32` above spells it as its four raw bytes and is
+// what ~500 already-committed statements use; both encode identically, and
+// neither is touched by the other's existence.
+let hasSideEffects = 1, OpSize = OpSize32.Value in
+def LINK32r : PrefixDisp16Inst<0x0C, (outs), (ins GPR:$rs1, i32imm:$disp),
+    "link", "$rs1, $disp", []>, Sched<[WriteSTW]>;
+
 // XORCF A,r — XOR carry flag with A bit of register (2 bytes)
 let Defs = [SR], hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in

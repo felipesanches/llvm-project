@@ -724,6 +724,21 @@ bitda_24 0, (132582)
 ; CHECK-INST: bitda_24 7, (132580)
 bitda_24 7, (132580)
 ;==========================================================================
+; LINK / UNLK
+;==========================================================================
+
+; kn5000_v10_program.rom +0x0F17F4 (rom 0xEF17F4) -- unidasm: link XIZ,0xfff8
+; CHECK: link xiz, -8
+; CHECK-ENC: encoding: [0xee,0x0c,0xf8,0xff]
+; CHECK-INST: link xiz, -8
+link xiz, -8
+
+; kn5000_v10_program.rom +0x0F183A (rom 0xEF183A) -- unidasm: unlk XIZ
+; CHECK: unlk32 xiz
+; CHECK-ENC: encoding: [0xee,0x0d]
+; CHECK-INST: unlk32 xiz
+unlk32 xiz
+;==========================================================================
 ; JP cc / CALL cc on a 24-bit direct address
 ;==========================================================================
 

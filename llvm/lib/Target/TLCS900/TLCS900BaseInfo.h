@@ -130,6 +130,10 @@ enum InstFormat : uint8_t {
   // SRI Register+Register (R+R) addressing — immediate, and previous-bank index
   SriRRImm,           // [prefix, 0x07, base_addr, idx_addr, SubOpc, imm...]
   SriRRQReg,          // [prefix, 0x07, base_addr, idx_addr + 2, SubOpc + reg]
+  // Register prefix + fixed sub-opcode + a 16-bit displacement.  LINK's
+  // displacement is 16-bit whatever the register width is, so it cannot use
+  // PrefixLDImm (whose immediate width follows OpSize).
+  PrefixDisp16,       // [0xE8 + reg_enc, Opcode, d16_lo, d16_hi]
 };
 
 // TSFlags bit field positions and masks.
