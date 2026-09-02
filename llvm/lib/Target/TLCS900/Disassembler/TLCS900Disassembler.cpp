@@ -644,6 +644,18 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, unsigned BaseReg,
     int64_t Disp, unsigned PrefixSize, unsigned MemSize,
     bool IsDstMem) const {
+  // The 3-byte (Xrr+d8) encoding and the 2-byte (Xrr) encoding print
+  // IDENTICALLY through printMemOperand when the true displacement is zero
+  // -- both show "(reg)" -- so an instruction actually decoded from the
+  // longer, explicit-d8=0 form could not be told apart from the shorter
+  // form, and re-assembling the disassembler's own output always picked the
+  // shorter encoding. emitMemPrefix already reserves a sentinel for this
+  // (Disp == 256 means "force the d8 form with displacement 0"); nothing
+  // upstream ever produced it. PrefixSize == 2 means a disp8 byte was
+  // actually consumed, so a real zero there is exactly that case.
+  if (PrefixSize == 2 && Disp == 0)
+    Disp = 256;
+
   unsigned OpByteIdx = PrefixSize;
   if (Bytes.size() <= OpByteIdx)
     return MCDisassembler::Fail;

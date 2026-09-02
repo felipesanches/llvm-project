@@ -1312,3 +1312,60 @@
 
 # CHECK: add_erpl 251, 1, 2, 3, 4{{.*}}encoding: [0xe7,0xfb,0xc8,0x01,0x02,0x03,0x04]
 0xe7 0xfb 0xc8 0x01 0x02 0x03 0x04
+
+# ==========================================================================
+# Explicit-zero-displacement (Xrr+d8=0) vs no-displacement (Xrr) collision
+# ==========================================================================
+# printMemOperand shows "(reg)" for a displacement of 0 whether it came from
+# the 2-byte (Xrr) encoding or the 3-byte (Xrr+d8) encoding with d8=0x00, so
+# a disassembled 3-byte-disp0 instruction could not be told apart from its
+# 2-byte sibling, and re-assembling the text always picked the shorter form.
+# This cost ~490 of 608 bytes in the v1.42 sub-CPU TaskEvent/FIFO/TaskSched
+# family alone, convertible only via forced mnemonics (ld8_src_rid8,
+# ld16_src_rid8, ld_dst16_rid8, lda_rid8, ...) that never round-tripped
+# through the natural mnemonic.
+#
+# The fix is at decode time, in decodeMemPrefix(): when the d8 byte was
+# actually present (PrefixSize == 2) and its value is literally zero, the
+# displacement operand is set to the sentinel value 256 instead of 0.
+# emitMemPrefix has carried "Disp == 256 forces the d8 form with
+# displacement 0" since the initial backend commit; nothing upstream ever
+# produced it before now. The sentinel prints as the ordinary "+256" via the
+# unmodified printMemOperand, so the two forms are textually distinct and
+# both round-trip: "(reg)" keeps assembling to the 2-byte form (unchanged),
+# and "(reg+256)" is the new, explicit spelling of the 3-byte disp8=0 form.
+#
+# No existing spelling changes what it assembles to -- (xix) below still
+# encodes as the 2-byte form, proving no regression.
+
+# CHECK: ld wa, (xix){{.*}}encoding: [0x94,0x20]
+0x94 0x20
+
+# The true 3-byte ROM encoding with an explicit zero displacement --
+# previously indistinguishable from the line above.
+# CHECK: ld wa, (xix+256){{.*}}encoding: [0x9c,0x00,0x20]
+0x9c 0x00 0x20
+
+# Non-zero displacements are untouched by the fix (PrefixSize == 2 but
+# Disp != 0 takes the normal path).
+# CHECK: ld wa, (xix+4){{.*}}encoding: [0x9c,0x04,0x20]
+0x9c 0x04 0x20
+# CHECK: ld wa, (xix-1){{.*}}encoding: [0x9c,0xff,0x20]
+0x9c 0xff 0x20
+
+# Destination-memory (store) direction: same collision, same fix.
+# CHECK: ld (xix+256), wa{{.*}}encoding: [0xbc,0x00,0x50]
+0xbc 0x00 0x50
+
+# LDA (load effective address) direction: same collision, same fix.
+# CHECK: lda xwa, (xix+256){{.*}}encoding: [0xbc,0x00,0x30]
+0xbc 0x00 0x30
+
+# ALU-with-memory-operand direction (XOR (mem), r8): same collision, same
+# fix -- this family retires the xor8_mem_rid8 forced mnemonic.
+# CHECK: xor (xix+256), w{{.*}}encoding: [0x8c,0x00,0xd8]
+0x8c 0x00 0xd8
+
+# 8-bit LD source direction: retires ld8_src_rid8.
+# CHECK: ld a, (xix+256){{.*}}encoding: [0x8c,0x00,0x21]
+0x8c 0x00 0x21
