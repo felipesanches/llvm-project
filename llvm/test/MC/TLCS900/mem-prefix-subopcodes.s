@@ -724,6 +724,21 @@ bitda_24 0, (132582)
 ; CHECK-INST: bitda_24 7, (132580)
 bitda_24 7, (132580)
 ;==========================================================================
+; ALU (addr8), #imm8 through the 8-bit-direct prefix
+;==========================================================================
+
+; kn5000_v10_program.rom +0x0F03DE (rom 0xEF03DE) -- unidasm: and (0x2c),0xf0
+; CHECK: and_sd8b_im 44, 240
+; CHECK-ENC: encoding: [0xc0,0x2c,0x3c,0xf0]
+; CHECK-INST: and_sd8b_im 44, 240
+and_sd8b_im 44, 240
+
+; kn5000_v10_program.rom +0x1C3F5B (rom 0xFC3F5B) -- unidasm: or (0xc8),0x10
+; CHECK: or_sd8b_im 200, 16
+; CHECK-ENC: encoding: [0xc0,0xc8,0x3e,0x10]
+; CHECK-INST: or_sd8b_im 200, 16
+or_sd8b_im 200, 16
+;==========================================================================
 ; 32-bit AND / OR through a 24-bit direct address
 ;==========================================================================
 

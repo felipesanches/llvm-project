@@ -1740,6 +1740,20 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeD8Prefix(
     return MCDisassembler::Success;
   }
 
+  // ALU (addr8), #imm8: sub-opcodes 0x3C (AND) and 0x3E (OR), byte prefix only.
+  // The other six operations of the 0x38-0x3F row have no definition for this
+  // prefix, so they stay refused; MAME unidasm reads `c0 2c 3c f0` as
+  // "and (0x2c),0xf0", which is what AND_SD8B_IM encodes.
+  if (OpSize == 0 && (SubOp == 0x3C || SubOp == 0x3E)) {
+    if (Bytes.size() < 4)
+      return MCDisassembler::Fail;
+    MI.setOpcode(SubOp == 0x3C ? TLCS900::AND_SD8B_IM : TLCS900::OR_SD8B_IM);
+    MI.addOperand(MCOperand::createImm(Addr8));
+    MI.addOperand(MCOperand::createImm(Bytes[3]));
+    Size = 4;
+    return MCDisassembler::Success;
+  }
+
   return MCDisassembler::Fail;
 }
 
