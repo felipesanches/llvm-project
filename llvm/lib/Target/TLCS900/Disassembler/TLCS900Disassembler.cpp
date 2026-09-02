@@ -77,6 +77,12 @@ private:
   DecodeStatus decodeSRIPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes, bool IsDst,
                                unsigned OpSize) const;
+  /// Decode the SRI register+register indexed forms: mode byte 0x07 (16-bit
+  /// index register) or 0x03 (8-bit index register). Called from
+  /// decodeSRIPrefix once it recognises one of those two fixed mode bytes.
+  DecodeStatus decodeSriRRPrefix(MCInst &MI, uint64_t &Size,
+                                 ArrayRef<uint8_t> Bytes, bool IsDst,
+                                 unsigned OpSize, bool Is8BitIndex) const;
   /// Decode a post-increment/pre-decrement prefixed instruction.
   /// IsPostInc: true for post-increment (R+), false for pre-decrement (-R).
   DecodeStatus decodePIPrefix(MCInst &MI, uint64_t &Size,
@@ -128,6 +134,10 @@ static unsigned decodeRegForSize(unsigned Enc, unsigned OpSize) {
   default: return decodeGPR(Enc);
   }
 }
+
+// Map 3-bit register encoding to PrevGR16 (Q) register. Defined further
+// below, alongside the PrevBank (D7) decoder that is its main user.
+static unsigned decodeQReg(unsigned Enc);
 
 static uint16_t readU16LE(ArrayRef<uint8_t> Bytes, unsigned Offset) {
   return Bytes[Offset] | (static_cast<uint16_t>(Bytes[Offset + 1]) << 8);
@@ -1383,6 +1393,14 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSRIPrefix(
     return MCDisassembler::Fail;
 
   uint8_t Mode = Bytes[1];
+
+  // Register+register indexed addressing: mode byte is the fixed marker
+  // 0x07 (16-bit index register) or 0x03 (8-bit index register), not a
+  // base-register-encoded mode byte -- both values are far below 0xE0, so
+  // they must be recognised here before the `Mode < 0xE0` rejection below.
+  if (Mode == 0x07 || Mode == 0x03)
+    return decodeSriRRPrefix(MI, Size, Bytes, IsDst, OpSize, Mode == 0x03);
+
   unsigned ModeType = Mode & 0x03;
 
   // Decode the base register from the mode byte.
@@ -1415,6 +1433,212 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSRIPrefix(
   // base register, displacement, and prefix size.
   return decodeMemPrefix(MI, Size, Bytes, BaseReg, Disp, PrefixSize,
                          /*MemSize=*/OpSize, IsDst);
+}
+
+//===----------------------------------------------------------------------===//
+// SRI Register+Register (R+R) indexed addressing decoder
+//===----------------------------------------------------------------------===//
+//
+// Format: [prefix, 0x07 or 0x03, base_addr, idx_addr, SubOpc(+reg|+cc|+imm3)
+//          [, trailing imm bytes]]
+// base_addr = 0xE0 + base_enc*4 (always a 32-bit GPR, current bank).
+// mode 0x07 (16-bit index): idx_addr = 0xE0 + idx_enc*4 (current-bank GR16),
+//   or +2 for a PREVIOUS-BANK (Q) register -- only LDA_RRQ uses that form.
+// mode 0x03 (8-bit index): idx_addr addresses a GR8 sub-byte of WA/BC/DE/HL
+//   only, using the byte-addressed register file (low half at +0, high half
+//   at +1 -- see TLCS900MCCodeEmitter.cpp's SriRR8Reg case for the encoder
+//   side of this same formula).
+//
+// The encoder for this whole family only applies the OpSize-based prefix
+// bump (C3->D3->E3) when Opcode < 0xF0 (see TLCS900MCCodeEmitter.cpp): the
+// source loads (LD_RR*, prefix C3/D3/E3) size themselves via the PREFIX, so
+// OpSize here is reliable and comes straight from the outer dispatch. The
+// destination forms (ST_RR*, LDA_RR, JP_RR, CALL_RR; fixed prefix F3) size
+// themselves via the SUB-OPCODE instead (0x40/0x50/0x60 for byte/word/long)
+// -- confirmed by direct ROM evidence, not guessed: `f3 07 e4 e0 31`
+// disassembles as `lda XBC,XBC+WA` in the KN5000 v7 ROM, and 0x31 = 0x30 |
+// reg, settling 0x30=LDA / 0x40=STB, with 0x50=STW / 0x60=STL following the
+// same fixed-width-per-range pattern every other 0xF3 sub-table in this
+// backend already uses (see commit 1b9432474daa). So despite the passed-in
+// OpSize parameter being fixed at 2 for every dest-side call, this function
+// never trusts it for STx/LDA sizing -- only the sub-opcode is.
+MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSriRRPrefix(
+    MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, bool IsDst,
+    unsigned OpSize, bool Is8BitIndex) const {
+  if (Bytes.size() < 5)
+    return MCDisassembler::Fail;
+
+  uint8_t BaseAddr = Bytes[2];
+  uint8_t IdxAddr = Bytes[3];
+  uint8_t SubOpc = Bytes[4];
+
+  if (BaseAddr < 0xE0 || ((BaseAddr - 0xE0) & 0x3) != 0)
+    return MCDisassembler::Fail;
+  unsigned BaseEnc = (BaseAddr - 0xE0) >> 2;
+  if (BaseEnc > 7)
+    return MCDisassembler::Fail;
+  unsigned BaseReg = decodeGPR(BaseEnc);
+
+  if (Is8BitIndex) {
+    // --- 8-bit index register: LD_RR8{B,W,L} (source) / ST_RR8{B,W,L} (dst)
+    // idx_addr = 0xE0 + (idx_enc>>1)*4 + (1 - (idx_enc&1)); idx_enc is the
+    // GR8 hardware encoding W=0,A=1,B=2,C=3,D=4,E=5,H=6,L=7 -- i.e. only the
+    // 8 byte-halves of WA/BC/DE/HL are reachable this way.
+    if (IdxAddr < 0xE0)
+      return MCDisassembler::Fail;
+    unsigned X = IdxAddr - 0xE0;
+    unsigned PairIdx = X >> 2;
+    unsigned Low2 = X & 0x3;
+    if (PairIdx > 3 || (Low2 != 0 && Low2 != 1))
+      return MCDisassembler::Fail;
+    unsigned IdxEnc = (Low2 == 1) ? (PairIdx * 2) : (PairIdx * 2 + 1);
+    unsigned IdxReg = decodeGR8(IdxEnc);
+
+    if (!IsDst) {
+      if ((SubOpc & 0xF8) != 0x20)
+        return MCDisassembler::Fail;
+      unsigned DataEnc = SubOpc & 0x7;
+      unsigned Opc;
+      switch (OpSize) {
+      case 0: Opc = TLCS900::LD_RR8B; break;
+      case 1: Opc = TLCS900::LD_RR8W; break;
+      case 2: Opc = TLCS900::LD_RR8L; break;
+      default: return MCDisassembler::Fail;
+      }
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeRegForSize(DataEnc, OpSize)));
+      MI.addOperand(MCOperand::createReg(BaseReg));
+      MI.addOperand(MCOperand::createReg(IdxReg));
+      Size = 5;
+      return MCDisassembler::Success;
+    }
+    // Destination: ST_RR8{B,W,L}, sized by the sub-opcode range.
+    unsigned Base = SubOpc & 0xF8;
+    unsigned DataEnc = SubOpc & 0x7;
+    unsigned Opc = 0, DataOpSize = 0;
+    switch (Base) {
+    case 0x40: Opc = TLCS900::ST_RR8B; DataOpSize = 0; break;
+    case 0x50: Opc = TLCS900::ST_RR8W; DataOpSize = 1; break;
+    case 0x60: Opc = TLCS900::ST_RR8L; DataOpSize = 2; break;
+    default: return MCDisassembler::Fail;
+    }
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createReg(decodeRegForSize(DataEnc, DataOpSize)));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(IdxReg));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+
+  // --- 16-bit index register (mode byte 0x07) ---
+  if (IdxAddr < 0xE0)
+    return MCDisassembler::Fail;
+  unsigned IdxX = IdxAddr - 0xE0;
+  unsigned IdxBankOffset = IdxX & 0x3; // 0 = current bank, 2 = previous bank
+  unsigned IdxEnc16 = IdxX >> 2;
+  if (IdxEnc16 > 7 || (IdxBankOffset != 0 && IdxBankOffset != 2))
+    return MCDisassembler::Fail;
+
+  if (!IsDst) {
+    // Source: LD_RR{B,W,L} (sized by OpSize, from the prefix) or the one
+    // word-only immediate form OR_RRW_IM (fixed sub-opcode 0x3E, no bank).
+    if (IdxBankOffset != 0)
+      return MCDisassembler::Fail; // no previous-bank source form exists
+    unsigned IdxReg = decodeGR16(IdxEnc16);
+    if (SubOpc == 0x3E) {
+      if (OpSize != 1 || Bytes.size() < 7)
+        return MCDisassembler::Fail;
+      MI.setOpcode(TLCS900::OR_RRW_IM);
+      MI.addOperand(MCOperand::createReg(BaseReg));
+      MI.addOperand(MCOperand::createReg(IdxReg));
+      MI.addOperand(MCOperand::createImm(Bytes[5]));
+      MI.addOperand(MCOperand::createImm(Bytes[6]));
+      Size = 7;
+      return MCDisassembler::Success;
+    }
+    if ((SubOpc & 0xF8) != 0x20)
+      return MCDisassembler::Fail;
+    unsigned DataEnc = SubOpc & 0x7;
+    unsigned Opc;
+    switch (OpSize) {
+    case 0: Opc = TLCS900::LD_RRB; break;
+    case 1: Opc = TLCS900::LD_RRW; break;
+    case 2: Opc = TLCS900::LD_RRL; break;
+    default: return MCDisassembler::Fail;
+    }
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createReg(decodeRegForSize(DataEnc, OpSize)));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(IdxReg));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+
+  // Destination (F3 prefix): CALL_RR, LDA_RR/LDA_RRQ, ST_RR{B,W,L}, JP_RR.
+  // None of these ranges overlap (0x08-0x17, 0x30-0x37, 0x40-0x47, 0x50-0x57,
+  // 0x60-0x67, 0xD0-0xDF), so they are checked as plain sub-ranges.
+  if (SubOpc >= 0x08 && SubOpc <= 0x17) {
+    if (IdxBankOffset != 0)
+      return MCDisassembler::Fail;
+    MI.setOpcode(TLCS900::CALL_RR);
+    MI.addOperand(MCOperand::createImm(SubOpc - 0x08));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+  if (SubOpc >= 0x30 && SubOpc <= 0x37) {
+    unsigned DataEnc = SubOpc & 0x7;
+    if (IdxBankOffset == 0) {
+      MI.setOpcode(TLCS900::LDA_RR);
+      MI.addOperand(MCOperand::createReg(decodeGPR(DataEnc)));
+      MI.addOperand(MCOperand::createReg(BaseReg));
+      MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
+    } else {
+      MI.setOpcode(TLCS900::LDA_RRQ);
+      MI.addOperand(MCOperand::createReg(decodeGPR(DataEnc)));
+      MI.addOperand(MCOperand::createReg(BaseReg));
+      MI.addOperand(MCOperand::createReg(decodeQReg(IdxEnc16)));
+    }
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+  if (IdxBankOffset != 0)
+    return MCDisassembler::Fail; // no previous-bank form below this point
+  if (SubOpc >= 0x40 && SubOpc <= 0x47) {
+    MI.setOpcode(TLCS900::ST_RRB);
+    MI.addOperand(MCOperand::createReg(decodeGR8(SubOpc & 0x7)));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+  if (SubOpc >= 0x50 && SubOpc <= 0x57) {
+    MI.setOpcode(TLCS900::ST_RRW);
+    MI.addOperand(MCOperand::createReg(decodeGR16(SubOpc & 0x7)));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+  if (SubOpc >= 0x60 && SubOpc <= 0x67) {
+    MI.setOpcode(TLCS900::ST_RRL);
+    MI.addOperand(MCOperand::createReg(decodeGPR(SubOpc & 0x7)));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+  if (SubOpc >= 0xD0 && SubOpc <= 0xDF) {
+    MI.setOpcode(TLCS900::JP_RR);
+    MI.addOperand(MCOperand::createImm(SubOpc - 0xD0));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
+
+  return MCDisassembler::Fail;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1819,12 +2043,205 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodePIPrefix(
 MCDisassembler::DecodeStatus TLCS900Disassembler::decodeERPPrefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes,
     unsigned OpSize) const {
-  // Prefix byte consumed. Next: bank_idx (1 byte), then sub-opcode.
+  // Format: [0xC7 (byte, OpSize==0) | 0xE7 (long, OpSize==2)] + bank byte +
+  // SubOpc [+ trailing operand bytes]. OpSize==1 (word, 0xD7) never reaches
+  // here -- the caller routes it to decodePrevBankPrefix instead, because
+  // every real ROM word-sized use of this prefix addresses a previous-bank
+  // register (0xE2 + n*4) and that decoder already produces a typed,
+  // round-trip-correct mnemonic for it (e.g. `push QIZ` for what the
+  // assembler also accepts as `pushw_erp 0xFA`).
+  //
+  // Unlike decodePrevBankPrefix's Q-register decode, the "bank" byte here is
+  // kept as a raw immediate, never turned into a register operand: real ROM
+  // sites reference sub-byte fields (e.g. 0xFB, the high byte of the
+  // previous-bank IZ register) that have no typed register class in this
+  // backend, which is exactly why the raw `..._erp bank, ...` spellings
+  // exist and are the dominant convention already committed across the tree
+  // (`stb_erp`/`ldb_erp`/`ldib_erp`/`cpib_erp`/... -- thousands of sites in
+  // v7, v142 and the subcpu boot ROM).
   if (Bytes.size() < 3)
     return MCDisassembler::Fail;
+  if (OpSize != 0 && OpSize != 2)
+    return MCDisassembler::Fail;
 
-  // Emit as raw bytes for now.
-  // TODO: Map sub-opcodes to appropriate ERP instructions.
+  uint8_t Bank = Bytes[1];
+  uint8_t SubOpc = Bytes[2];
+
+  if (OpSize == 2) {
+    // === Long-sized ERP (prefix 0xE7) ===
+    switch (SubOpc) {
+    case 0x04:
+      MI.setOpcode(TLCS900::PUSH_LERP);
+      MI.addOperand(MCOperand::createImm(Bank));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0x05:
+      MI.setOpcode(TLCS900::POP_LERP);
+      MI.addOperand(MCOperand::createImm(Bank));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0x64:
+      MI.setOpcode(TLCS900::INC4_LERP);
+      MI.addOperand(MCOperand::createImm(Bank));
+      Size = 3;
+      return MCDisassembler::Success;
+    case 0xC8: {
+      // ADD_ERPL: [bank, 0xC8, b0, b1, b2, b3] -- 4 trailing bytes.
+      if (Bytes.size() < 7)
+        return MCDisassembler::Fail;
+      MI.setOpcode(TLCS900::ADD_ERPL);
+      MI.addOperand(MCOperand::createImm(Bank));
+      for (unsigned I = 0; I < 4; ++I)
+        MI.addOperand(MCOperand::createImm(Bytes[3 + I]));
+      Size = 7;
+      return MCDisassembler::Success;
+    }
+    default:
+      break;
+    }
+    // ERPRegInst: [bank, SubOpcBase + reg_enc(0-7)], GPR (32-bit) operand.
+    unsigned RegEnc = SubOpc & 0x7;
+    unsigned Base = SubOpc & 0xF8;
+    unsigned Opc = 0;
+    switch (Base) {
+    case 0x88: Opc = TLCS900::LDTO_LERP; break; // ldto_lerp
+    case 0x98: Opc = TLCS900::LDFR_LERP; break; // ldfr_lerp
+    default: break;
+    }
+    if (!Opc)
+      return MCDisassembler::Fail;
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createReg(decodeGPR(RegEnc)));
+    MI.addOperand(MCOperand::createImm(Bank));
+    Size = 3;
+    return MCDisassembler::Success;
+  }
+
+  // === Byte-sized ERP (prefix 0xC7) ===
+
+  // --- Fixed-subopcode unary forms, checked first: 0x61 and 0x69 sit inside
+  // the general small-immediate ranges handled further below (0x60-0x67,
+  // 0x68-0x6F) but every real ROM site that hits exactly those two byte
+  // values uses the dedicated "increment/decrement by 1" spelling
+  // (inc1b_erp: 258 sites: incb_erp with imm=1: 15, all of which also land on
+  // 0x61) -- so the specific form must win the dispatch, matching how
+  // decodePrevBankPrefix's own unary switch is checked before its INC/DEC
+  // range below. ---
+  switch (SubOpc) {
+  case 0x2A:
+    MI.setOpcode(TLCS900::XORCF_A_BERP); // xorcfb_erp
+    MI.addOperand(MCOperand::createImm(Bank));
+    Size = 3;
+    return MCDisassembler::Success;
+  case 0x61:
+    MI.setOpcode(TLCS900::INC1_BERP); // inc1b_erp
+    MI.addOperand(MCOperand::createImm(Bank));
+    Size = 3;
+    return MCDisassembler::Success;
+  case 0x69:
+    MI.setOpcode(TLCS900::DEC1_BERP); // dec1b_erp
+    MI.addOperand(MCOperand::createImm(Bank));
+    Size = 3;
+    return MCDisassembler::Success;
+  case 0xFE:
+    MI.setOpcode(TLCS900::SLL_A_BERP); // sllb_erp
+    MI.addOperand(MCOperand::createImm(Bank));
+    Size = 3;
+    return MCDisassembler::Success;
+  default:
+    break;
+  }
+
+  // --- ERPImmAfterInst: [bank, SubOpc, 1 trailing byte] ---
+  // ⚠ NOTE: XORCF_ERPB (0xE2) and LDCF_ERPB (0xE6) are DELIBERATELY not
+  // decoded here. Both are unverified (zero uses anywhere in the disasm
+  // tree, unlike every other mnemonic below) and both COLLIDE with the
+  // OR_BERP register range (0xE0 + reg_enc spans 0xE0-0xE7): the word-sized
+  // analogues of XORCF/LDCF use sub-opcodes 0x22/0x23 (see XORCF_ERPW /
+  // LDCF_ERPW), so 0xE2/0xE6 for the byte form look like a copy-paste guess
+  // rather than attested hardware behaviour. Treating that range as OR_BERP
+  // instead matches the fully-populated, ROM-attested 8-register pattern
+  // that every other ALU op in this family follows (ADD/SUB/AND/XOR/CP all
+  // span their own contiguous 8-value block).
+  struct ImmAfterEntry {
+    uint8_t SubOpc;
+    unsigned Opc;
+  };
+  static const ImmAfterEntry ImmAfterTable[] = {
+      {0x03, TLCS900::LDI_ERPB},  {0x09, TLCS900::MULS_ERPB},
+      {0x30, TLCS900::RES_ERPB},  {0x31, TLCS900::SET_ERPB},
+      {0x33, TLCS900::BIT_ERPB},  {0xC8, TLCS900::ADD_ERPB},
+      {0xCA, TLCS900::SUB_ERPB},  {0xCC, TLCS900::AND_ERPB},
+      {0xCD, TLCS900::XOR_ERPB},  {0xCE, TLCS900::OR_ERPB},
+      {0xCF, TLCS900::CP_ERPB},   {0xEE, TLCS900::SLL_ERPB},
+      {0xEF, TLCS900::SRL_ERPB},
+  };
+  for (const auto &E : ImmAfterTable) {
+    if (SubOpc != E.SubOpc)
+      continue;
+    if (Bytes.size() < 4)
+      return MCDisassembler::Fail;
+    MI.setOpcode(E.Opc);
+    MI.addOperand(MCOperand::createImm(Bank));
+    MI.addOperand(MCOperand::createImm(Bytes[3]));
+    Size = 4;
+    return MCDisassembler::Success;
+  }
+
+  // --- ERPRegInst: [bank, SubOpcBase + reg_enc(0-7)], GR8 operand.
+  // 0x90 (ADC) and 0xB0 (SBC) are not defined for byte size and fall through
+  // to Fail. The colliding 0x88/0x98/0xE0/0xF0 bases each have a byte-for-
+  // byte-identical "mirror" definition (LD_ERPB_RR/ST_ERPB_RR/OR_ERPB_RR/
+  // CP_ERPB_RR); this picks the pre-existing, far more common spelling
+  // already used across the tree (stb_erp/ldb_erp/orb_erp/cpb_erp). ---
+  {
+    unsigned RegEnc = SubOpc & 0x7;
+    unsigned Base = SubOpc & 0xF8;
+    unsigned Opc = 0;
+    switch (Base) {
+    case 0x80: Opc = TLCS900::ADD_BERP; break;  // addb_erp
+    case 0x88: Opc = TLCS900::LDTO_BERP; break; // stb_erp
+    case 0x98: Opc = TLCS900::LDFR_BERP; break; // ldb_erp
+    case 0xA0: Opc = TLCS900::SUB_BERP; break;  // subb_erp
+    case 0xC0: Opc = TLCS900::AND_BERP; break;  // andb_erp
+    case 0xD0: Opc = TLCS900::XOR_BERP; break;  // xorb_erp
+    case 0xE0: Opc = TLCS900::OR_BERP; break;   // orb_erp
+    case 0xF0: Opc = TLCS900::CP_BERP; break;   // cpb_erp
+    default: break;
+    }
+    if (Opc) {
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createReg(decodeGR8(RegEnc)));
+      MI.addOperand(MCOperand::createImm(Bank));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+  }
+
+  // --- ERPSmallImmInst: [bank, SubOpcBase + imm3(0-7)].
+  // LDI_BERP/CPI_BERP each have a byte-identical mirror (LDS_ERPB/CPS_ERPB);
+  // pick the pre-existing dominant spelling (ldib_erp: 444 sites, cpib_erp:
+  // 254, vs lds_erpb: 23, cps_erpb: 7). ---
+  {
+    unsigned Imm3 = SubOpc & 0x7;
+    unsigned Base = SubOpc & 0xF8;
+    unsigned Opc = 0;
+    switch (Base) {
+    case 0x60: Opc = TLCS900::INC_BERP; break; // incb_erp
+    case 0x68: Opc = TLCS900::DEC_BERP; break; // decb_erp
+    case 0xA8: Opc = TLCS900::LDI_BERP; break; // ldib_erp
+    case 0xD8: Opc = TLCS900::CPI_BERP; break; // cpib_erp
+    default: break;
+    }
+    if (Opc) {
+      MI.setOpcode(Opc);
+      MI.addOperand(MCOperand::createImm(Bank));
+      MI.addOperand(MCOperand::createImm(Imm3));
+      Size = 3;
+      return MCDisassembler::Success;
+    }
+  }
+
   return MCDisassembler::Fail;
 }
 
