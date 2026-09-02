@@ -2643,6 +2643,48 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
     Size = 3;
     return MCDisassembler::Success;
 
+  // === NORMAL: 0x01 — 1 byte ===
+  case 0x01: // NORMAL
+    return decodeSingleByte(MI, Size, TLCS900::NORMAL);
+
+  // === MAX: 0x04 — 1 byte ===
+  case 0x04: // MAX
+    return decodeSingleByte(MI, Size, TLCS900::MAX);
+
+  // === LDF #bank: 0x17 + bank — 2 bytes ===
+  // ⚠ The operand byte is passed through UNMASKED.  Only the low 2 bits are
+  // architecturally meaningful, but the encoder writes the immediate verbatim
+  // (`ldf 0x05` -> [0x17,0x05]), so masking here would make bytes with a
+  // non-zero upper nibble reassemble to a DIFFERENT byte.  unidasm also prints
+  // the raw byte.
+  case 0x17:
+    if (Bytes.size() < 2)
+      return MCDisassembler::Fail;
+    MI.setOpcode(TLCS900::LDF);
+    MI.addOperand(MCOperand::createImm(Bytes[1]));
+    Size = 2;
+    return MCDisassembler::Success;
+
+  // === JP absolute 16-bit: 0x1A + addr16 — 3 bytes ===
+  // A DIFFERENT instruction from the 0x1B addr24 form below, not a narrower
+  // spelling of it: the width is part of the encoding the source requests.
+  case 0x1A:
+    if (Bytes.size() < 3)
+      return MCDisassembler::Fail;
+    MI.setOpcode(TLCS900::JP16);
+    MI.addOperand(MCOperand::createImm(readU16LE(Bytes, 1)));
+    Size = 3;
+    return MCDisassembler::Success;
+
+  // === CALL absolute 16-bit: 0x1C + addr16 — 3 bytes ===
+  case 0x1C:
+    if (Bytes.size() < 3)
+      return MCDisassembler::Fail;
+    MI.setOpcode(TLCS900::CALL16);
+    MI.addOperand(MCOperand::createImm(readU16LE(Bytes, 1)));
+    Size = 3;
+    return MCDisassembler::Success;
+
   // === JP absolute: 0x1B + addr24 — 4 bytes ===
   case 0x1B:
     if (Bytes.size() < 4)
