@@ -1323,8 +1323,10 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
         {0xC0, {TLCS900::AND8_da16, TLCS900::AND8_da24_gpr},
                {TLCS900::AND16_da16, TLCS900::AND16_da24},
                {0, TLCS900::AND32_da24}, true},
+        // XOR16_da24 exists; there is no 16-bit-address sibling, and no
+        // 32-bit XOR at all, so those slots stay 0 and are refused.
         {0xD0, {TLCS900::XOR8_da16, TLCS900::XOR8_da24_gpr},
-               {0, 0}, {0, 0}, true},
+               {0, TLCS900::XOR16_da24}, {0, 0}, true},
         {0xE0, {TLCS900::OR8_da16, TLCS900::OR8_da24_gpr},
                {TLCS900::OR16_da16, TLCS900::OR16_da24},
                {0, TLCS900::OR32_da24}, true},
