@@ -19,6 +19,7 @@
 #include "TLCS900BaseInfo.h"
 #include "TLCS900FixupKinds.h"
 #include "TLCS900MCTargetDesc.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCFixup.h"
@@ -316,6 +317,31 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
       Ctx.reportError(MI.getLoc(), ErrMsg);
       return 0;
     }
+
+    // ⚠ Silent spelling trap: `(Xrr+d8)` is SIGNED, so a raw disp8 byte
+    // 0x80..0xFF written as its positive value (128..255) does not fit the
+    // signed 8-bit field and falls through to this 5-byte (Xrr+d16) form
+    // instead of the 2-byte (Xrr+d8) form -- with no error, because +N in
+    // that range is *also* a perfectly legitimate d16 displacement (this
+    // tree has hundreds of genuine ones). The two spellings are NOT
+    // interchangeable -- +151 and -105 are different addresses, not the
+    // same byte read two ways -- so this cannot be upgraded to an error or
+    // silently re-encoded as d8 without changing what already-correct
+    // spellings assemble to. It can only be flagged: if this was meant to
+    // reproduce a raw disp8 byte from disassembly, the byte's signed decimal
+    // form (Disp - 256) is the spelling that selects the 2-byte encoding.
+    if (DispOp.isImm() && Disp >= 128 && Disp <= 255) {
+      std::string WarnMsg;
+      raw_string_ostream OS(WarnMsg);
+      OS << "displacement +" << Disp << " (raw byte 0x" << utohexstr(Disp, true)
+         << ") does not fit the signed (Xrr+d8) field and assembles to the "
+            "5-byte (Xrr+d16) form; if you intended the raw disp8 byte "
+            "0x" << utohexstr(Disp, true) << " (i.e. the 2-byte d8 encoding), "
+            "write the signed displacement " << (Disp - 256) << " instead, in: ";
+      MI.print(OS);
+      Ctx.reportWarning(MI.getLoc(), WarnMsg);
+    }
+
     uint8_t SRIPrefix = IsDstMem ? 0xF3 : (0xC3 + OpSize * 0x10);
     CB.push_back(SRIPrefix);
     // Mode byte: bits 1-0 = 01 (Xrr+d16), bits 7-2 = register file address >> 2.
