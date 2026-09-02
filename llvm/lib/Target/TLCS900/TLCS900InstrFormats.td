@@ -108,6 +108,9 @@ def InstFormatSriRRImm : InstFormat<81>;
 def InstFormatSriRRQReg : InstFormat<82>;
 // Register prefix + fixed sub-opcode + 16-bit displacement (LINK).
 def InstFormatPrefixDisp16 : InstFormat<83>;
+def InstFormatMemToMemDst : InstFormat<84>;
+def InstFormatMemToMemSrc : InstFormat<85>;
+def InstFormatSriRRAddr16 : InstFormat<86>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -1105,4 +1108,39 @@ class SriRR8RegInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
   let Opcode = opc;
   let SubOpcode = sub_opc;
   let Size = 5;
+}
+
+//===----------------------------------------------------------------------===//
+// MEMORY-TO-MEMORY: one register-indirect operand, one 16-bit DIRECT address.
+//
+// MI operand order is FIXED in both directions -- base, disp, addr16 -- so the
+// emitter reads the same slots whichever way the data flows; the AsmString is
+// what puts the destination first.
+//===----------------------------------------------------------------------===//
+class MemToMemDstInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                      string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemToMemDst.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+class MemToMemSrcInst<bits<8> opc, int sz, dag outs, dag ins, string opcodestr,
+                      string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatMemToMemSrc.Value;
+  let Opcode = opc;
+  let Size = sz;
+}
+
+// SriRRAddr16Inst: the register-indexed operand paired with a 16-bit DIRECT
+// address -- the memory-to-memory move whose memory half is `(Xrr+Rn)`.
+// MI operand order: base, index, addr16.
+class SriRRAddr16Inst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                      string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriRRAddr16.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 7;
 }

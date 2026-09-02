@@ -134,6 +134,14 @@ enum InstFormat : uint8_t {
   // displacement is 16-bit whatever the register width is, so it cannot use
   // PrefixLDImm (whose immediate width follows OpSize).
   PrefixDisp16,       // [0xE8 + reg_enc, Opcode, d16_lo, d16_hi]
+  // MEMORY-TO-MEMORY: one register-indirect operand and one 16-bit DIRECT
+  // address.  The trailing field is an ADDRESS and is always 16 bits, so it
+  // cannot come from OpSize the way an immediate does -- `ld (XWA),(0x8d38)`
+  // moves a BYTE through a 16-bit address field.
+  MemToMemDst,        // dst mem prefix + Opcode + addr16   ld (mem),(nn)
+  MemToMemSrc,        // src mem prefix + Opcode + addr16   ld (nn),(mem)
+  // Memory-to-memory whose register-indirect half is REGISTER-INDEXED.
+  SriRRAddr16,        // [prefix, 0x07, base_addr, idx_addr, SubOpc, addr16]
 };
 
 // TSFlags bit field positions and masks.

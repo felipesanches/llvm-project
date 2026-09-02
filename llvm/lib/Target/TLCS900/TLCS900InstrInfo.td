@@ -110,6 +110,67 @@ def MEMri : Operand<i32> {
   let ParserMatchClass = MEMriAsmOperand;
 }
 
+// --- `(Xrr+Rn)`, the REGISTER-INDEXED memory operand ---------------------
+//
+// A different ENCODING from `(Xrr+d16)`, not a different spelling of it:
+//     (xbc+wa)     prefix 07 E4 E0 sub      register-indexed
+//     (xbc+0x1234) prefix E5 34 12 sub      base + 16-bit displacement
+// The index is a REGISTER, so it gets its own operand kind in the parser and
+// can never fall into the displacement slot -- the defect TOOLCHAIN_VERSION
+// UPDATE 8 turned into a diagnostic, and which these operands retire.
+//
+// Three classes, because the register-file address the encoder writes differs:
+//   MEMrr   current-bank word index   idx byte = 0xE0 + enc*4
+//   MEMrrq  previous-bank word index  idx byte = 0xE0 + enc*4 + 2
+//   MEMrr8  byte index (W/A/B/C/D/E/H/L only, mode byte 0x03 not 0x07)
+// All three parse through parseMemriOperand, which builds one k_MemoryRR
+// operand; the AsmMatcher then picks the class by the index register.
+def MEMrrAsmOperand : AsmOperandClass {
+  let Name = "Memrr";
+  let ParserMethod = "parseMemriOperand";
+  let RenderMethod = "addMemrrOperands";
+}
+def MEMrr : Operand<i32> {
+  let MIOperandInfo = (ops GPR:$base, GR16:$idx);
+  let PrintMethod = "printMemrrOperand";
+  let ParserMatchClass = MEMrrAsmOperand;
+}
+
+def MEMrr8AsmOperand : AsmOperandClass {
+  let Name = "Memrr8";
+  let ParserMethod = "parseMemriOperand";
+  let RenderMethod = "addMemrr8Operands";
+}
+def MEMrr8 : Operand<i32> {
+  let MIOperandInfo = (ops GPR:$base, GR8:$idx);
+  let PrintMethod = "printMemrrOperand";
+  let ParserMatchClass = MEMrr8AsmOperand;
+}
+
+def MEMrrqAsmOperand : AsmOperandClass {
+  let Name = "Memrrq";
+  let ParserMethod = "parseMemriOperand";
+  let RenderMethod = "addMemrrqOperands";
+}
+def MEMrrq : Operand<i32> {
+  let MIOperandInfo = (ops GPR:$base, PrevGR16:$idx);
+  let PrintMethod = "printMemrrOperand";
+  let ParserMatchClass = MEMrrqAsmOperand;
+}
+
+// A 16-bit direct address that must be written PARENTHESISED: the operand of
+// the memory-to-memory loads, where the trailing field is an address and never
+// a value.  Distinct from `directaddr`, which also accepts a bare immediate.
+def Daddr16AsmOperand : AsmOperandClass {
+  let Name = "Daddr16";
+  let ParserMethod = "parseMemriOperand";
+  let RenderMethod = "addDaddr16Operands";
+}
+def daddr16 : Operand<i32> {
+  let PrintMethod = "printDirectAddr";
+  let ParserMatchClass = Daddr16AsmOperand;
+}
+
 // AsmOperandClass for parenthesized direct address (addr)
 def DirectAddrAsmOperand : AsmOperandClass {
   let Name = "DirectAddr";
@@ -199,6 +260,44 @@ def LD16mi_dst_16 : MemStoreImmInst<0x16, 5, (outs), (ins MEMri:$addr, i16imm:$v
                                      "ldmw2", "$addr, $val", []>,
                     Sched<[WriteSTW, ReadMemBase]>;
 } // OpSize16
+
+// --- MEMORY-TO-MEMORY: `ld (mem),(nn)` and `ld (nn),(mem)` ----------------
+//
+// ⚠ `ldmi16` and `ldmw2` above are the WRONG INSTRUCTION for their bytes.
+// Sub-opcodes 0x14 and 0x16 in the destination-memory table are not store-
+// immediate at all: MAME unidasm reads `b0 14 38 8d` as `ld (XWA),(0x8d38)`
+// and `b0 16 38 8d` as `ldw (XWA),(0x8d38)` -- a memory-to-memory move, with
+// the trailing field a 16-bit ADDRESS rather than a value.  (The real
+// store-immediate is 0x00 for a byte and 0x02 for a word, and 0x02 is
+// `ldw` above, correctly.)
+//
+// ⚠ THE OLD SPELLINGS ARE LEFT ALONE.  They encode what they always encoded;
+// committed source across the tree writes them, and re-encoding an existing
+// spelling is a regression even when the byte gate stays green.  What changes
+// is that the correct instruction now EXISTS and is what the disassembler
+// prints -- 274 samples in the v10 decoder census were refused for want of it.
+//
+// The source-side counterpart is sub-opcode 0x19 in the byte (0x80) and word
+// (0x90) source-memory tables; the LONG table has no such form and unidasm
+// prints `db` for `a0 19`.
+let mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+def LD8_MM_dst : MemToMemDstInst<0x14, 4, (outs), (ins MEMri:$addr, daddr16:$src),
+                                  "ld", "$addr, $src", []>,
+                 Sched<[WriteSTW, ReadMemBase]>;
+def LD8_MM_src : MemToMemSrcInst<0x19, 4, (outs), (ins MEMri:$addr, daddr16:$dst),
+                                  "ld", "$dst, $addr", []>,
+                 Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def LD16_MM_dst : MemToMemDstInst<0x16, 4, (outs), (ins MEMri:$addr, daddr16:$src),
+                                   "ldw", "$addr, $src", []>,
+                  Sched<[WriteSTW, ReadMemBase]>;
+def LD16_MM_src : MemToMemSrcInst<0x19, 4, (outs), (ins MEMri:$addr, daddr16:$dst),
+                                   "ldw", "$dst, $addr", []>,
+                  Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize16
+} // mayLoad, mayStore
 
 // LD rd:lo16, (base+disp) — Load 16-bit from memory into low word of GPR
 // Note: upper 16 bits of the 32-bit register are UNCHANGED by hardware.
@@ -4664,6 +4763,178 @@ def ST_RR8L : SriRR8RegInst<0xF3, 0x60, (outs),
   let OpSize = OpSize32.Value;
 }
 } // hasSideEffects, mayStore
+
+// --- The same R+R encodings, spelled with a MODELLED OPERAND ---------------
+//
+// Every definition below emits bytes IDENTICAL to its `*_rr*` sibling above.
+// What changes is only that the addressing form now lives in the OPERAND
+// (`ld l, (xde+bc)`) instead of in the mnemonic and three literal bytes
+// (`ldb_sri L, 0x07, 0xE8, 0xE4`).  The siblings are kept because committed
+// source and the disassembler's printer both use them; nothing here changes
+// what the disassembler prints.
+//
+// ⚠ The operand ORDER in each `(ins ...)` dag is the MCInst order the emitter
+// reads (data register, base, index) and is NOT the order of the AsmString.
+// See TLCS900MCCodeEmitter.cpp's SriRRReg/SriRR8Reg/SriRRQReg/SriRRUnary.
+
+// ld r, (base+idx16)  --  c3/d3/e3 07 base idx 0x20|r
+let hasSideEffects = 0, mayLoad = 1 in {
+def LDrrB_m : SriRRRegInst<0xC3, 0x20, (outs GR8:$dst), (ins MEMrr:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def LDrrW_m : SriRRRegInst<0xC3, 0x20, (outs GR16:$dst), (ins MEMrr:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def LDrrL_m : SriRRRegInst<0xC3, 0x20, (outs GPR:$dst), (ins MEMrr:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+// ld r, (base+idx8)  --  mode byte 0x03
+def LDrr8B_m : SriRR8RegInst<0xC3, 0x20, (outs GR8:$dst), (ins MEMrr8:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def LDrr8W_m : SriRR8RegInst<0xC3, 0x20, (outs GR16:$dst), (ins MEMrr8:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def LDrr8L_m : SriRR8RegInst<0xC3, 0x20, (outs GPR:$dst), (ins MEMrr8:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // mayLoad
+
+// ld (base+idx), r  --  f3 07 base idx 0x40/0x50/0x60|r
+let hasSideEffects = 0, mayStore = 1 in {
+def STrrB_m : SriRRRegInst<0xF3, 0x40, (outs), (ins GR8:$src, MEMrr:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def STrrW_m : SriRRRegInst<0xF3, 0x50, (outs), (ins GR16:$src, MEMrr:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def STrrL_m : SriRRRegInst<0xF3, 0x60, (outs), (ins GPR:$src, MEMrr:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+def STrr8B_m : SriRR8RegInst<0xF3, 0x40, (outs), (ins GR8:$src, MEMrr8:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def STrr8W_m : SriRR8RegInst<0xF3, 0x50, (outs), (ins GR16:$src, MEMrr8:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def STrr8L_m : SriRR8RegInst<0xF3, 0x60, (outs), (ins GPR:$src, MEMrr8:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // mayStore
+
+// lda r32, (base+idx)  --  f3 07 base idx 0x30|r
+let hasSideEffects = 0, mayLoad = 0 in {
+def LDArr_m : SriRRRegInst<0xF3, 0x30, (outs GPR:$dst), (ins MEMrr:$addr),
+    "lda", "$dst, $addr", []>, Sched<[WriteIALU]> {
+  let OpSize = OpSize32.Value;
+}
+def LDArr8_m : SriRR8RegInst<0xF3, 0x30, (outs GPR:$dst), (ins MEMrr8:$addr),
+    "lda", "$dst, $addr", []>, Sched<[WriteIALU]> {
+  let OpSize = OpSize32.Value;
+}
+// ...with a PREVIOUS-BANK index register: idx byte is the current bank's + 2.
+def LDArrq_m : SriRRQRegInst<0xF3, 0x30, (outs GPR:$dst), (ins MEMrrq:$addr),
+    "lda", "$dst, $addr", []>, Sched<[WriteIALU]> {
+  let OpSize = OpSize32.Value;
+}
+} // mayLoad = 0
+
+// The PREVIOUS-BANK index register on the LOAD and STORE sides.
+// The decoder used to refuse these ("no previous-bank source form exists") and
+// there was no spelling at all, so 19 sites in five images could only be
+// written as raw bytes.  MAME unidasm reads them the same way, and three of
+// the hdae5000 sites carry its rendering in a trailing comment already:
+//     c3 07 e0 fa 21   ld a, (xwa+qiz)     hdae5000_utilities.s:310
+//     f3 07 e0 fa 43   ld (xwa+qiz), c     hdae5000_utilities.s:242
+let hasSideEffects = 0, mayLoad = 1 in {
+def LDrrqB_m : SriRRQRegInst<0xC3, 0x20, (outs GR8:$dst), (ins MEMrrq:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def LDrrqW_m : SriRRQRegInst<0xC3, 0x20, (outs GR16:$dst), (ins MEMrrq:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def LDrrqL_m : SriRRQRegInst<0xC3, 0x20, (outs GPR:$dst), (ins MEMrrq:$addr),
+    "ld", "$dst, $addr", []>, Sched<[WriteLDW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // mayLoad
+let hasSideEffects = 0, mayStore = 1 in {
+def STrrqB_m : SriRRQRegInst<0xF3, 0x40, (outs), (ins GR8:$src, MEMrrq:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value;
+}
+def STrrqW_m : SriRRQRegInst<0xF3, 0x50, (outs), (ins GR16:$src, MEMrrq:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value;
+}
+def STrrqL_m : SriRRQRegInst<0xF3, 0x60, (outs), (ins GPR:$src, MEMrrq:$addr),
+    "ld", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize32.Value;
+}
+} // mayStore
+
+// MEMORY-TO-MEMORY with a register-indexed half.  `c3 07 e4 e0 19 a4 28` is
+// `ld (0x28a4),(XBC+WA)` in unidasm, and v7 spells it `ldmm_srib 0x07, 0xe4,
+// 0xe0, 0xa4, 0x28` at 55 sites.  The dest direction (F3, sub-opcode 0x14/0x16)
+// is the `ldmm_dri` family, which UPDATE 13's asymmetry sweep found consuming
+// the WRONG NUMBER OF BYTES at all 16 of its length-error sites.
+let mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
+let OpSize = OpSize8.Value in {
+def LD8_MMrr_src : SriRRAddr16Inst<0xC3, 0x19, (outs),
+    (ins MEMrr:$addr, daddr16:$dst), "ld", "$dst, $addr", []>,
+    Sched<[WriteSTW, ReadMemBase]>;
+def LD8_MMrr_dst : SriRRAddr16Inst<0xF3, 0x14, (outs),
+    (ins MEMrr:$addr, daddr16:$src), "ld", "$addr, $src", []>,
+    Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize8
+let OpSize = OpSize16.Value in {
+def LD16_MMrr_src : SriRRAddr16Inst<0xC3, 0x19, (outs),
+    (ins MEMrr:$addr, daddr16:$dst), "ldw", "$dst, $addr", []>,
+    Sched<[WriteSTW, ReadMemBase]>;
+def LD16_MMrr_dst : SriRRAddr16Inst<0xF3, 0x16, (outs),
+    (ins MEMrr:$addr, daddr16:$src), "ldw", "$addr, $src", []>,
+    Sched<[WriteSTW, ReadMemBase]>;
+} // OpSize16
+} // mayLoad, mayStore
+
+// jp cc, (base+idx)  --  f3 07 base idx 0xD0|cc
+let hasSideEffects = 0, isBarrier = 1, isBranch = 1, isTerminator = 1,
+    isIndirectBranch = 1 in {
+def JPrr_m : SriRRUnaryInst<0xF3, 0xD0, (outs), (ins cc:$cc, MEMrr:$addr),
+    "jp", "$cc, $addr", []>, Sched<[WriteJmp]> {
+  let OpSize = OpSize32.Value;
+}
+}
+// call cc, (base+idx)  --  f3 07 base idx 0xE0|cc
+//
+// ⚠ NOT 0x08|cc, which is what `call_rr` above encodes.  MAME unidasm reads
+// `f3 07 e4 e0 e8` as `call T,XBC+WA` and prints `db` for every byte in
+// 0x08-0x17, and `mem_prefix_test_sites.py` already records the destination
+// table's CALL range as 0xE0-0xEF (with JP at 0xD0-0xDF, which `jp_rr` has
+// right).  `call_rr`'s own encoding is left exactly as it was -- no committed
+// source in either tree writes it -- but the decoder no longer produces it,
+// because a wrong decode inside 0x08-0x17 is what read the seven-byte
+// `ldmm_dri` memory-to-memory move as a five-byte CALL.
+let hasSideEffects = 0, isCall = 1 in {
+def CALLrr_m : SriRRUnaryInst<0xF3, 0xE0, (outs), (ins cc:$cc, MEMrr:$addr),
+    "call", "$cc, $addr", []>, Sched<[WriteJmp]> {
+  let OpSize = OpSize32.Value;
+}
+}
 
 // --- DPD (prefix F4): store immediate ---
 // ExtAddrModeOpImm: [F4, addr_reg, SubOpc, imm...]

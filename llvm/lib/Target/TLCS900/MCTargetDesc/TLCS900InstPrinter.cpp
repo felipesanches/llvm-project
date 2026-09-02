@@ -92,6 +92,17 @@ void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
   O << ")";
 }
 
+// `(Xrr+Rn)` -- the REGISTER-INDEXED operand.  Two register operands, never a
+// displacement: `(xbc+wa)` is [prefix, 0x07, 0xE4, 0xE0, sub] and is a wholly
+// different encoding from `(xbc+0)`, which is [prefix, 0xE4, sub].
+void TLCS900InstPrinter::printMemrrOperand(const MCInst *MI, unsigned OpNo,
+                                           raw_ostream &O) {
+  O << "(" << StringRef(getRegisterName(MI->getOperand(OpNo).getReg())).lower()
+    << "+"
+    << StringRef(getRegisterName(MI->getOperand(OpNo + 1).getReg())).lower()
+    << ")";
+}
+
 void TLCS900InstPrinter::printCondCode(const MCInst *MI, unsigned OpNo,
                                         raw_ostream &O) {
   static const char *const CondNames[] = {

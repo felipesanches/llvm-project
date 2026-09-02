@@ -8,6 +8,7 @@
 
 #include "TLCS900.h"
 #include "TLCS900BaseInfo.h"
+#include "MCTargetDesc/TLCS900MCTargetDesc.h"
 #include "TargetInfo/TLCS900TargetInfo.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -16,6 +17,7 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCParser/MCAsmLexer.h"
+#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCStreamer.h"
@@ -32,13 +34,18 @@ namespace {
 /// TLCS900Operand - Instances of this class represent a parsed TLCS900
 /// machine instruction operand.
 class TLCS900Operand : public MCParsedAsmOperand {
-  enum KindTy { k_Token, k_Register, k_Immediate, k_Memory, k_CondCode } Kind;
+  enum KindTy { k_Token, k_Register, k_Immediate, k_Memory, k_MemoryRR,
+                k_CondCode } Kind;
 
   SMLoc StartLoc, EndLoc;
 
   struct MemOp {
     MCRegister Base;
     const MCExpr *Disp;
+    // For the REGISTER-INDEXED operand `(Xrr+Rn)` (k_MemoryRR) this holds the
+    // index register.  The index is a register, not a displacement, and the
+    // two are different encodings -- see parseMemriOperand.
+    MCRegister Index;
     // For a DIRECT memory operand `(addr)`, the address width the source
     // asked for, in bytes (1, 2 or 3); 0 means "unspecified".  See
     // TLCS900II::DirectAddrWidth -- the width is part of the encoding and
@@ -61,9 +68,36 @@ public:
   bool isToken() const override { return Kind == k_Token; }
   bool isReg() const override { return Kind == k_Register; }
   bool isImm() const override { return Kind == k_Immediate; }
-  bool isMem() const override { return Kind == k_Memory; }
+  bool isMem() const override {
+    return Kind == k_Memory || Kind == k_MemoryRR;
+  }
   bool isMemri() const { return Kind == k_Memory; }
+
+  // `(Xrr+Rn)` -- three flavours, distinguished by the INDEX register's class,
+  // because the register-file address the encoder writes differs for each:
+  // a current-bank word register (0xE0 + enc*4), a previous-bank word register
+  // (+2), or one of the eight byte halves of WA/BC/DE/HL.
+  bool isMemrrIdxIn(unsigned RCID) const {
+    return Kind == k_MemoryRR &&
+           TLCS900MCRegisterClasses[RCID].contains(Mem.Index);
+  }
+  bool isMemrr() const { return isMemrrIdxIn(TLCS900::GR16RegClassID); }
+  bool isMemrr8() const { return isMemrrIdxIn(TLCS900::GR8RegClassID); }
+  bool isMemrrq() const { return isMemrrIdxIn(TLCS900::PrevGR16RegClassID); }
   bool isDirectAddr() const { return Kind == k_Immediate; }
+
+  // A PARENTHESISED direct address, and nothing else.
+  //
+  // ⚠ `directaddr` above answers true to a BARE IMMEDIATE, because that is
+  // what its parser leaves behind.  Reusing it for the memory-to-memory
+  // operand silently re-encoded an existing spelling: `ldw (xwa), 36152` --
+  // a store-immediate written in hundreds of places -- started matching
+  // `ldw (mem),(nn)` and moved from b0 02 38 8d to b0 16 38 8d.  A form
+  // whose operand must be an ADDRESS has to reject a value.
+  bool isDaddr16() const {
+    return Kind == k_Memory && !Mem.Base &&
+           (Mem.AddrBytes == 0 || Mem.AddrBytes == 2);
+  }
   bool isCondCode() const { return Kind == k_CondCode; }
 
   SMLoc getStartLoc() const override { return StartLoc; }
@@ -132,6 +166,30 @@ public:
     }
   }
 
+  void addDaddr16Operands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    assert(Kind == k_Memory && !Mem.Base);
+    if (const auto *CE = dyn_cast<MCConstantExpr>(Mem.Disp))
+      Inst.addOperand(MCOperand::createImm(CE->getValue()));
+    else
+      Inst.addOperand(MCOperand::createExpr(Mem.Disp));
+  }
+
+  void addMemrrOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 2 && "Invalid number of operands!");
+    assert(Kind == k_MemoryRR);
+    Inst.addOperand(MCOperand::createReg(Mem.Base));
+    Inst.addOperand(MCOperand::createReg(Mem.Index));
+  }
+
+  void addMemrr8Operands(MCInst &Inst, unsigned N) const {
+    addMemrrOperands(Inst, N);
+  }
+
+  void addMemrrqOperands(MCInst &Inst, unsigned N) const {
+    addMemrrOperands(Inst, N);
+  }
+
   void addCondCodeOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     Inst.addOperand(MCOperand::createImm(getCondCode()));
@@ -168,6 +226,17 @@ public:
     return Op;
   }
 
+  static std::unique_ptr<TLCS900Operand> createMemRR(MCRegister Base,
+                                                     MCRegister Index,
+                                                     SMLoc S, SMLoc E) {
+    auto Op = std::make_unique<TLCS900Operand>(k_MemoryRR, S, E);
+    Op->Mem.Base = Base;
+    Op->Mem.Disp = nullptr;
+    Op->Mem.Index = Index;
+    Op->Mem.AddrBytes = 0;
+    return Op;
+  }
+
   static std::unique_ptr<TLCS900Operand> createCondCode(unsigned CC, SMLoc S,
                                                          SMLoc E) {
     auto Op = std::make_unique<TLCS900Operand>(k_CondCode, S, E);
@@ -190,6 +259,9 @@ public:
     case k_Memory:
       OS << "Mem: " << Mem.Base << "+";
       Mem.Disp->print(OS, nullptr);
+      break;
+    case k_MemoryRR:
+      OS << "MemRR: " << Mem.Base << "+" << Mem.Index;
       break;
     case k_CondCode:
       OS << "CC: " << CC;
@@ -358,18 +430,33 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
       const MCExpr *Disp = MCConstantExpr::create(0, getContext());
       if (getLexer().is(AsmToken::Plus)) {
         Parser.Lex(); // consume '+'
-        // ⚠ `(Xrr+Rn)` is the REGISTER-INDEXED operand, a different encoding
-        // from `(Xrr+d16)`: [prefix, 0x07, base_addr, idx_addr, sub_opcode].
-        // It has no support here yet, and letting parseExpression have the
-        // index register turns it into an undefined SYMBOL, so `ld wa,(xix+iz)`
-        // assembled to the d16 form -- d3 f1 00 00 20 where the hardware wants
-        // d3 07 f0 f8 20 -- and only failed later, at link time, and only
-        // because nothing happened to define a symbol named `iz`.  Refuse it.
-        if (getLexer().is(AsmToken::Identifier) &&
-            MatchRegisterName(getLexer().getTok().getString().lower()) != 0)
-          return Error(getLexer().getLoc(),
-                       "register-indexed memory operand (Xrr+Rn) is not "
-                       "encodable yet; it is not a (Xrr+displacement) operand");
+        // ⚠ `(Xrr+Rn)` is the REGISTER-INDEXED operand, a DIFFERENT ENCODING
+        // from `(Xrr+d16)`: [prefix, 0x07, base_addr, idx_addr, sub_opcode]
+        // rather than [prefix, 0xE0+base*4+1, d16, sub_opcode].  Letting
+        // parseExpression have the index register turned it into an undefined
+        // SYMBOL, so `ld wa,(xix+iz)` assembled to the d16 form -- d3 f1 00 00
+        // 20 where the hardware wants d3 07 f0 f8 20 -- and failed only at link
+        // time, and only because nothing happened to define a symbol named
+        // `iz`.  It is parsed here as its own operand KIND, so the two can
+        // never be confused again: an index register cannot reach the
+        // displacement slot even when no instruction accepts the R+R form.
+        if (getLexer().is(AsmToken::Identifier)) {
+          MCRegister Idx =
+              MatchRegisterName(getLexer().getTok().getString().lower());
+          if (Idx) {
+            SMLoc IdxLoc = getLexer().getLoc();
+            Parser.Lex(); // consume the index register
+            if (getLexer().isNot(AsmToken::RParen))
+              return Error(getLexer().getLoc(),
+                           "expected ')' after a register-indexed operand");
+            SMLoc E2 =
+                SMLoc::getFromPointer(getLexer().getLoc().getPointer() + 1);
+            Parser.Lex(); // consume ')'
+            (void)IdxLoc;
+            Operands.push_back(TLCS900Operand::createMemRR(Reg, Idx, S, E2));
+            return ParseStatus::Success;
+          }
+        }
         if (getParser().parseExpression(Disp))
           return ParseStatus::Failure;
       } else if (getLexer().is(AsmToken::Minus)) {

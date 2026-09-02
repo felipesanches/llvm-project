@@ -897,6 +897,37 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     return MCDisassembler::Success;
   }
 
+  // MEMORY-TO-MEMORY.  Destination table 0x14 (byte) / 0x16 (word), source
+  // table 0x19 in the byte (0x80) and word (0x90) prefixes; the LONG source
+  // table has no such form and unidasm prints `db` for `a0 19`.
+  //
+  // ⚠ These were the largest remaining decoder refusal -- 274 of 294 samples
+  // in the v10 sub-opcode census.  They could not be decoded to the existing
+  // spellings (`ldmi16`, `mrib4`) because those name a STORE-IMMEDIATE, which
+  // is a different instruction from a memory-to-memory move even though it
+  // reproduces the same bytes; a decode that only round-trips conveys nothing.
+  //
+  // The trailing field is a 16-bit ADDRESS, not an immediate, so its width
+  // does not follow the data size: `b0 14 38 8d` moves a BYTE and still
+  // carries two address bytes.
+  if ((IsDstMem && (OpByte == 0x14 || OpByte == 0x16) && MemSize <= 2) ||
+      (!IsDstMem && OpByte == 0x19 && MemSize <= 1)) {
+    if (Bytes.size() < OpByteIdx + 3)
+      return MCDisassembler::Fail;
+    uint16_t Addr = readU16LE(Bytes, OpByteIdx + 1);
+    unsigned MMOpc;
+    if (IsDstMem)
+      MMOpc = (OpByte == 0x14) ? TLCS900::LD8_MM_dst : TLCS900::LD16_MM_dst;
+    else
+      MMOpc = (MemSize == 0) ? TLCS900::LD8_MM_src : TLCS900::LD16_MM_src;
+    MI.setOpcode(MMOpc);
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    MI.addOperand(MCOperand::createImm(Addr));
+    Size = PrefixSize + 3;
+    return MCDisassembler::Success;
+  }
+
   // MemStore register: sub-opcodes for LD (mem), rs (destination table only)
   //   0x40-0x47 = LD (mem), r8
   //   0x50-0x57 = LD (mem), r16
@@ -1914,11 +1945,18 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSriRRPrefix(
       Size = 5;
       return MCDisassembler::Success;
     }
-    // Destination: ST_RR8{B,W,L}, sized by the sub-opcode range.
+    // Destination: LDA (0x30) or ST_RR8{B,W,L}, sized by the sub-opcode range.
+    // ⚠ LDA WAS MISSING HERE while the 16-bit-index side had it, so
+    // `f3 03 f4 e0 35` -- `lda XIY,XIY+A` in unidasm, and a real v7 site at
+    // sequencer/rhythm_routines.s:461 -- fell out of this decoder entirely and
+    // came back as a ONE-BYTE `pop sr`, consuming 1 of its 5 bytes.  A wrong
+    // decode of the right length is bad; a wrong decode of the wrong length
+    // desynchronises everything after it.
     unsigned Base = SubOpc & 0xF8;
     unsigned DataEnc = SubOpc & 0x7;
     unsigned Opc = 0, DataOpSize = 0;
     switch (Base) {
+    case 0x30: Opc = TLCS900::LDArr8_m; DataOpSize = 2; break;
     case 0x40: Opc = TLCS900::ST_RR8B; DataOpSize = 0; break;
     case 0x50: Opc = TLCS900::ST_RR8W; DataOpSize = 1; break;
     case 0x60: Opc = TLCS900::ST_RR8L; DataOpSize = 2; break;
@@ -1944,8 +1982,27 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSriRRPrefix(
   if (!IsDst) {
     // Source: LD_RR{B,W,L} (sized by OpSize, from the prefix) or the one
     // word-only immediate form OR_RRW_IM (fixed sub-opcode 0x3E, no bank).
-    if (IdxBankOffset != 0)
-      return MCDisassembler::Fail; // no previous-bank source form exists
+    // ⚠ A PREVIOUS-BANK index (offset 2) was refused here as "no previous-bank
+    // source form exists".  It does: `c3 07 e0 fa 21` is `ld A,(XWA+QIZ)` in
+    // MAME unidasm, and 19 sites across five committed images use it -- the
+    // hdae5000 sources even carry unidasm's rendering in a trailing comment.
+    if (IdxBankOffset != 0) {
+      if ((SubOpc & 0xF8) != 0x20)
+        return MCDisassembler::Fail;
+      unsigned QOpc;
+      switch (OpSize) {
+      case 0: QOpc = TLCS900::LDrrqB_m; break;
+      case 1: QOpc = TLCS900::LDrrqW_m; break;
+      case 2: QOpc = TLCS900::LDrrqL_m; break;
+      default: return MCDisassembler::Fail;
+      }
+      MI.setOpcode(QOpc);
+      MI.addOperand(MCOperand::createReg(decodeRegForSize(SubOpc & 0x7, OpSize)));
+      MI.addOperand(MCOperand::createReg(BaseReg));
+      MI.addOperand(MCOperand::createReg(decodeQReg(IdxEnc16)));
+      Size = 5;
+      return MCDisassembler::Success;
+    }
     unsigned IdxReg = decodeGR16(IdxEnc16);
     if (SubOpc == 0x3E) {
       if (OpSize != 1 || Bytes.size() < 7)
@@ -1955,6 +2012,21 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSriRRPrefix(
       MI.addOperand(MCOperand::createReg(IdxReg));
       MI.addOperand(MCOperand::createImm(Bytes[5]));
       MI.addOperand(MCOperand::createImm(Bytes[6]));
+      Size = 7;
+      return MCDisassembler::Success;
+    }
+    // MEMORY-TO-MEMORY with the register-indexed half as the SOURCE:
+    // `c3 07 e4 e0 19 a4 28` is `ld (0x28a4),(XBC+WA)` -- 55 sites in v7,
+    // spelled `ldmm_srib` there.  Seven bytes; the trailing field is a 16-bit
+    // ADDRESS and does not follow the data size.
+    if (SubOpc == 0x19) {
+      if (OpSize > 1 || Bytes.size() < 7)
+        return MCDisassembler::Fail;
+      MI.setOpcode(OpSize == 0 ? TLCS900::LD8_MMrr_src
+                               : TLCS900::LD16_MMrr_src);
+      MI.addOperand(MCOperand::createReg(BaseReg));
+      MI.addOperand(MCOperand::createReg(IdxReg));
+      MI.addOperand(MCOperand::createImm(Bytes[5] | (Bytes[6] << 8)));
       Size = 7;
       return MCDisassembler::Success;
     }
@@ -1979,11 +2051,33 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSriRRPrefix(
   // Destination (F3 prefix): CALL_RR, LDA_RR/LDA_RRQ, ST_RR{B,W,L}, JP_RR.
   // None of these ranges overlap (0x08-0x17, 0x30-0x37, 0x40-0x47, 0x50-0x57,
   // 0x60-0x67, 0xD0-0xDF), so they are checked as plain sub-ranges.
-  if (SubOpc >= 0x08 && SubOpc <= 0x17) {
+  // MEMORY-TO-MEMORY with the register-indexed half as the DESTINATION:
+  // `f3 07 e4 e0 14 a4 28` is `ld (XBC+WA),(0x28a4)`.  ⚠ 0x14 and 0x16 sit
+  // INSIDE the 0x08-0x17 CALL range checked just below, so this test has to
+  // come first -- reading them as CALL is how the `ldmm_dri` family produced
+  // all 16 of UPDATE 13's wrong-length decodes.
+  if ((SubOpc == 0x14 || SubOpc == 0x16) && IdxBankOffset == 0) {
+    if (Bytes.size() < 7)
+      return MCDisassembler::Fail;
+    MI.setOpcode(SubOpc == 0x14 ? TLCS900::LD8_MMrr_dst
+                                : TLCS900::LD16_MMrr_dst);
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
+    MI.addOperand(MCOperand::createImm(Bytes[5] | (Bytes[6] << 8)));
+    Size = 7;
+    return MCDisassembler::Success;
+  }
+  // CALL cc, (base+idx) is 0xE0|cc, not 0x08|cc.  This range used to be read
+  // as CALL; unidasm prints `db` for every byte of 0x08-0x17 with this prefix
+  // and `call T,XBC+WA` for 0xE8, and the destination table's CALL range is
+  // recorded as 0xE0-0xEF (JP at 0xD0-0xDF) in mem_prefix_test_sites.py.  The
+  // wrong range also swallowed 0x14/0x16, the seven-byte memory-to-memory move
+  // -- a five-byte decode of a seven-byte instruction.
+  if (SubOpc >= 0xE0 && SubOpc <= 0xEF) {
     if (IdxBankOffset != 0)
       return MCDisassembler::Fail;
-    MI.setOpcode(TLCS900::CALL_RR);
-    MI.addOperand(MCOperand::createImm(SubOpc - 0x08));
+    MI.setOpcode(TLCS900::CALLrr_m);
+    MI.addOperand(MCOperand::createImm(SubOpc - 0xE0));
     MI.addOperand(MCOperand::createReg(BaseReg));
     MI.addOperand(MCOperand::createReg(decodeGR16(IdxEnc16)));
     Size = 5;
@@ -2005,8 +2099,24 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSriRRPrefix(
     Size = 5;
     return MCDisassembler::Success;
   }
-  if (IdxBankOffset != 0)
-    return MCDisassembler::Fail; // no previous-bank form below this point
+  // The STORE direction takes a previous-bank index too: `f3 07 e0 fa 43` is
+  // `ld (XWA+QIZ),C` (unidasm), and hdae5000_utilities.s:242 is that site.
+  if (IdxBankOffset != 0) {
+    unsigned QBase = SubOpc & 0xF8;
+    unsigned QOpc = 0, QSize = 0;
+    switch (QBase) {
+    case 0x40: QOpc = TLCS900::STrrqB_m; QSize = 0; break;
+    case 0x50: QOpc = TLCS900::STrrqW_m; QSize = 1; break;
+    case 0x60: QOpc = TLCS900::STrrqL_m; QSize = 2; break;
+    default: return MCDisassembler::Fail;
+    }
+    MI.setOpcode(QOpc);
+    MI.addOperand(MCOperand::createReg(decodeRegForSize(SubOpc & 0x7, QSize)));
+    MI.addOperand(MCOperand::createReg(BaseReg));
+    MI.addOperand(MCOperand::createReg(decodeQReg(IdxEnc16)));
+    Size = 5;
+    return MCDisassembler::Success;
+  }
   if (SubOpc >= 0x40 && SubOpc <= 0x47) {
     MI.setOpcode(TLCS900::ST_RRB);
     MI.addOperand(MCOperand::createReg(decodeGR8(SubOpc & 0x7)));

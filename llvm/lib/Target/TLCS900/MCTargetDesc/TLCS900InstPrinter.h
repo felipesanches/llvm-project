@@ -39,6 +39,7 @@ public:
 private:
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printMemOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printMemrrOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printDirectAddr(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCondCode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printGPRAsLoByte(const MCInst *MI, unsigned OpNo, raw_ostream &O);

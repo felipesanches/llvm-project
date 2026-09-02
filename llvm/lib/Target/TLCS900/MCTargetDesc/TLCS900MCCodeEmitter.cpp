@@ -691,6 +691,48 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
+  case TLCS900II::SriRRAddr16: {
+    // [prefix, 0x07, base_addr, idx_addr, SubOpc, addr16 le]
+    // op 0 = base GPR, op 1 = index GR16, op 2 = the 16-bit direct address.
+    unsigned PrefixA = Opcode;
+    if (Opcode < 0xF0)
+      PrefixA += OpSize * 0x10;
+    CB.push_back(static_cast<char>(PrefixA));
+    CB.push_back(static_cast<char>(0x07));
+    CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(0)) * 4));
+    CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(1)) * 4));
+    CB.push_back(static_cast<char>(TLCS900II::getSubOpcode(TSFlags)));
+    const MCOperand &A16 = MI.getOperand(2);
+    if (A16.isImm())
+      emitImmediate(A16.getImm(), 2, CB, &MI);
+    else
+      emitFixup(MI, A16, CB.size() - StartByte, FK_Data_2, CB, Fixups);
+    break;
+  }
+
+  case TLCS900II::MemToMemDst:
+  case TLCS900II::MemToMemSrc: {
+    // MEMORY-TO-MEMORY.  op 0 = base, op 1 = disp, op 2 = the 16-bit DIRECT
+    // address.  `b0 14 38 8d` is `ld (XWA),(0x8d38)` and `80 19 38 8d` is
+    // `ld (0x8d38),(XWA)`; the tree used to spell the first as `ldmi16 (xwa),
+    // 36152`, a store-immediate, which is the wrong instruction for those
+    // bytes even though it reproduces them.
+    //
+    // ⚠ The trailing field is an ADDRESS, always two bytes.  It must NOT come
+    // from ImmBytes: OpSize here names the DATA width (which picks the source
+    // prefix 0x80 vs 0x90), and the byte form would then emit a one-byte
+    // address.
+    bool IsDst = Format == TLCS900II::MemToMemDst;
+    emitMemPrefix(MI, 0, 1, IsDst, OpSize, StartByte, CB, Fixups);
+    CB.push_back(Opcode);
+    const MCOperand &AddrOp = MI.getOperand(2);
+    if (AddrOp.isImm())
+      emitImmediate(AddrOp.getImm(), 2, CB, &MI);
+    else
+      emitFixup(MI, AddrOp, CB.size() - StartByte, FK_Data_2, CB, Fixups);
+    break;
+  }
+
   case TLCS900II::Branch16: {
     // 0x1A + 16-bit absolute address.
     CB.push_back(Opcode);
