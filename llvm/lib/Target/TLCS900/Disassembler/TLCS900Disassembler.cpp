@@ -1071,41 +1071,50 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
       bool IsRegDst;  // true = 3 operands (dst, src_tied, addr)
     };
     static const DALUEntry DALUOps[] = {
-        // Reg-destination: reg = reg op (addr)
-        {0x80, {TLCS900::ADD8_da16, TLCS900::ADD8_da24},
+        // Reg-destination: reg = reg op (addr). The is24 (second) slot below
+        // is always the "_gpr"-suffixed TLCS900InstrInfo.td sibling, not the
+        // plain "_da24" one: this table always builds the register operand
+        // with decodeGPR() a few lines down, and the plain "_da24" names are
+        // declared GR8 to match existing hand-written source that spells
+        // them with a GR8 letter ("cpda8_24 a, (addr)") -- see that
+        // TableGen block's comment. Using the plain name here would hand a
+        // GPR-enum register to a GR8-typed operand and silently produce
+        // text that cannot reassemble, exactly the bug this table's own
+        // comment above already documents for the is16 slot.
+        {0x80, {TLCS900::ADD8_da16, TLCS900::ADD8_da24_gpr},
                {TLCS900::ADD16_da16, TLCS900::ADD16_da24},
                {TLCS900::ADD32_da16, TLCS900::ADD32_da24}, true},
-        {0xA0, {TLCS900::SUB8_da16, TLCS900::SUB8_da24},
+        {0xA0, {TLCS900::SUB8_da16, TLCS900::SUB8_da24_gpr},
                {TLCS900::SUB16_da16, TLCS900::SUB16_da24},
                {TLCS900::SUB32_da16, TLCS900::SUB32_da24}, true},
-        {0xC0, {TLCS900::AND8_da16, TLCS900::AND8_da24},
+        {0xC0, {TLCS900::AND8_da16, TLCS900::AND8_da24_gpr},
                {TLCS900::AND16_da16, TLCS900::AND16_da24},
                {0, 0}, true},
-        {0xD0, {TLCS900::XOR8_da16, TLCS900::XOR8_da24},
+        {0xD0, {TLCS900::XOR8_da16, TLCS900::XOR8_da24_gpr},
                {0, 0}, {0, 0}, true},
-        {0xE0, {TLCS900::OR8_da16, TLCS900::OR8_da24},
+        {0xE0, {TLCS900::OR8_da16, TLCS900::OR8_da24_gpr},
                {TLCS900::OR16_da16, TLCS900::OR16_da24},
                {0, 0}, true},
-        {0xF0, {TLCS900::CP8_da16, TLCS900::CP8_da24},
+        {0xF0, {TLCS900::CP8_da16, TLCS900::CP8_da24_gpr},
                {TLCS900::CP16_da16, TLCS900::CP16_da24},
                {TLCS900::CP32_da16, TLCS900::CP32_da24}, false},
         // Mem-destination: (addr) = (addr) op reg
-        {0x88, {TLCS900::ADD8m_da16, TLCS900::ADD8m_da24},
+        {0x88, {TLCS900::ADD8m_da16, TLCS900::ADD8m_da24_gpr},
                {TLCS900::ADD16m_da16, TLCS900::ADD16m_da24},
                {TLCS900::ADD32m_da16, TLCS900::ADD32m_da24}, false},
-        {0xA8, {TLCS900::SUB8m_da16, TLCS900::SUB8m_da24},
+        {0xA8, {TLCS900::SUB8m_da16, TLCS900::SUB8m_da24_gpr},
                {TLCS900::SUB16m_da16, TLCS900::SUB16m_da24},
                {TLCS900::SUB32m_da16, TLCS900::SUB32m_da24}, false},
-        {0xC8, {TLCS900::AND8m_da16, TLCS900::AND8m_da24},
+        {0xC8, {TLCS900::AND8m_da16, TLCS900::AND8m_da24_gpr},
                {TLCS900::AND16m_da16, TLCS900::AND16m_da24},
                {0, 0}, false},
-        {0xD8, {TLCS900::XOR8m_da16, TLCS900::XOR8m_da24},
+        {0xD8, {TLCS900::XOR8m_da16, TLCS900::XOR8m_da24_gpr},
                {TLCS900::XOR16m_da16, TLCS900::XOR16m_da24},
                {0, 0}, false},
-        {0xE8, {TLCS900::OR8m_da16, TLCS900::OR8m_da24},
+        {0xE8, {TLCS900::OR8m_da16, TLCS900::OR8m_da24_gpr},
                {TLCS900::OR16m_da16, TLCS900::OR16m_da24},
                {0, 0}, false},
-        {0xF8, {TLCS900::CP8m_da16, TLCS900::CP8m_da24},
+        {0xF8, {TLCS900::CP8m_da16, TLCS900::CP8m_da24_gpr},
                {TLCS900::CP16m_da16, TLCS900::CP16m_da24},
                {TLCS900::CP32m_da16, TLCS900::CP32m_da24}, false},
     };

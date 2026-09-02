@@ -983,26 +983,35 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       RegIdx = 0;
       AddrIdx = MI.getNumOperands() - 1;
     }
-    // NOT `OpSize` here: for this whole ADD/SUB/AND/XOR/OR/CP-direct-address
-    // family, OpSize names the MEMORY operand's width (it picks which of
-    // C0/D0/E0 direct-address prefix to emit, below) and is UNRELATED to the
-    // register operand's width -- every disassembler-produced instruction of
-    // this InstFormat (the DALUOps table in TLCS900Disassembler.cpp) decodes
-    // the register with decodeGPR() regardless of the "8"/"16"/"32" in its
-    // own mnemonic (CP8_da16 prints "cpda8 xbc, (addr)", a 32-bit register,
-    // even though its OpSize field is OpSize8). Passing that OpSize straight
-    // to getRegEncoding() made it apply the GR8-sub-register substitution
-    // meant for actual byte-sized register operands, silently re-encoding
+    // NOT `OpSize` here for the ALU family (Opcode != 0x20): for the whole
+    // ADD/SUB/AND/XOR/OR/CP-direct-address family, OpSize names the MEMORY
+    // operand's width (it picks which of C0/D0/E0 direct-address prefix to
+    // emit, below) and is UNRELATED to the register operand's width -- every
+    // disassembler-produced instruction of this InstFormat (the DALUOps
+    // table in TLCS900Disassembler.cpp) decodes the register with
+    // decodeGPR() regardless of the "8"/"16"/"32" in its own mnemonic
+    // (CP8_da16 prints "cpda8 xbc, (addr)", a 32-bit register, even though
+    // its OpSize field is OpSize8). Passing that OpSize straight to
+    // getRegEncoding() made it apply the GR8-sub-register substitution meant
+    // for actual byte-sized register operands, silently re-encoding
     // XWA/XBC/XDE/XHL (the four GPRs with an 8-bit sub-register) as the
     // WRONG register -- confirmed on real ROM bytes (v7's
     // VoiceSlot_StatusRet: `c1 57 0d f1` decodes as "cpda8 xbc, (3415)" but
     // reassembled that text as `c1 57 0d f3`, silently swapping XBC for C).
-    // OpSize32 makes getRegEncoding() skip the 8/16-bit substitution
-    // entirely; a GR8 operand (the never-decoded *_r8 siblings, e.g.
-    // CP8_da16_r8) has no further sub-register to find either way, so this
-    // is a no-op for that direction and only fixes the GPR direction.
-    unsigned RegEnc =
-        getRegEncoding(MI.getOperand(RegIdx), TLCS900II::OpSize32);
+    //
+    // Opcode == 0x20 is the LD_da16/LD_da24 family instead, which this
+    // InstFormat also serves -- and there, unlike the ALU family, at least
+    // one already-committed spelling (hd-ae5000's
+    // HDAE5000_HD_Read_Identify: "ldb_da xwa, (0x229d99)") relies on the
+    // OLD OpSize8 substitution to reach the byte the ROM actually has (the
+    // disassembler's OWN decode of this opcode, in decodeDirectAddr's
+    // "0x20-0x27" branch, uses decodeRegForSize(enc, OpSize) -- genuinely
+    // OpSize-dependent, not a fixed GPR like the ALU family). So the LD
+    // family keeps the old, OpSize-dependent encoding untouched; confirmed
+    // 2026-09-02 that widening this fix to Opcode==0x20 too regresses
+    // hd-ae5000 by 30 B (`make gate` byte-identical check).
+    unsigned RegEnc = getRegEncoding(
+        MI.getOperand(RegIdx), Opcode == 0x20 ? OpSize : TLCS900II::OpSize32);
     emitDirectAddrPrefix(MI.getOperand(AddrIdx), /*IsDstMem=*/false, OpSize,
                          Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode + RegEnc);
