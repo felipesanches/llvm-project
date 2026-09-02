@@ -724,6 +724,54 @@ bitda_24 0, (132582)
 ; CHECK-INST: bitda_24 7, (132580)
 bitda_24 7, (132580)
 ;==========================================================================
+; LDCF / STCF / TSET on a direct address
+;==========================================================================
+
+; kn5000_v10_program.rom +0x1DFC2C (rom 0xFDFC2C) -- unidasm: ldcf 4,(0xc488)
+; CHECK: ldcfda 4, (50312)
+; CHECK-ENC: encoding: [0xf1,0x88,0xc4,0x9c]
+; CHECK-INST: ldcfda 4, (50312)
+ldcfda 4, (50312)
+
+; kn5000_v10_program.rom +0x0F0797 (rom 0xEF0797) -- unidasm: ldcf 7,(0x0406)
+; CHECK: ldcfda 7, (1030)
+; CHECK-ENC: encoding: [0xf1,0x06,0x04,0x9f]
+; CHECK-INST: ldcfda 7, (1030)
+ldcfda 7, (1030)
+
+; kn5000_v10_program.rom +0x0F1259 (rom 0xEF1259) -- unidasm: tset 0,(0x0422)
+; CHECK: tsetda16 0, (1058)
+; CHECK-ENC: encoding: [0xf1,0x22,0x04,0xa8]
+; CHECK-INST: tsetda16 0, (1058)
+tsetda16 0, (1058)
+
+; kn5000_v10_program.rom +0x0F134F (rom 0xEF134F) -- unidasm: tset 7,(0x0413)
+; CHECK: tsetda16 7, (1043)
+; CHECK-ENC: encoding: [0xf1,0x13,0x04,0xaf]
+; CHECK-INST: tsetda16 7, (1043)
+tsetda16 7, (1043)
+;==========================================================================
+; PUSH (addr) with a direct address
+;==========================================================================
+
+; kn5000_v10_program.rom +0x0FC1E6 (rom 0xEFC1E6) -- unidasm: pushw (0x0d58)
+; CHECK: pushdi_w (3416)
+; CHECK-ENC: encoding: [0xd1,0x58,0x0d,0x04]
+; CHECK-INST: pushdi_w (3416)
+pushdi_w (3416)
+
+; kn5000_v10_program.rom +0x15F2ED (rom 0xF5F2ED) -- unidasm: push (0x342e)
+; CHECK: pushdi_b (13358)
+; CHECK-ENC: encoding: [0xc1,0x2e,0x34,0x04]
+; CHECK-INST: pushdi_b (13358)
+pushdi_b (13358)
+
+; kn5000_v10_program.rom +0x17E0FF (rom 0xF7E0FF) -- unidasm: pushw (0x02478c)
+; CHECK: pushdi_24 (149388)
+; CHECK-ENC: encoding: [0xd2,0x8c,0x47,0x02,0x04]
+; CHECK-INST: pushdi_24 (149388)
+pushdi_24 (149388)
+;==========================================================================
 ; ALU (addr8), #imm8 through the 8-bit-direct prefix
 ;==========================================================================
 

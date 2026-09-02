@@ -1445,6 +1445,21 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
     return MCDisassembler::Success;
   }
 
+  // PUSH (addr): source table sub-opcode 0x04.  Byte and word only, and only
+  // the word form has a 24-bit-address definition.
+  if (!IsDst && SubOp == 0x04 && OpSize <= 1) {
+    bool Is24 = (AddrBytes == 3);
+    unsigned Opc = OpSize == 0 ? (Is24 ? 0 : TLCS900::PUSHB_da16)
+                               : (Is24 ? TLCS900::PUSH_da24
+                                       : TLCS900::PUSHW_da16);
+    if (!Opc)
+      return MCDisassembler::Fail;
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createImm(Addr));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
+
   // LD (addr), (addr): source table sub-opcode 0x19, memory to memory.  The
   // prefix's address is the SOURCE and a second 16-bit address follows the
   // sub-opcode; LDmm8_da16/LDmm16_da16 take them in that order and print them
@@ -1472,15 +1487,18 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
   // `f1 13 04 b8`.  157 distinct v10 samples were affected.  Confirmed
   // against MAME unidasm on all seven sub-opcodes.
   //
-  // Only the four with a matching definition are decoded.  ⚠ TSET_da16 and
-  // TSET_da24 are declared with opcode 0xA0, which is STCF; decoding 0xA0 to
-  // them would round-trip and still be the wrong instruction, so 0x98/0xA0/
-  // 0xA8 are refused until correctly-named definitions exist.  Fixing those
-  // two opcodes is an ENCODING change and deliberately not made here.
+  // ⚠ 0xA0 is decoded as STCF, not TSET.  TSET_da16 and TSET_da24 are declared
+  // with opcode 0xA0 and are the wrong name for it; their encoding is left
+  // alone because committed source spells those bytes `tsetda`, and
+  // LDCF_da16/STCF_da16/TSETda16 (and their _da24 siblings) are the correctly
+  // named definitions this decodes to instead.
   if (IsDst && SubOp >= 0x98 && SubOp <= 0xCF) {
     bool Is24 = (AddrBytes == 3);
     unsigned Opc = 0;
     switch (SubOp & 0xF8) {
+    case 0x98: Opc = Is24 ? TLCS900::LDCF_da24 : TLCS900::LDCF_da16; break;
+    case 0xA0: Opc = Is24 ? TLCS900::STCF_da24 : TLCS900::STCF_da16; break;
+    case 0xA8: Opc = Is24 ? TLCS900::TSETda24 : TLCS900::TSETda16; break;
     case 0xB0: Opc = Is24 ? TLCS900::RES_da24 : TLCS900::RES_da16; break;
     case 0xB8: Opc = Is24 ? TLCS900::SET_da24 : TLCS900::SET_da16; break;
     case 0xC0: Opc = Is24 ? TLCS900::CHG_da24 : 0; break;

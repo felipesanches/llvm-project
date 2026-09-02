@@ -3316,6 +3316,17 @@ def PUSH_da24 : DirectSrcPushInst<0x04, 5, (outs),
                                     (ins directaddr:$addr),
                                     "pushdi_24", "$addr", []>,
                 Sched<[WriteSTW]>;
+// The same through the 16-bit-address prefixes: C1 (byte) and D1 (word).
+let OpSize = OpSize8.Value in
+def PUSHB_da16 : DirectSrcPushInst<0x04, 4, (outs),
+                                     (ins directaddr:$addr),
+                                     "pushdi_b", "$addr", []>,
+                 Sched<[WriteSTW]>;
+let OpSize = OpSize16.Value in
+def PUSHW_da16 : DirectSrcPushInst<0x04, 4, (outs),
+                                     (ins directaddr:$addr),
+                                     "pushdi_w", "$addr", []>,
+                 Sched<[WriteSTW]>;
 } // mayLoad, hasSideEffects, Uses, Defs
 
 // 24-bit address BIT/SET/RES/CHG/TSET via F2 prefix
@@ -3571,10 +3582,49 @@ def RES_da16 : DirectDstBitOpInst<0xB0, 4, (outs),
                Sched<[WriteSTW]>;
 
 // TSET from 16-bit address: F1 + addr16 + (0xA0+bit)
+// ⚠ 0xA0 IS NOT TSET.  The destination sub-opcode table is 0x98 LDCF,
+// 0xA0 STCF, 0xA8 TSET, 0xB0 RES, 0xB8 SET, 0xC0 CHG, 0xC8 BIT -- identical to
+// the register-indirect one, and confirmed against MAME unidasm on all seven.
+// This definition and TSET_da24 have carried the wrong name since they were
+// added; their ENCODING is not changed here, because committed source spells
+// these bytes `tsetda`, and changing what an existing spelling assembles to is
+// the one thing this backend never does. The correctly-named siblings below
+// are what the disassembler prints, so a decode and a re-assembly agree and
+// the misnomer stops spreading.
 def TSET_da16 : DirectDstBitOpInst<0xA0, 4, (outs),
                                     (ins directaddr:$addr, i32imm:$bit),
                                     "tsetda", "$bit, $addr", []>,
                 Sched<[WriteSTW]>;
+
+// LDCF/STCF/TSET from a 16-bit address, at the sub-opcodes they really have.
+def LDCF_da16 : DirectDstBitOpInst<0x98, 4, (outs),
+                                    (ins directaddr:$addr, i32imm:$bit),
+                                    "ldcfda", "$bit, $addr", []>,
+                Sched<[WriteIALU]>;
+def STCF_da16 : DirectDstBitOpInst<0xA0, 4, (outs),
+                                    (ins directaddr:$addr, i32imm:$bit),
+                                    "stcfda", "$bit, $addr", []>,
+                Sched<[WriteSTW]>;
+def TSETda16 : DirectDstBitOpInst<0xA8, 4, (outs),
+                                   (ins directaddr:$addr, i32imm:$bit),
+                                   "tsetda16", "$bit, $addr", []>,
+               Sched<[WriteSTW]>;
+
+// The same three for a 24-bit address (F2 prefix).
+let AddrWidth = 1 in {
+def LDCF_da24 : DirectDstBitOpInst<0x98, 5, (outs),
+                                    (ins directaddr:$addr, i32imm:$bit),
+                                    "ldcfda_24", "$bit, $addr", []>,
+                Sched<[WriteIALU]>;
+def STCF_da24 : DirectDstBitOpInst<0xA0, 5, (outs),
+                                    (ins directaddr:$addr, i32imm:$bit),
+                                    "stcfda_24", "$bit, $addr", []>,
+                Sched<[WriteSTW]>;
+def TSETda24 : DirectDstBitOpInst<0xA8, 5, (outs),
+                                   (ins directaddr:$addr, i32imm:$bit),
+                                   "tsetda16_24", "$bit, $addr", []>,
+               Sched<[WriteSTW]>;
+} // AddrWidth
 
 } // mayLoad, mayStore, hasSideEffects
 
