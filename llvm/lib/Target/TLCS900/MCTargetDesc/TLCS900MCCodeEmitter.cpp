@@ -748,13 +748,23 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     // JR/JRcc: opcode(+cc) + d8.
     // Unconditional JR: op 0 = target (opcode already has T=8 baked in).
     // Conditional JRcc: op 0 = cc, op 1 = target.
+    //
+    // The operand is the RAW DISPLACEMENT FIELD, not a target address, so a
+    // constant that fits it neither signed nor unsigned is a mistake and not a
+    // request to keep the low byte -- emitImmediate refuses it.  JRL and CALR
+    // have refused the same mistake since 95f7f2d40428 because they emit
+    // through emitImmediate; JR masked with `& 0xFF` instead, so `jr 99832`
+    // silently became [0x68,0xf8] and branched somewhere else entirely.  The
+    // 36 sites in the kn5000-roms-disasm tree that hit this were displacements
+    // the disassembly had SIGN-EXTENDED TO 24 BITS -- `jr c, 16777183` for
+    // -33 -- exactly the shape 95f7f2d40428 found in 31 `jrl` operands.
     if (MI.getNumOperands() >= 2 && MI.getOperand(0).isImm()) {
       // Conditional: 0x60 + cc, d8.
       unsigned CC = MI.getOperand(0).getImm();
       CB.push_back(Opcode + (CC & 0xF));
       const MCOperand &Target = MI.getOperand(1);
       if (Target.isImm())
-        CB.push_back(static_cast<char>(Target.getImm() & 0xFF));
+        emitImmediate(Target.getImm(), 1, CB, &MI);
       else
         emitFixup(MI, Target, CB.size() - StartByte,
                   (MCFixupKind)TLCS900::fixup_tlcs900_rel8, CB, Fixups);
@@ -763,7 +773,7 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       CB.push_back(Opcode);
       const MCOperand &Target = MI.getOperand(0);
       if (Target.isImm())
-        CB.push_back(static_cast<char>(Target.getImm() & 0xFF));
+        emitImmediate(Target.getImm(), 1, CB, &MI);
       else
         emitFixup(MI, Target, CB.size() - StartByte,
                   (MCFixupKind)TLCS900::fixup_tlcs900_rel8, CB, Fixups);
@@ -835,8 +845,12 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(PrefixBase + RegEnc);
     CB.push_back(Opcode);
     const MCOperand &Target = MI.getOperand(2);
+    // Same displacement field, same refusal.  All 278 `djnz` sites in the
+    // kn5000-roms-disasm tree take a label, so this one costs nothing today;
+    // it is here so the branch group is consistent rather than because
+    // anything was found wrong.
     if (Target.isImm())
-      CB.push_back(static_cast<char>(Target.getImm() & 0xFF));
+      emitImmediate(Target.getImm(), 1, CB, &MI);
     else
       emitFixup(MI, Target, CB.size() - StartByte,
                 (MCFixupKind)TLCS900::fixup_tlcs900_rel8, CB, Fixups);
