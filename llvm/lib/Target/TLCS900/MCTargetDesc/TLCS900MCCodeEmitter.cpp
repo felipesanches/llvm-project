@@ -290,6 +290,20 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     return 2;
   }
 
+  // Sentinel: displacement of 65536 means "force the 4-byte SRI (Xrr+d16)
+  // form with a real displacement of 0" -- the same collapse as the 256
+  // sentinel above, one width up (see decodeMemPrefix's PrefixSize==4
+  // comment). 65536 is outside any real d16's -32768..32767 range, so it
+  // can never be confused with a genuine displacement.
+  if (Disp == 65536 && DispOp.isImm()) {
+    uint8_t SRIPrefix0 = IsDstMem ? 0xF3 : (0xC3 + OpSize * 0x10);
+    CB.push_back(SRIPrefix0);
+    CB.push_back(0xE0 + (BaseReg << 2) + 0x01);
+    CB.push_back(0);
+    CB.push_back(0);
+    return 4;
+  }
+
   if (Disp == 0 && DispOp.isImm()) {
     // (Xrr) — no displacement, 1-byte prefix.
     CB.push_back(PrefixNoDisp + BaseReg);
@@ -969,7 +983,26 @@ void TLCS900MCCodeEmitter::encodeInstruction(
       RegIdx = 0;
       AddrIdx = MI.getNumOperands() - 1;
     }
-    unsigned RegEnc = getRegEncoding(MI.getOperand(RegIdx), OpSize);
+    // NOT `OpSize` here: for this whole ADD/SUB/AND/XOR/OR/CP-direct-address
+    // family, OpSize names the MEMORY operand's width (it picks which of
+    // C0/D0/E0 direct-address prefix to emit, below) and is UNRELATED to the
+    // register operand's width -- every disassembler-produced instruction of
+    // this InstFormat (the DALUOps table in TLCS900Disassembler.cpp) decodes
+    // the register with decodeGPR() regardless of the "8"/"16"/"32" in its
+    // own mnemonic (CP8_da16 prints "cpda8 xbc, (addr)", a 32-bit register,
+    // even though its OpSize field is OpSize8). Passing that OpSize straight
+    // to getRegEncoding() made it apply the GR8-sub-register substitution
+    // meant for actual byte-sized register operands, silently re-encoding
+    // XWA/XBC/XDE/XHL (the four GPRs with an 8-bit sub-register) as the
+    // WRONG register -- confirmed on real ROM bytes (v7's
+    // VoiceSlot_StatusRet: `c1 57 0d f1` decodes as "cpda8 xbc, (3415)" but
+    // reassembled that text as `c1 57 0d f3`, silently swapping XBC for C).
+    // OpSize32 makes getRegEncoding() skip the 8/16-bit substitution
+    // entirely; a GR8 operand (the never-decoded *_r8 siblings, e.g.
+    // CP8_da16_r8) has no further sub-register to find either way, so this
+    // is a no-op for that direction and only fixes the GPR direction.
+    unsigned RegEnc =
+        getRegEncoding(MI.getOperand(RegIdx), TLCS900II::OpSize32);
     emitDirectAddrPrefix(MI.getOperand(AddrIdx), /*IsDstMem=*/false, OpSize,
                          Is24Bit, StartByte, CB, Fixups);
     CB.push_back(Opcode + RegEnc);

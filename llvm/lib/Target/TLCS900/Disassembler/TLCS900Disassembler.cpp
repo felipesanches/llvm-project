@@ -528,8 +528,21 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGenericRegPrefix(
       return MCDisassembler::Success;
     }
 
-    // EX register-register: prefix(rs1) + (0xB8 + rs2_enc)
-    if (AluBase == 0xB8) {
+    // EX register-register: prefix(rs1) + (0xB8 + rs2_enc) -- 8/16-bit only.
+    // EXops[2] is TLCS900::EX32, which TLCS900InstrInfo.td documents itself
+    // as codegen-only and "NOT E8 (32-bit)": it is a 4-operand tied pseudo
+    // (2 outs + 2 ins) kept for a future ISel pattern, not a real 2-operand
+    // asm form like EX8/EX16. Handing it only 2 decoded operands (as this
+    // branch used to, for every OpSize) left encodeInstruction reading past
+    // the end of the MCInst's operand list whenever OpSize==2 was reached --
+    // confirmed 2026-09-02: raw bytes `ee bf` (E8-prefix + 0xB8 sub-opcode)
+    // aborts with "SmallVector idx < size()" in
+    // TLCS900MCCodeEmitter::encodeInstruction, found in v7's
+    // AccTone_InlineBytecodeData. No committed source can depend on the old
+    // behaviour: it never once returned to a caller without crashing the
+    // process. Refuse the 32-bit case outright rather than invent an
+    // encoding nobody has confirmed exists on real hardware.
+    if (AluBase == 0xB8 && OpSize < 2) {
       unsigned SecondReg = decodeRegForSize(DstEnc, OpSize);
       MI.setOpcode(EXops[OpSize]);
       MI.addOperand(MCOperand::createReg(SecondReg)); // $rd (from sub-opcode)
@@ -655,6 +668,22 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // actually consumed, so a real zero there is exactly that case.
   if (PrefixSize == 2 && Disp == 0)
     Disp = 256;
+
+  // The SAME collision exists one width up: the SRI-prefixed 4-byte
+  // (Xrr+d16) encoding with an explicit d16 of 0x0000 prints identically to
+  // the 1-byte (Xrr) form (both "(reg)"), and reassembly always re-picks the
+  // shortest encoding. Confirmed 2026-09-02 on v7's
+  // PanelEvt_Handler_4_DualValueCheck: raw bytes `c3 f9 00 00` (SRI prefix +
+  // mode 0xF9 = Xrr+d16, base=xiz + d16=0x0000) decode to a bare "(xiz)"
+  // that reassembles two bytes shorter than the original four -- the same
+  // print/encode collapse `975a2c17d683` fixed for PrefixSize==2, just never
+  // extended to PrefixSize==4. Mirrors that fix exactly: emitMemPrefix
+  // reserves 65536 (outside any real d16's -32768..32767 range, so it can
+  // never collide with a genuine displacement) to force this 4-byte form
+  // with a real displacement of 0; PrefixSize == 4 means a real d16 pair was
+  // actually consumed, so a real zero there is exactly that case.
+  if (PrefixSize == 4 && Disp == 0)
+    Disp = 65536;
 
   unsigned OpByteIdx = PrefixSize;
   if (Bytes.size() <= OpByteIdx)
@@ -836,24 +865,34 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     return MCDisassembler::Success;
   }
 
-  // JP cc, (mem): sub-opcode 0xD0-0xDF (B0 destination table only)
-  if (IsDstMem && OpByte >= 0xD0 && OpByte <= 0xDF) {
-    unsigned CC = OpByte & 0xF;
-    MI.setOpcode(TLCS900::JPcc);
-    MI.addOperand(MCOperand::createImm(CC));
-    MI.addOperand(MCOperand::createReg(Base));
-    Size = PrefixSize + 1;
-    return MCDisassembler::Success;
-  }
-
-  // CALL cc, (mem): sub-opcode 0xE0-0xEF (B0 destination table only)
-  if (IsDstMem && OpByte >= 0xE0 && OpByte <= 0xEF) {
-    unsigned CC = OpByte & 0xF;
-    MI.setOpcode(TLCS900::CALLCC_24);
-    MI.addOperand(MCOperand::createImm(CC));
-    MI.addOperand(MCOperand::createReg(Base));
-    Size = PrefixSize + 1;
-    return MCDisassembler::Success;
+  // "JP cc, (mem)" and "CALL cc, (mem)" through a register-indirect memory
+  // prefix (B0-B7/B8-BF sub-opcodes 0xD0-0xDF / 0xE0-0xEF, and the SRI
+  // register-indexed forms that delegate here with IsDstMem set) have NO
+  // dedicated instruction definition. This code used to repurpose JPcc and
+  // CALLCC_24 -- the *unrelated* 0x70-prefixed short-branch and F2
+  // direct-24-bit-address encodings -- built from (Imm(cc), Reg(base)).
+  // Both of those opcodes declare a `brtarget`/`directaddr` operand, which
+  // TLCS900InstPrinter prints by calling MCOperand::getImm() unconditionally;
+  // handing it a Reg instead crashes with "This is not an immediate" in
+  // llvm::MCOperand::getImm() (llvm-mc: MCInst.h:82) on ANY byte reaching
+  // this branch, not just malformed ones -- confirmed 2026-09-02 on v7's
+  // `CharMap_ValueData_B` at raw bytes `b8 8e ee` (base=0, disp=-114,
+  // sub-opcode 0xee -> "CALL 0xE, (Base-114)"), 15 bytes deep into what the
+  // caller had fed as a single long stream, which is why every prior probe
+  // that summed multi-instruction windows saw only a bare subprocess crash
+  // (returncode -6) with no diagnosable cause.
+  //
+  // The operand order was ALSO backwards versus each instruction's own
+  // declared operand list ("$cc, $addr" wants addr first) -- so even with
+  // matching operand types this could never have reassembled to anything a
+  // human wrote. No committed source anywhere in this tree could be relying
+  // on this branch's output: it has never once returned to a caller without
+  // the process aborting first. Refusing outright (Fail, not a guessed new
+  // encoding) turns that hard crash into an ordinary, diagnosable "invalid
+  // instruction encoding" -- this project's rule for a form with no
+  // established ground truth.
+  if (IsDstMem && OpByte >= 0xD0 && OpByte <= 0xEF) {
+    return MCDisassembler::Fail;
   }
 
   // MemALU register-source operations (all sizes)
@@ -2659,8 +2698,13 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
   if (FirstByte >= 0x30 && FirstByte <= 0x37) {
     if (Bytes.size() < 3)
       return MCDisassembler::Fail;
-    unsigned Reg = decodeGR16(FirstByte & 0x7);
-    MI.setOpcode(TLCS900::LD16ri_short);
+    unsigned RegEnc = FirstByte & 0x7;
+    unsigned Reg = decodeGR16(RegEnc);
+    // r=7 is SP, which LD16ri_short's codegen-facing GR16 class excludes
+    // (see LD16ri_short_sp's comment in TLCS900InstrInfo.td) -- use the
+    // asm-only sibling so this reassembles instead of erroring.
+    MI.setOpcode(RegEnc == 7 ? TLCS900::LD16ri_short_sp
+                              : TLCS900::LD16ri_short);
     MI.addOperand(MCOperand::createReg(Reg));
     MI.addOperand(MCOperand::createImm(readU16LE(Bytes, 1)));
     Size = 3;

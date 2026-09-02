@@ -1883,6 +1883,24 @@ def LD16ri_short : SingleByteRegImmInst<0x30, 3, (outs GR16:$rd),
                                          "ldw", "$rd, $imm", []>,
                    Sched<[WriteIALU]>;
 
+// LD SP, #imm16 — same "0x30+r" short form, r=7 (the SP slot). GR16
+// deliberately excludes SP (it is not a general codegen register), which is
+// right for LD16ri_short above -- but the hardware encoding covers all 8
+// slots 0-7, same as PUSH16_short/POP16_short's GR16SP, and the
+// disassembler's decodeGR16()/decodeRegForSize() helpers already return SP
+// for encoding 7 unconditionally. So decoding this byte pattern already
+// printed "ldw sp, N" -- it just had nowhere to reassemble to ("invalid
+// operand for instruction", since SP is not a GR16 member), confirmed on
+// real ROM bytes (v7's FDemoText_ByteData_LayoutEngine: `37 3e f3` = "ldw
+// sp, 0xf33e"). Kept isCodeGenOnly-equivalent by construction: no ISel
+// pattern selects it (same technique as EX8/EX16 next to EX32 above), so it
+// exists only for the assembler/disassembler and cannot affect register
+// allocation.
+def LD16ri_short_sp : SingleByteRegImmInst<0x30, 3, (outs GR16SP:$rd),
+                                            (ins i16imm:$imm),
+                                            "ldw", "$rd, $imm", []>,
+                      Sched<[WriteIALU]>;
+
 // LD rd, #(0-7) — Small immediate form: prefix+r, 0xA8+val (2 bytes)
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 let OpSize = OpSize8.Value in
@@ -3096,65 +3114,79 @@ def CP8i_da24 : DirectSrcImmInst<0x3F, 6, (outs),
                 Sched<[WriteIALU]>;
 
 // 24-bit address: ALU reg, (addr24) — load direction for C2 (8-bit)
+//
+// The register operand here is GPR (32-bit), not GR8, even though the
+// mnemonic says "8" -- that "8" names the DIRECT ADDRESS operand's width,
+// not the register's. The disassembler's DALUOps table (see its own comment
+// in TLCS900Disassembler.cpp) already establishes this for the sibling
+// 16-bit-address forms ("There is no GR8/GR16-class overload for this
+// family... the register here must always decode as GPR regardless of
+// OpSize") and always calls decodeGPR() regardless of which of these Is24
+// opcodes it picks. These 24-bit siblings were left declared GR8, so the
+// disassembler handed them a GPR-enum register (e.g. XDE) that their own
+// declared class rejects on reassembly -- confirmed on real ROM bytes (v7's
+// VoiceSlot_CheckAndApply_Data2/UIState_DisplayUpdate_BitmapHandler:
+// `subda8_24 xde, (64768)` decoded fine but would not reassemble, "invalid
+// operand for instruction", because "xde" is not a GR8 register).
 let OpSize = OpSize8.Value, AddrWidth = 1 in {
 let Constraints = "$dst = $src1" in {
-def ADD8_da24 : DirectSrcRegInst<0x80, 5, (outs GR8:$dst),
-                                   (ins GR8:$src1, directaddr:$addr),
+def ADD8_da24 : DirectSrcRegInst<0x80, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, directaddr:$addr),
                                    "addda8_24", "$dst, $addr", []>,
                 Sched<[WriteIALU, ReadIALU]>;
-def ADC8_da24 : DirectSrcRegInst<0x90, 5, (outs GR8:$dst),
-                                   (ins GR8:$src1, directaddr:$addr),
+def ADC8_da24 : DirectSrcRegInst<0x90, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, directaddr:$addr),
                                    "addcda8_24", "$dst, $addr", []>,
                 Sched<[WriteIALU, ReadIALU]>;
-def SUB8_da24 : DirectSrcRegInst<0xA0, 5, (outs GR8:$dst),
-                                   (ins GR8:$src1, directaddr:$addr),
+def SUB8_da24 : DirectSrcRegInst<0xA0, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, directaddr:$addr),
                                    "subda8_24", "$dst, $addr", []>,
                 Sched<[WriteIALU, ReadIALU]>;
-def SBC8_da24 : DirectSrcRegInst<0xB0, 5, (outs GR8:$dst),
-                                   (ins GR8:$src1, directaddr:$addr),
+def SBC8_da24 : DirectSrcRegInst<0xB0, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, directaddr:$addr),
                                    "sbcda8_24", "$dst, $addr", []>,
                 Sched<[WriteIALU, ReadIALU]>;
-def AND8_da24 : DirectSrcRegInst<0xC0, 5, (outs GR8:$dst),
-                                   (ins GR8:$src1, directaddr:$addr),
+def AND8_da24 : DirectSrcRegInst<0xC0, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, directaddr:$addr),
                                    "andda8_24", "$dst, $addr", []>,
                 Sched<[WriteIALU, ReadIALU]>;
-def XOR8_da24 : DirectSrcRegInst<0xD0, 5, (outs GR8:$dst),
-                                   (ins GR8:$src1, directaddr:$addr),
+def XOR8_da24 : DirectSrcRegInst<0xD0, 5, (outs GPR:$dst),
+                                   (ins GPR:$src1, directaddr:$addr),
                                    "xorda8_24", "$dst, $addr", []>,
                 Sched<[WriteIALU, ReadIALU]>;
-def OR8_da24 : DirectSrcRegInst<0xE0, 5, (outs GR8:$dst),
-                                  (ins GR8:$src1, directaddr:$addr),
+def OR8_da24 : DirectSrcRegInst<0xE0, 5, (outs GPR:$dst),
+                                  (ins GPR:$src1, directaddr:$addr),
                                   "orda8_24", "$dst, $addr", []>,
                Sched<[WriteIALU, ReadIALU]>;
 } // Constraints
 def CP8_da24 : DirectSrcRegInst<0xF0, 5, (outs),
-                                  (ins GR8:$src, directaddr:$addr),
+                                  (ins GPR:$src, directaddr:$addr),
                                   "cpda8_24", "$src, $addr", []>,
                Sched<[WriteIALU, ReadIALU]>;
 // Store direction (result to memory): ALU (addr24), reg
 let Constraints = "" in {
 def ADD8m_da24 : DirectSrcRegInst<0x88, 5, (outs),
-                                    (ins directaddr:$addr, GR8:$src),
+                                    (ins directaddr:$addr, GPR:$src),
                                     "adddm8_24", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 def SUB8m_da24 : DirectSrcRegInst<0xA8, 5, (outs),
-                                    (ins directaddr:$addr, GR8:$src),
+                                    (ins directaddr:$addr, GPR:$src),
                                     "subdm8_24", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 def AND8m_da24 : DirectSrcRegInst<0xC8, 5, (outs),
-                                    (ins directaddr:$addr, GR8:$src),
+                                    (ins directaddr:$addr, GPR:$src),
                                     "anddm8_24", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 def XOR8m_da24 : DirectSrcRegInst<0xD8, 5, (outs),
-                                    (ins directaddr:$addr, GR8:$src),
+                                    (ins directaddr:$addr, GPR:$src),
                                     "xordm8_24", "$addr, $src", []>,
                  Sched<[WriteSTW]>;
 def OR8m_da24 : DirectSrcRegInst<0xE8, 5, (outs),
-                                   (ins directaddr:$addr, GR8:$src),
+                                   (ins directaddr:$addr, GPR:$src),
                                    "ordm8_24", "$addr, $src", []>,
                 Sched<[WriteSTW]>;
 def CP8m_da24 : DirectSrcRegInst<0xF8, 5, (outs),
-                                   (ins directaddr:$addr, GR8:$src),
+                                   (ins directaddr:$addr, GPR:$src),
                                    "cpdm8_24", "$addr, $src", []>,
                 Sched<[WriteSTW]>;
 } // Constraints
