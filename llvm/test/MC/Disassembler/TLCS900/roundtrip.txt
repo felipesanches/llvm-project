@@ -1145,6 +1145,23 @@
 # CHECK: jp_rr 0, xbc, wa{{.*}}encoding: [0xf3,0x07,0xe4,0xe0,0xd0]
 0xf3 0x07 0xe4 0xe0 0xd0
 
+# Three more real ROM byte sequences, this time from the KN5000 v10 program
+# ROM (kn5000_v10_program.rom), matching what the v10 disassembly already
+# spells by hand at note_voice_mapping.s:17343, ui_widget_defs.s:17996 and
+# midi_dispatch_handlers.s:1060:
+
+# offset 0xf477f: `jp_rr 8, xix, wa`
+# CHECK: jp_rr 8, xix, wa{{.*}}encoding: [0xf3,0x07,0xf0,0xe0,0xd8]
+0xf3 0x07 0xf0 0xe0 0xd8
+
+# offset 0x106da6: `lda_rr xwa, xwa, bc`
+# CHECK: lda_rr xwa, xwa, bc{{.*}}encoding: [0xf3,0x07,0xe0,0xe4,0x30]
+0xf3 0x07 0xe0 0xe4 0x30
+
+# offset 0x1d0310: `ld_rr8w bc, xix, a`
+# CHECK: ld_rr8w bc, xix, a{{.*}}encoding: [0xd3,0x03,0xf0,0xe0,0x21]
+0xd3 0x03 0xf0 0xe0 0x21
+
 # --- Mode byte 0x03 (8-bit index register): LD_RR8{B,W,L} / ST_RR8{B,W,L}.
 # The index byte addresses one GR8 half of WA/BC/DE/HL, using the
 # byte-addressed register file (low half at +0, high half at +1). ---
@@ -1185,6 +1202,12 @@
 
 # CHECK: ldb_erp a, 251{{.*}}encoding: [0xc7,0xfb,0x99]
 0xc7 0xfb 0x99
+
+# Real SX-WSA1R ROM bytes (wsa1_prom_a.ic12, offset 0xF831FF): the tree's own
+# comment at wsa1/prom_a/wsa1_prom_a.s:6785 reads `ldb_erp a, 0xe3  ; F831FF
+# c7 e3 99  ld QW,A`.
+# CHECK: ldb_erp a, 227{{.*}}encoding: [0xc7,0xe3,0x99]
+0xc7 0xe3 0x99
 
 # CHECK: addb_erp a, 251{{.*}}encoding: [0xc7,0xfb,0x81]
 0xc7 0xfb 0x81
