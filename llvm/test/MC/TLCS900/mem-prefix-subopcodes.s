@@ -6,12 +6,24 @@
 ; MEMORY-PREFIX SUB-OPCODES THE DISASSEMBLER COULD NOT READ.
 ;
 ; The 0x80/0x90/0xA0 (source: byte/word/long) and 0xB0/0xB8 (destination)
-; memory prefixes share sub-opcode tables whose ALU and bit-operation halves
-; had no decode.  llvm-mc encoded every form below; llvm-objdump answered
-; "invalid instruction encoding" -- or, worse, read a DESTINATION-table
-; sub-opcode through the SOURCE table's ALU rows and printed a different
-; instruction that re-assembled to different bytes (`b3 c8` is "bit 0,(xhl)"
-; and came back as "and (xhl), xwa", which encodes to `a3 c8`).
+; register-indirect prefixes, and the C1/C2/D1/D2/E1/E2/F1/F2 direct-address
+; prefixes, all dispatch on the same sub-opcode tables -- and the ALU and
+; bit-operation halves of those tables had no decode.  llvm-mc encoded every
+; form below; llvm-objdump answered "invalid instruction encoding".
+;
+; Two of them were WORSE than missing, because a decode that produces the
+; wrong instruction still looks like success:
+;
+;   * a DESTINATION-table sub-opcode fell through into the SOURCE table's ALU
+;     rows, so `b3 c8` ("bit 0,(xhl)") came back as "and (xhl), xwa", which
+;     re-assembles to `a3 c8`;
+;   * the direct-address bit table was mapped one group out of step -- 0xA0 to
+;     BIT, 0xA8 to RES, 0xB0 to SET -- so `f1 13 04 b0` ("res 0,(1043)") came
+;     back as "setda 0, (1043)", which re-assembles to `f1 13 04 b8`.
+;
+; Both changed the bytes silently.  The real sub-opcode assignment, identical
+; for both prefix families and confirmed against MAME unidasm, is
+; 0x98 LDCF, 0xA0 STCF, 0xA8 TSET, 0xB0 RES, 0xB8 SET, 0xC0 CHG, 0xC8 BIT.
 ;
 ; The leading byte is not the unit of the gap: `9f 06 81` was refused while
 ; `9f 08 23` read fine, and both start 0x9f.  The families below are named by
@@ -492,3 +504,231 @@ jp le, (xbc+4)
 ; CHECK-ENC: encoding: [0xb1,0xe1]
 ; CHECK-INST: call lt, (xbc)
 call lt, (xbc)
+;==========================================================================
+; ALU (addr), #imm
+;==========================================================================
+
+; kn5000_v10_program.rom +0x0F5EE0 (rom 0xEF5EE0) -- unidasm: add (0x1181),0x30
+; CHECK: adddi8 (4481), 48
+; CHECK-ENC: encoding: [0xc1,0x81,0x11,0x38,0x30]
+; CHECK-INST: adddi8 (4481), 48
+adddi8 (4481), 48
+
+; kn5000_v10_program.rom +0x14944C (rom 0xF4944C) -- unidasm: sub (0x25a2),0x28
+; CHECK: subdi8 (9634), 40
+; CHECK-ENC: encoding: [0xc1,0xa2,0x25,0x3a,0x28]
+; CHECK-INST: subdi8 (9634), 40
+subdi8 (9634), 40
+
+; kn5000_v10_program.rom +0x0F0D73 (rom 0xEF0D73) -- unidasm: and (0x0422),0x6e
+; CHECK: anddi8 (1058), 110
+; CHECK-ENC: encoding: [0xc1,0x22,0x04,0x3c,0x6e]
+; CHECK-INST: anddi8 (1058), 110
+anddi8 (1058), 110
+
+; kn5000_v10_program.rom +0x15C5F4 (rom 0xF5C5F4) -- unidasm: xor (0x3391),0x01
+; CHECK: xordi8 (13201), 1
+; CHECK-ENC: encoding: [0xc1,0x91,0x33,0x3d,0x01]
+; CHECK-INST: xordi8 (13201), 1
+xordi8 (13201), 1
+
+; kn5000_v10_program.rom +0x0F0C35 (rom 0xEF0C35) -- unidasm: or (0x0429),0x10
+; CHECK: ordi8 (1065), 16
+; CHECK-ENC: encoding: [0xc1,0x29,0x04,0x3e,0x10]
+; CHECK-INST: ordi8 (1065), 16
+ordi8 (1065), 16
+
+; kn5000_v10_program.rom +0x0F05DB (rom 0xEF05DB) -- unidasm: cp (0x0402),0x04
+; CHECK: cpdi8 (1026), 4
+; CHECK-ENC: encoding: [0xc1,0x02,0x04,0x3f,0x04]
+; CHECK-INST: cpdi8 (1026), 4
+cpdi8 (1026), 4
+
+; kn5000_v10_program.rom +0x0F4C54 (rom 0xEF4C54) -- unidasm: add (0x0652),0x0012
+; CHECK: adddi16 (1618), 18
+; CHECK-ENC: encoding: [0xd1,0x52,0x06,0x38,0x12,0x00]
+; CHECK-INST: adddi16 (1618), 18
+adddi16 (1618), 18
+
+; kn5000_v10_program.rom +0x1EC34C (rom 0xFEC34C) -- unidasm: sub (0xd09a),0x0001
+; CHECK: subdi16 (53402), 1
+; CHECK-ENC: encoding: [0xd1,0x9a,0xd0,0x3a,0x01,0x00]
+; CHECK-INST: subdi16 (53402), 1
+subdi16 (53402), 1
+
+; kn5000_v10_program.rom +0x1C711A (rom 0xFC711A) -- unidasm: and (0x8f44),0xfffb
+; CHECK: anddi16 (36676), 65531
+; CHECK-ENC: encoding: [0xd1,0x44,0x8f,0x3c,0xfb,0xff]
+; CHECK-INST: anddi16 (36676), 65531
+anddi16 (36676), 65531
+
+; kn5000_v10_program.rom +0x13A700 (rom 0xF3A700) -- unidasm: or (0x1da2),0x0002
+; CHECK: ordi16 (7586), 2
+; CHECK-ENC: encoding: [0xd1,0xa2,0x1d,0x3e,0x02,0x00]
+; CHECK-INST: ordi16 (7586), 2
+ordi16 (7586), 2
+
+; kn5000_v10_program.rom +0x0F0EF9 (rom 0xEF0EF9) -- unidasm: cp (0x28aa),0x0000
+; CHECK: cpdi16 (10410), 0
+; CHECK-ENC: encoding: [0xd1,0xaa,0x28,0x3f,0x00,0x00]
+; CHECK-INST: cpdi16 (10410), 0
+cpdi16 (10410), 0
+
+; kn5000_v10_program.rom +0x184971 (rom 0xF84971) -- unidasm: and (0x0247ee),0x78
+; CHECK: anddi8_24 (149486), 120
+; CHECK-ENC: encoding: [0xc2,0xee,0x47,0x02,0x3c,0x78]
+; CHECK-INST: anddi8_24 (149486), 120
+anddi8_24 (149486), 120
+
+; kn5000_v10_program.rom +0x1851DE (rom 0xF851DE) -- unidasm: or (0x0247ee),0x07
+; CHECK: ordi8_24 (149486), 7
+; CHECK-ENC: encoding: [0xc2,0xee,0x47,0x02,0x3e,0x07]
+; CHECK-INST: ordi8_24 (149486), 7
+ordi8_24 (149486), 7
+
+; kn5000_v10_program.rom +0x10EA22 (rom 0xF0EA22) -- unidasm: cp (0x020c38),0x10
+; CHECK: cpib_da (134200), 16
+; CHECK-ENC: encoding: [0xc2,0x38,0x0c,0x02,0x3f,0x10]
+; CHECK-INST: cpib_da (134200), 16
+cpib_da (134200), 16
+
+; kn5000_v10_program.rom +0x0F090D (rom 0xEF090D) -- unidasm: add (0x00ffd4),0x03e8
+; CHECK: adddi16_24 (65492), 1000
+; CHECK-ENC: encoding: [0xd2,0xd4,0xff,0x00,0x38,0xe8,0x03]
+; CHECK-INST: adddi16_24 (65492), 1000
+adddi16_24 (65492), 1000
+
+; kn5000_v10_program.rom +0x152F03 (rom 0xF52F03) -- unidasm: sub (0x023580),0x0001
+; CHECK: subdi16_24 (144768), 1
+; CHECK-ENC: encoding: [0xd2,0x80,0x35,0x02,0x3a,0x01,0x00]
+; CHECK-INST: subdi16_24 (144768), 1
+subdi16_24 (144768), 1
+
+; kn5000_v10_program.rom +0x12CEE0 (rom 0xF2CEE0) -- unidasm: and (0x021086),0xfffe
+; CHECK: anddi16_24 (135302), 65534
+; CHECK-ENC: encoding: [0xd2,0x86,0x10,0x02,0x3c,0xfe,0xff]
+; CHECK-INST: anddi16_24 (135302), 65534
+anddi16_24 (135302), 65534
+
+; kn5000_v10_program.rom +0x12CECB (rom 0xF2CECB) -- unidasm: or (0x021086),0x0001
+; CHECK: ordi16_24 (135302), 1
+; CHECK-ENC: encoding: [0xd2,0x86,0x10,0x02,0x3e,0x01,0x00]
+; CHECK-INST: ordi16_24 (135302), 1
+ordi16_24 (135302), 1
+
+; kn5000_v10_program.rom +0x0F0583 (rom 0xEF0583) -- unidasm: cp (0x00ffca),0x5aa5
+; CHECK: cpw_da (65482), 23205
+; CHECK-ENC: encoding: [0xd2,0xca,0xff,0x00,0x3f,0xa5,0x5a]
+; CHECK-INST: cpw_da (65482), 23205
+cpw_da (65482), 23205
+;==========================================================================
+; LD (addr), (addr)
+;==========================================================================
+
+; kn5000_v10_program.rom +0x136438 (rom 0xF36438) -- unidasm: ld (0x2962),(0x2960)
+; CHECK: ldmm8 10594, 10592
+; CHECK-ENC: encoding: [0xc1,0x60,0x29,0x19,0x62,0x29]
+; CHECK-INST: ldmm8 10594, 10592
+ldmm8 10594, 10592
+
+; kn5000_v10_program.rom +0x135F8A (rom 0xF35F8A) -- unidasm: ldw (0x27f6),(0x27fe)
+; CHECK: ldmm16 10230, 10238
+; CHECK-ENC: encoding: [0xd1,0xfe,0x27,0x19,0xf6,0x27]
+; CHECK-INST: ldmm16 10230, 10238
+ldmm16 10230, 10238
+;==========================================================================
+; Bit operations on a direct address
+;==========================================================================
+
+; kn5000_v10_program.rom +0x0F0CB1 (rom 0xEF0CB1) -- unidasm: res 0,(0x0473)
+; CHECK: resda 0, (1139)
+; CHECK-ENC: encoding: [0xf1,0x73,0x04,0xb0]
+; CHECK-INST: resda 0, (1139)
+resda 0, (1139)
+
+; kn5000_v10_program.rom +0x0F0DFF (rom 0xEF0DFF) -- unidasm: res 3,(0x0413)
+; CHECK: resda 3, (1043)
+; CHECK-ENC: encoding: [0xf1,0x13,0x04,0xb3]
+; CHECK-INST: resda 3, (1043)
+resda 3, (1043)
+
+; kn5000_v10_program.rom +0x0F078D (rom 0xEF078D) -- unidasm: res 7,(0x0406)
+; CHECK: resda 7, (1030)
+; CHECK-ENC: encoding: [0xf1,0x06,0x04,0xb7]
+; CHECK-INST: resda 7, (1030)
+resda 7, (1030)
+
+; kn5000_v10_program.rom +0x120DAD (rom 0xF20DAD) -- unidasm: set 0,(0x8f5c)
+; CHECK: setda 0, (36700)
+; CHECK-ENC: encoding: [0xf1,0x5c,0x8f,0xb8]
+; CHECK-INST: setda 0, (36700)
+setda 0, (36700)
+
+; kn5000_v10_program.rom +0x0F7DB5 (rom 0xEF7DB5) -- unidasm: set 3,(0x0d54)
+; CHECK: setda 3, (3412)
+; CHECK-ENC: encoding: [0xf1,0x54,0x0d,0xbb]
+; CHECK-INST: setda 3, (3412)
+setda 3, (3412)
+
+; kn5000_v10_program.rom +0x0F0792 (rom 0xEF0792) -- unidasm: set 7,(0x0406)
+; CHECK: setda 7, (1030)
+; CHECK-ENC: encoding: [0xf1,0x06,0x04,0xbf]
+; CHECK-INST: setda 7, (1030)
+setda 7, (1030)
+
+; kn5000_v10_program.rom +0x0F0C61 (rom 0xEF0C61) -- unidasm: bit 0,(0x0420)
+; CHECK: bitda 0, (1056)
+; CHECK-ENC: encoding: [0xf1,0x20,0x04,0xc8]
+; CHECK-INST: bitda 0, (1056)
+bitda 0, (1056)
+
+; kn5000_v10_program.rom +0x0F0CE9 (rom 0xEF0CE9) -- unidasm: bit 3,(0x041e)
+; CHECK: bitda 3, (1054)
+; CHECK-ENC: encoding: [0xf1,0x1e,0x04,0xcb]
+; CHECK-INST: bitda 3, (1054)
+bitda 3, (1054)
+
+; kn5000_v10_program.rom +0x0F0F2A (rom 0xEF0F2A) -- unidasm: bit 7,(0x041e)
+; CHECK: bitda 7, (1054)
+; CHECK-ENC: encoding: [0xf1,0x1e,0x04,0xcf]
+; CHECK-INST: bitda 7, (1054)
+bitda 7, (1054)
+
+; kn5000_v10_program.rom +0x0F4BA7 (rom 0xEF4BA7) -- unidasm: res 0,(0x160004)
+; CHECK: resda_24 0, (1441796)
+; CHECK-ENC: encoding: [0xf2,0x04,0x00,0x16,0xb0]
+; CHECK-INST: resda_24 0, (1441796)
+resda_24 0, (1441796)
+
+; kn5000_v10_program.rom +0x0F4B9F (rom 0xEF4B9F) -- unidasm: set 0,(0x160004)
+; CHECK: setda_24 0, (1441796)
+; CHECK-ENC: encoding: [0xf2,0x04,0x00,0x16,0xb8]
+; CHECK-INST: setda_24 0, (1441796)
+setda_24 0, (1441796)
+
+; kn5000_v10_program.rom +0x0F4890 (rom 0xEF4890) -- unidasm: chg 2,(0x160004)
+; CHECK: chgda_24 2, (1441796)
+; CHECK-ENC: encoding: [0xf2,0x04,0x00,0x16,0xc2]
+; CHECK-INST: chgda_24 2, (1441796)
+chgda_24 2, (1441796)
+
+; kn5000_v10_program.rom +0x0F5B8B (rom 0xEF5B8B) -- unidasm: bit 0,(0x0205e6)
+; CHECK: bitda_24 0, (132582)
+; CHECK-ENC: encoding: [0xf2,0xe6,0x05,0x02,0xc8]
+; CHECK-INST: bitda_24 0, (132582)
+bitda_24 0, (132582)
+
+; kn5000_v10_program.rom +0x0F5C78 (rom 0xEF5C78) -- unidasm: bit 7,(0x0205e4)
+; CHECK: bitda_24 7, (132580)
+; CHECK-ENC: encoding: [0xf2,0xe4,0x05,0x02,0xcf]
+; CHECK-INST: bitda_24 7, (132580)
+bitda_24 7, (132580)
+;==========================================================================
+; JP cc / CALL cc on a 24-bit direct address
+;==========================================================================
+
+; kn5000_v7_program.rom +0x13ECAE (rom 0xF3ECAE) -- unidasm: call NZ,0xfdad86
+; CHECK: call_24 nz, (16625030)
+; CHECK-ENC: encoding: [0xf2,0x86,0xad,0xfd,0xee]
+; CHECK-INST: call_24 nz, (16625030)
+call_24 nz, (16625030)

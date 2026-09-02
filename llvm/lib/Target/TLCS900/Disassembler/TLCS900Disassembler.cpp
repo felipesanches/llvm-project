@@ -1379,33 +1379,108 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
     }
   }
 
-  // BIT/SET/RES on direct address: destination table
-  if (IsDst && SubOp >= 0xA0 && SubOp <= 0xBF) {
-    unsigned BitGroup = (SubOp >> 3) & 0x3;
-    unsigned BitNum = SubOp & 0x7;
-    bool Is24 = (AddrBytes == 3);
-    unsigned Opc = 0;
-    switch (BitGroup) {
-    case 0: Opc = Is24 ? TLCS900::BIT_da24 : TLCS900::BIT_da16; break;  // 0xA0
-    case 1: Opc = Is24 ? TLCS900::RES_da24 : TLCS900::RES_da16; break;  // 0xA8
-    case 2: Opc = Is24 ? TLCS900::SET_da24 : TLCS900::SET_da16; break;  // 0xB0
-    default: return MCDisassembler::Fail;
-    }
+  // ALU (addr), #imm: source table sub-opcodes 0x38-0x3F, immediate width from
+  // the prefix (byte prefix -> imm8, word prefix -> imm16).  This is the same
+  // family, and the same operation order, as ALUmi in the register-indirect
+  // decoder; the long tables have none, and the entries the .td does not
+  // define are 0 here and refused rather than rounded to a neighbour.
+  if (!IsDst && SubOp >= 0x38 && SubOp <= 0x3F && OpSize <= 1) {
+    //                    ADD    ADC    SUB    SBC    AND    XOR    OR     CP
+    static const unsigned DALUmi[2][2][8] = {
+      { // 8-bit operand
+        {TLCS900::ADD8i_da16, 0, TLCS900::SUB8i_da16, 0,
+         TLCS900::AND8i_da16, TLCS900::XOR8i_da16, TLCS900::OR8i_da16,
+         TLCS900::CP8i_da16},
+        {TLCS900::ADD8i_da24, TLCS900::ADC8i_da24, TLCS900::SUB8i_da24,
+         TLCS900::SBC8i_da24, TLCS900::AND8i_da24, TLCS900::XOR8i_da24,
+         TLCS900::OR8i_da24, TLCS900::CP8i_da24},
+      },
+      { // 16-bit operand
+        {TLCS900::ADD16i_da16, 0, TLCS900::SUB16i_da16, 0,
+         TLCS900::AND16i_da16, 0, TLCS900::OR16i_da16, TLCS900::CP16i_da16},
+        {TLCS900::ADD16i_da24, 0, TLCS900::SUB16i_da24, 0,
+         TLCS900::AND16i_da24, 0, TLCS900::OR16i_da24, TLCS900::CP16i_da24},
+      },
+    };
+    unsigned Opc = DALUmi[OpSize][AddrBytes == 3][SubOp & 0x7];
+    if (!Opc)
+      return MCDisassembler::Fail;
+    unsigned NumImm = immBytesForSize(OpSize);
+    if (Bytes.size() < SubOpIdx + 1 + NumImm)
+      return MCDisassembler::Fail;
     MI.setOpcode(Opc);
     MI.addOperand(MCOperand::createImm(Addr));
-    MI.addOperand(MCOperand::createImm(BitNum));
+    MI.addOperand(MCOperand::createImm(readImmLE(Bytes, SubOpIdx + 1, NumImm)));
+    Size = PrefixSize + 1 + NumImm;
+    return MCDisassembler::Success;
+  }
+
+  // LD (addr), (addr): source table sub-opcode 0x19, memory to memory.  The
+  // prefix's address is the SOURCE and a second 16-bit address follows the
+  // sub-opcode; LDmm8_da16/LDmm16_da16 take them in that order and print them
+  // the other way round.  16-bit source addresses only -- there is no 24-bit
+  // definition, and the register-indirect spelling of this instruction has no
+  // definition at all (see mem_subopcode_gap_census.py).
+  if (!IsDst && SubOp == 0x19 && OpSize <= 1 && AddrBytes == 2) {
+    if (Bytes.size() < SubOpIdx + 3)
+      return MCDisassembler::Fail;
+    MI.setOpcode(OpSize == 0 ? TLCS900::LDmm8_da16 : TLCS900::LDmm16_da16);
+    MI.addOperand(MCOperand::createImm(Addr));
+    MI.addOperand(MCOperand::createImm(readU16LE(Bytes, SubOpIdx + 1)));
+    Size = PrefixSize + 3;
+    return MCDisassembler::Success;
+  }
+
+  // Bit operations on a direct address: destination table.
+  //
+  // ⚠ THE SUB-OPCODES ARE THE SAME AS THE REGISTER-INDIRECT DESTINATION
+  // TABLE'S -- 0x98 LDCF, 0xA0 STCF, 0xA8 TSET, 0xB0 RES, 0xB8 SET, 0xC0 CHG,
+  // 0xC8 BIT -- and this branch used to map 0xA0/0xA8/0xB0 to BIT/RES/SET,
+  // one whole group out of step.  It was not a refusal but a WRONG decode
+  // that no round-trip test then existed to catch: v10's `f1 13 04 b0`
+  // ("res 0, (1043)") came back as "setda 0, (1043)" and re-assembled to
+  // `f1 13 04 b8`.  157 distinct v10 samples were affected.  Confirmed
+  // against MAME unidasm on all seven sub-opcodes.
+  //
+  // Only the four with a matching definition are decoded.  ⚠ TSET_da16 and
+  // TSET_da24 are declared with opcode 0xA0, which is STCF; decoding 0xA0 to
+  // them would round-trip and still be the wrong instruction, so 0x98/0xA0/
+  // 0xA8 are refused until correctly-named definitions exist.  Fixing those
+  // two opcodes is an ENCODING change and deliberately not made here.
+  if (IsDst && SubOp >= 0x98 && SubOp <= 0xCF) {
+    bool Is24 = (AddrBytes == 3);
+    unsigned Opc = 0;
+    switch (SubOp & 0xF8) {
+    case 0xB0: Opc = Is24 ? TLCS900::RES_da24 : TLCS900::RES_da16; break;
+    case 0xB8: Opc = Is24 ? TLCS900::SET_da24 : TLCS900::SET_da16; break;
+    case 0xC0: Opc = Is24 ? TLCS900::CHG_da24 : 0; break;
+    case 0xC8: Opc = Is24 ? TLCS900::BIT_da24 : TLCS900::BIT_da16; break;
+    default: break;
+    }
+    if (!Opc)
+      return MCDisassembler::Fail;
+    MI.setOpcode(Opc);
+    MI.addOperand(MCOperand::createImm(Addr));
+    MI.addOperand(MCOperand::createImm(SubOp & 0x7));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
 
-  // RETcc in destination table: sub-opcode 0xF0-0xFF
-  if (IsDst && SubOp >= 0xF0) {
-    unsigned CC = SubOp & 0xF;
-    MI.setOpcode(TLCS900::RETcc);
-    MI.addOperand(MCOperand::createImm(CC));
+  // JP cc, (addr) / CALL cc, (addr): destination sub-opcodes 0xD0-0xEF,
+  // 24-bit address only (JPCC_24/CALLCC_24 are the only definitions).
+  if (IsDst && SubOp >= 0xD0 && SubOp <= 0xEF && AddrBytes == 3) {
+    MI.setOpcode(SubOp < 0xE0 ? TLCS900::JPCC_24 : TLCS900::CALLCC_24);
+    MI.addOperand(MCOperand::createImm(Addr));
+    MI.addOperand(MCOperand::createImm(SubOp & 0xF));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
+
+  // ⚠ NO RETcc here.  Sub-opcodes 0xF0-0xFF after a direct-address prefix
+  // used to decode to plain RETcc, whose own encoding is the two bytes
+  // `B0, F0+cc` -- so `f1 aa 28 f9` printed "ret ge" and re-assembled four
+  // bytes shorter, into a different instruction.  There is no direct-address
+  // RET definition, and no source in this tree writes one.
 
   return MCDisassembler::Fail;
 }
