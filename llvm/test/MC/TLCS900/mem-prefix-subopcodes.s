@@ -724,6 +724,33 @@ bitda_24 0, (132582)
 ; CHECK-INST: bitda_24 7, (132580)
 bitda_24 7, (132580)
 ;==========================================================================
+; 32-bit AND / OR through a 24-bit direct address
+;==========================================================================
+
+; kn5000_v10_program.rom +0x1981C5 (rom 0xF981C5) -- unidasm: and XWA,(0x02749e)
+; CHECK: andda32_24 xwa, (160926)
+; CHECK-ENC: encoding: [0xe2,0x9e,0x74,0x02,0xc0]
+; CHECK-INST: andda32_24 xwa, (160926)
+andda32_24 xwa, (160926)
+
+; kn5000_v10_program.rom +0x198202 (rom 0xF98202) -- unidasm: and (0x02749a),XWA
+; CHECK: anddm32_24 (160922), xwa
+; CHECK-ENC: encoding: [0xe2,0x9a,0x74,0x02,0xc8]
+; CHECK-INST: anddm32_24 (160922), xwa
+anddm32_24 (160922), xwa
+
+; kn5000_v10_program.rom +0x0FAA5A (rom 0xEFAA5A) -- unidasm: or XWA,(0x02749e)
+; CHECK: orda32_24 xwa, (160926)
+; CHECK-ENC: encoding: [0xe2,0x9e,0x74,0x02,0xe0]
+; CHECK-INST: orda32_24 xwa, (160926)
+orda32_24 xwa, (160926)
+
+; kn5000_v10_program.rom +0x1981BE (rom 0xF981BE) -- unidasm: or (0x02749a),XWA
+; CHECK: ordm32_24 (160922), xwa
+; CHECK-ENC: encoding: [0xe2,0x9a,0x74,0x02,0xe8]
+; CHECK-INST: ordm32_24 (160922), xwa
+ordm32_24 (160922), xwa
+;==========================================================================
 ; LINK / UNLK
 ;==========================================================================
 
