@@ -269,6 +269,57 @@ static const unsigned LDriPrefix[3] = {
     TLCS900::LD8ri_asm, TLCS900::LD16ri_asm, TLCS900::LD32ri};
 
 //===----------------------------------------------------------------------===//
+// Source-memory-prefix ALU sub-opcode tables
+//===----------------------------------------------------------------------===//
+// The 0x80/0x90/0xA0 prefixes (byte/word/long source memory) share one
+// sub-opcode table whose upper half is the ALU family.  Each operation owns a
+// pair of adjacent 8-entry rows -- the register-destination direction first,
+// the memory-destination direction second:
+//
+//   0x80 ADD r,(mem)   0x88 ADD (mem),r      0xC0 AND r,(mem)   0xC8 AND (mem),r
+//   0x90 ADC r,(mem)   0x98 ADC (mem),r      0xD0 XOR r,(mem)   0xD8 XOR (mem),r
+//   0xA0 SUB r,(mem)   0xA8 SUB (mem),r      0xE0 OR  r,(mem)   0xE8 OR  (mem),r
+//   0xB0 SBC r,(mem)   0xB8 SBC (mem),r      0xF0 CP  r,(mem)   0xF8 CP  (mem),r
+//
+// so bits 4-6 of the sub-opcode select the operation, bit 3 the direction and
+// bits 0-2 the register.  Indexed [MemSize][op] with op in that 0..7 order.
+// ⚠ These rows are the ORDER THE HARDWARE USES, which is not the order of
+// ALUri/ALUrr above (ADD, ADC, SUB, SBC, AND, XOR, OR, CP): there AND/XOR/OR
+// are 0xCC/0xCD/0xCE, here they are 0xC0/0xD0/0xE0.  Same eight operations,
+// different table.
+static const unsigned ALUrm[3][8] = {
+  {TLCS900::ADD8rm, TLCS900::ADC8rm, TLCS900::SUB8rm, TLCS900::SBC8rm,
+   TLCS900::AND8rm, TLCS900::XOR8rm, TLCS900::OR8rm, TLCS900::CP8rm},
+  {TLCS900::ADD16rm, TLCS900::ADC16rm, TLCS900::SUB16rm, TLCS900::SBC16rm,
+   TLCS900::AND16rm, TLCS900::XOR16rm, TLCS900::OR16rm, TLCS900::CP16rm},
+  {TLCS900::ADD32rm, TLCS900::ADC32rm, TLCS900::SUB32rm, TLCS900::SBC32rm,
+   TLCS900::AND32rm, TLCS900::XOR32rm, TLCS900::OR32rm, TLCS900::CP32rm},
+};
+
+static const unsigned ALUmr[3][8] = {
+  {TLCS900::ADD8mr, TLCS900::ADC8mr, TLCS900::SUB8mr, TLCS900::SBC8mr,
+   TLCS900::AND8mr, TLCS900::XOR8mr, TLCS900::OR8mr, TLCS900::CP8mr},
+  {TLCS900::ADD16mr, TLCS900::ADC16mr, TLCS900::SUB16mr, TLCS900::SBC16mr,
+   TLCS900::AND16mr, TLCS900::XOR16mr, TLCS900::OR16mr, TLCS900::CP16mr},
+  {TLCS900::ADD32mr, TLCS900::ADC32mr, TLCS900::SUB32mr, TLCS900::SBC32mr,
+   TLCS900::AND32mr, TLCS900::XOR32mr, TLCS900::OR32mr, TLCS900::CP32mr},
+};
+
+// ALU (mem), #imm -- sub-opcodes 0x38-0x3F, in the SAME operation order as
+// the rows above.  There is no 32-bit row: the long source table (0xA0) has
+// no memory-immediate ALU, which is why the .td's ADD32mi/SUB32mi/CP32mi are
+// isCodeGenOnly with opcodes borrowed from the register-immediate table.  A
+// third row here would decode 0xA?/0x3F bytes into text that re-encodes to
+// something else entirely, so the table stops at two and MemSize == 2 falls
+// through to the ordinary refusal.
+static const unsigned ALUmi[2][8] = {
+  {TLCS900::ADD8mi, TLCS900::ADC8mi, TLCS900::SUB8mi, TLCS900::SBC8mi,
+   TLCS900::AND8mi, TLCS900::XOR8mi, TLCS900::OR8mi, TLCS900::CP8mi},
+  {TLCS900::ADD16mi, TLCS900::ADC16mi, TLCS900::SUB16mi, TLCS900::SBC16mi,
+   TLCS900::AND16mi, TLCS900::XOR16mi, TLCS900::OR16mi, TLCS900::CP16mi},
+};
+
+//===----------------------------------------------------------------------===//
 // Unified register prefix decoder
 //===----------------------------------------------------------------------===//
 
@@ -692,23 +743,46 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   uint8_t OpByte = Bytes[OpByteIdx];
   unsigned Base = decodeGPR(BaseReg);
 
-  // Block transfer instructions live in the byte source memory table (0x80).
-  // Sub-opcodes 0x10-0x17 are block transfers (LDI, LDIR, LDD, LDDR, etc.)
-  if (MemSize == 0 && OpByte >= 0x10 && OpByte <= 0x17) {
-    switch (OpByte) {
-    case 0x10: MI.setOpcode(TLCS900::LDI);  break;
-    case 0x11: MI.setOpcode(TLCS900::LDIR); break;
-    case 0x12: MI.setOpcode(TLCS900::LDD);  break;
-    case 0x13: MI.setOpcode(TLCS900::LDDR); break;
-    case 0x14: MI.setOpcode(TLCS900::CPI);  break;
-    case 0x15: MI.setOpcode(TLCS900::CPIR); break;
-    case 0x16: MI.setOpcode(TLCS900::CPD);  break;
-    case 0x17: MI.setOpcode(TLCS900::CPDR); break;
-    default:
-      return MCDisassembler::Fail;
+  // Block transfer instructions: sub-opcodes 0x10-0x17 of the byte (0x80) and
+  // word (0x90) source memory tables.
+  //
+  // ⚠ The base-register field of the prefix is part of the encoding even
+  // though the hardware ignores it for these, and the firmware does not always
+  // write 0: v10 has `83 11`, `85 10`, `85 13`, `93 11`, `95 10`.  Each such
+  // combination has its OWN instruction definition carrying the index (LDIR83,
+  // LDI85, LDIRW93, ...), because the plain LDI/LDIR/... always encode the
+  // field as 0.  Decoding every index to the plain spelling therefore lost the
+  // byte -- `83 11` printed "ldir" and re-assembled to `80 11`.
+  //
+  // Only the (size, index, sub-opcode) combinations that have a definition are
+  // decoded.  An index with no spelling is REFUSED rather than rounded to the
+  // nearest one: this tree has no source for it, and a decode that
+  // re-assembles to different bytes is worse than none.
+  if (MemSize <= 1 && OpByte >= 0x10 && OpByte <= 0x17 && PrefixSize == 1) {
+    struct BlockXferEntry {
+      uint8_t MemSize, RegIdx, Sub;
+      unsigned Opc;
+    };
+    static const BlockXferEntry BlockXferOps[] = {
+        {0, 0, 0x10, TLCS900::LDI},     {0, 0, 0x11, TLCS900::LDIR},
+        {0, 0, 0x12, TLCS900::LDD},     {0, 0, 0x13, TLCS900::LDDR},
+        {0, 0, 0x14, TLCS900::CPI},     {0, 0, 0x15, TLCS900::CPIR},
+        {0, 0, 0x16, TLCS900::CPD},     {0, 0, 0x17, TLCS900::CPDR},
+        {0, 3, 0x11, TLCS900::LDIR83},  {0, 3, 0x13, TLCS900::LDDR83},
+        {0, 3, 0x15, TLCS900::CPIR83},
+        {0, 5, 0x10, TLCS900::LDI85},   {0, 5, 0x11, TLCS900::LDIR85},
+        {0, 5, 0x13, TLCS900::LDDR85},
+        {1, 3, 0x11, TLCS900::LDIRW93},
+        {1, 5, 0x10, TLCS900::LDIW},    {1, 5, 0x11, TLCS900::LDIRW},
+    };
+    for (const auto &E : BlockXferOps) {
+      if (E.MemSize == MemSize && E.RegIdx == BaseReg && E.Sub == OpByte) {
+        MI.setOpcode(E.Opc);
+        Size = PrefixSize + 1;
+        return MCDisassembler::Success;
+      }
     }
-    Size = PrefixSize + 1;
-    return MCDisassembler::Success;
+    return MCDisassembler::Fail;
   }
 
   // MemLoad: 0x20-0x27 = LD rd, (mem) — size depends on MemSize
@@ -829,11 +903,15 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     return MCDisassembler::Success;
   }
 
-  // PUSH (mem): sub-opcode 0x04 (byte/word source tables only)
+  // PUSH (mem): sub-opcode 0x04 (byte/word source tables only).
+  // ⚠ PUSHB_m/PUSHW_m, NOT PUSH8/PUSH16.  The latter are the one-byte
+  // register pushes (0x38+r); decoding to them threw the memory prefix away,
+  // so `92 04` ("pushm (xde)") printed as "push xde" and re-assembled to the
+  // single byte 0x3a -- a three-to-one byte loss that nothing reported.
   if (OpByte == 0x04 && MemSize <= 1) {
-    unsigned Opc = (MemSize == 0) ? TLCS900::PUSH8 : TLCS900::PUSH16;
-    MI.setOpcode(Opc);
+    MI.setOpcode(MemSize == 0 ? TLCS900::PUSHB_m : TLCS900::PUSHW_m);
     MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -856,72 +934,197 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     return MCDisassembler::Success;
   }
 
-  // RETcc: sub-opcode 0xF0-0xFF (B0 destination table only)
+  // RETcc: sub-opcode 0xF0-0xFF (B0 destination table only).
+  //
+  // The condition is all RETcc carries, but the prefix byte still holds a
+  // base-register field the instruction does not use, and the hardware
+  // ignores it.  RETcc's own encoding writes that field as 0, so decoding
+  // every prefix to RETcc loses it: v7/v9's `b6 f9` came back as "ret ge" and
+  // re-assembled to `b0 f9`.  RET_CC_RI is the spelling that keeps the
+  // register, so use it whenever the field is not 0.
+  //
+  // A d8 prefix (0xB8-0xBF) has no spelling at all here -- RET_CC_RI is a
+  // two-byte form -- and no source in this tree writes one, so it is refused
+  // rather than decoded to something that re-assembles two bytes shorter.
   if (IsDstMem && OpByte >= 0xF0) {
+    if (PrefixSize != 1)
+      return MCDisassembler::Fail;
     unsigned CC = OpByte & 0xF;
-    MI.setOpcode(TLCS900::RETcc);
-    MI.addOperand(MCOperand::createImm(CC));
+    if (BaseReg == 0) {
+      MI.setOpcode(TLCS900::RETcc);
+      MI.addOperand(MCOperand::createImm(CC));
+    } else {
+      MI.setOpcode(TLCS900::RET_CC_RI);
+      MI.addOperand(MCOperand::createReg(Base));
+      MI.addOperand(MCOperand::createImm(CC));
+    }
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
 
-  // "JP cc, (mem)" and "CALL cc, (mem)" through a register-indirect memory
-  // prefix (B0-B7/B8-BF sub-opcodes 0xD0-0xDF / 0xE0-0xEF, and the SRI
-  // register-indexed forms that delegate here with IsDstMem set) have NO
-  // dedicated instruction definition. This code used to repurpose JPcc and
-  // CALLCC_24 -- the *unrelated* 0x70-prefixed short-branch and F2
-  // direct-24-bit-address encodings -- built from (Imm(cc), Reg(base)).
-  // Both of those opcodes declare a `brtarget`/`directaddr` operand, which
-  // TLCS900InstPrinter prints by calling MCOperand::getImm() unconditionally;
-  // handing it a Reg instead crashes with "This is not an immediate" in
-  // llvm::MCOperand::getImm() (llvm-mc: MCInst.h:82) on ANY byte reaching
-  // this branch, not just malformed ones -- confirmed 2026-09-02 on v7's
-  // `CharMap_ValueData_B` at raw bytes `b8 8e ee` (base=0, disp=-114,
-  // sub-opcode 0xee -> "CALL 0xE, (Base-114)"), 15 bytes deep into what the
-  // caller had fed as a single long stream, which is why every prior probe
-  // that summed multi-instruction windows saw only a bare subprocess crash
-  // (returncode -6) with no diagnosable cause.
+  // JP cc, (mem) and CALL cc, (mem) -- destination table sub-opcodes
+  // 0xD0-0xDF and 0xE0-0xEF, condition in the low four bits.  Built from
+  // JPCC_m/CALLCC_m (MemDstCCInst), whose emitter case reads its operands as
+  // base, disp, cc; MAME's independent TLCS-900 disassembler reads `b1 d1` the
+  // same way ("jp NZ,(XBC)").
   //
-  // The operand order was ALSO backwards versus each instruction's own
-  // declared operand list ("$cc, $addr" wants addr first) -- so even with
-  // matching operand types this could never have reassembled to anything a
-  // human wrote. No committed source anywhere in this tree could be relying
-  // on this branch's output: it has never once returned to a caller without
-  // the process aborting first. Refusing outright (Fail, not a guessed new
-  // encoding) turns that hard crash into an ordinary, diagnosable "invalid
-  // instruction encoding" -- this project's rule for a form with no
-  // established ground truth.
+  // ⚠ This branch used to repurpose JPcc and CALLCC_24 -- the unrelated
+  // 0x70-prefixed short-branch and F2 direct-address encodings -- passing a
+  // Reg where their `brtarget`/`directaddr` operand is printed with an
+  // unconditional MCOperand::getImm(), so ANY byte reaching here aborted the
+  // process ("This is not an immediate", MCInst.h:82).  It was then made to
+  // Fail outright for want of a ground truth.  Do not reintroduce an operand
+  // order taken from anywhere but the instruction's own declared list.
   if (IsDstMem && OpByte >= 0xD0 && OpByte <= 0xEF) {
-    return MCDisassembler::Fail;
+    MI.setOpcode(OpByte < 0xE0 ? TLCS900::JPCC_m : TLCS900::CALLCC_m);
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    MI.addOperand(MCOperand::createImm(OpByte & 0xF));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
   }
 
-  // MemALU register-source operations (all sizes)
-  // Source memory table: ops that read from memory and combine with a register.
-  {
-    struct MemALURegEntry {
-      uint8_t Base;
-      unsigned Opcodes[3]; // [MemSize] = opcode
+  // --- Destination memory table: the forms with no register in the opcode ---
+  //
+  // These occupy sub-opcodes the SOURCE table gives to ALU operations, so they
+  // must be settled before the ALU tables below are consulted -- and the ALU
+  // tables must not be consulted for a destination prefix at all.  Reading
+  // them there is not a missing decode but a WRONG one: `b3 c8` is
+  // "bit 0, (xhl)" and used to come back as "and (xhl), xwa", which
+  // re-assembles to `a3 c8` -- different bytes, silently.
+  if (IsDstMem) {
+    // POP/POPW (mem) and the carry-flag group ANDCF/ORCF/XORCF/LDCF/STCF
+    // A,(mem): fixed opcode byte, no register and no bit number.
+    struct DstUnaryEntry { uint8_t Sub; unsigned Opc; };
+    static const DstUnaryEntry DstUnaryOps[] = {
+        {0x04, TLCS900::POPB_m},   {0x06, TLCS900::POPW_m},
+        {0x28, TLCS900::ANDCFA_m}, {0x29, TLCS900::ORCFA_m},
+        {0x2A, TLCS900::XORCFA_m}, {0x2B, TLCS900::LDCFA_m},
+        {0x2C, TLCS900::STCFA_m},
     };
-    static const MemALURegEntry MemALURegOps[] = {
-        {0x88, {TLCS900::ADD8mr, TLCS900::ADD16mr, TLCS900::ADD32mr}},
-        {0xA8, {TLCS900::SUB8mr, TLCS900::SUB16mr, TLCS900::SUB32mr}},
-        {0xC8, {TLCS900::AND8mr, TLCS900::AND16mr, TLCS900::AND32mr}},
-        {0xD8, {TLCS900::XOR8mr, TLCS900::XOR16mr, TLCS900::XOR32mr}},
-        {0xE8, {TLCS900::OR8mr, TLCS900::OR16mr, TLCS900::OR32mr}},
-        {0xF8, {TLCS900::CP8mr, TLCS900::CP16mr, TLCS900::CP32mr}},
-    };
-    unsigned AluBase = OpByte & 0xF8;
-    for (const auto &Op : MemALURegOps) {
-      if (AluBase == Op.Base) {
-        unsigned SrcReg = decodeRegForSize(OpByte & 0x7, MemSize);
-        MI.setOpcode(Op.Opcodes[MemSize]);
+    for (const auto &E : DstUnaryOps) {
+      if (OpByte == E.Sub) {
+        MI.setOpcode(E.Opc);
         MI.addOperand(MCOperand::createReg(Base));
         MI.addOperand(MCOperand::createImm(Disp));
-        MI.addOperand(MCOperand::createReg(SrcReg));
         Size = PrefixSize + 1;
         return MCDisassembler::Success;
       }
     }
+
+    // Bit operations: base sub-opcode + bit number in bits 0-2.
+    struct DstBitEntry { uint8_t Base; unsigned Opc; };
+    static const DstBitEntry DstBitOps[] = {
+        {0x98, TLCS900::LDCFm}, {0xA0, TLCS900::STCFm},
+        {0xA8, TLCS900::TSETm}, {0xB0, TLCS900::RESm},
+        {0xB8, TLCS900::SETm},  {0xC0, TLCS900::CHGm},
+        {0xC8, TLCS900::BITm},
+    };
+    for (const auto &E : DstBitOps) {
+      if ((OpByte & 0xF8) == E.Base) {
+        MI.setOpcode(E.Opc);
+        MI.addOperand(MCOperand::createReg(Base));
+        MI.addOperand(MCOperand::createImm(Disp));
+        MI.addOperand(MCOperand::createImm(OpByte & 0x7));
+        Size = PrefixSize + 1;
+        return MCDisassembler::Success;
+      }
+    }
+
+    // Nothing else in the destination table has a decode yet.  Refusing here
+    // rather than falling into the source table's ALU rows is the point of
+    // this whole block.
+    return MCDisassembler::Fail;
+  }
+
+  // ⚠ NO decode for source-table sub-opcodes 0x28-0x2F.  LD8mr_src /
+  // LD16mr_src / LD32mr_src claim that range for "LD (mem), rs", but MAME's
+  // TLCS-900 disassembler renders `80 28`, `90 28` and `a0 28` as `db` -- not
+  // an instruction -- and no committed source in the kn5000-roms-disasm tree
+  // contains a single statement with that sub-opcode in a source memory
+  // prefix (censused over v7, v9 and v10 by
+  // scripts/analysis/mem_subopcode_gap_census.py).  A decode with no ground
+  // truth in either direction is exactly what this file refuses to guess.
+
+  // --- Source memory table: EX (mem), r at 0x30-0x37 ---
+  // Byte and word only; the long source table does not carry these.
+  if (OpByte >= 0x30 && OpByte <= 0x37 && MemSize <= 1) {
+    MI.setOpcode(MemSize == 0 ? TLCS900::EX8m : TLCS900::EX16m);
+    MI.addOperand(MCOperand::createReg(decodeRegForSize(OpByte & 0x7, MemSize)));
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
+
+  // --- Source memory table: MUL/MULS/DIV/DIVS rd, (mem) at 0x40-0x5F ---
+  if (OpByte >= 0x40 && OpByte <= 0x5F && MemSize <= 1) {
+    static const unsigned MULDIVm[4][2] = {
+        {TLCS900::MUL8m, TLCS900::MUL16m},
+        {TLCS900::MULS8m, TLCS900::MULS16m},
+        {TLCS900::DIV8m, TLCS900::DIV16m},
+        {TLCS900::DIVS8m, TLCS900::DIVS16m},
+    };
+    MI.setOpcode(MULDIVm[(OpByte >> 3) & 0x3][MemSize]);
+    MI.addOperand(MCOperand::createReg(decodeRegForSize(OpByte & 0x7, MemSize)));
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
+
+  // --- Source memory table: shift/rotate (mem) at 0x78-0x7F ---
+  // ⚠ The sub-opcode order is rlc rrc rl rr sla sra sll srl -- not
+  // alphabetical, and sla/sll have been transposed once already in this
+  // project.  It matches the def order in TLCS900InstrInfo.td exactly.
+  if (OpByte >= 0x78 && OpByte <= 0x7F && MemSize <= 1) {
+    static const unsigned SHIFTm[8][2] = {
+        {TLCS900::RLC8m, TLCS900::RLC16m}, {TLCS900::RRC8m, TLCS900::RRC16m},
+        {TLCS900::RL8m, TLCS900::RL16m},   {TLCS900::RR8m, TLCS900::RR16m},
+        {TLCS900::SLA8m, TLCS900::SLA16m}, {TLCS900::SRA8m, TLCS900::SRA16m},
+        {TLCS900::SLL8m, TLCS900::SLL16m}, {TLCS900::SRL8m, TLCS900::SRL16m},
+    };
+    MI.setOpcode(SHIFTm[OpByte & 0x7][MemSize]);
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
+  }
+
+  // --- Source memory table: ALU (mem), #imm at 0x38-0x3F ---
+  // Byte and word only; see ALUmi's comment for why there is no long row.
+  if (OpByte >= 0x38 && OpByte <= 0x3F && MemSize <= 1) {
+    unsigned NumImm = immBytesForSize(MemSize);
+    if (Bytes.size() < OpByteIdx + 1 + NumImm)
+      return MCDisassembler::Fail;
+    MI.setOpcode(ALUmi[MemSize][OpByte & 0x7]);
+    MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+    MI.addOperand(MCOperand::createImm(readImmLE(Bytes, OpByteIdx + 1, NumImm)));
+    Size = PrefixSize + 1 + NumImm;
+    return MCDisassembler::Success;
+  }
+
+  // --- Source memory table: the ALU family at 0x80-0xFF ---
+  // Bits 4-6 pick the operation, bit 3 the direction, bits 0-2 the register.
+  if (OpByte >= 0x80) {
+    unsigned AluIdx = (OpByte >> 4) & 0x7;
+    unsigned Reg = decodeRegForSize(OpByte & 0x7, MemSize);
+    if (OpByte & 0x08) {
+      // OP (mem), r -- memory is the destination, register the source.
+      MI.setOpcode(ALUmr[MemSize][AluIdx]);
+      MI.addOperand(MCOperand::createReg(Base));
+      MI.addOperand(MCOperand::createImm(Disp));
+      MI.addOperand(MCOperand::createReg(Reg));
+    } else {
+      // OP r, (mem) -- register is the destination.
+      MI.setOpcode(ALUrm[MemSize][AluIdx]);
+      MI.addOperand(MCOperand::createReg(Reg));
+      MI.addOperand(MCOperand::createReg(Base));
+      MI.addOperand(MCOperand::createImm(Disp));
+    }
+    Size = PrefixSize + 1;
+    return MCDisassembler::Success;
   }
 
   return MCDisassembler::Fail;
