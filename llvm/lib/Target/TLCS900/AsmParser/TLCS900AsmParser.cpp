@@ -12,6 +12,7 @@
 #include "TargetInfo/TLCS900TargetInfo.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -24,6 +25,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 
@@ -98,6 +100,44 @@ public:
     return Kind == k_Memory && !Mem.Base &&
            (Mem.AddrBytes == 0 || Mem.AddrBytes == 2);
   }
+
+  // An 8-bit direct address for the I/O short form (`:io`), written `(n:8)`.
+  // AddrBytes == 1 EXACTLY: an unsuffixed `(n)` keeps its 24-bit default
+  // everywhere, so the width is still never inferred.  The address must be a
+  // constant in 0..255 -- LdIoImm's encoder has no fixup for it and would
+  // otherwise emit 0x00 or a truncated byte in silence.
+  bool isDaddr8() const {
+    if (Kind != k_Memory || Mem.Base || Mem.AddrBytes != 1)
+      return false;
+    const auto *CE = dyn_cast<MCConstantExpr>(Mem.Disp);
+    return CE && isUInt<8>(CE->getValue());
+  }
+
+  // The `:i3` immediate: the value is packed into the opcode byte's low three
+  // bits.  No relocation can reach an opcode field, so a symbol is never
+  // legitimate here, and a value outside 0..7 does not fit.
+  bool isImmI3() const {
+    if (Kind != k_Immediate)
+      return false;
+    const auto *CE = dyn_cast<MCConstantExpr>(Imm);
+    return CE && isUInt<3>(CE->getValue());
+  }
+
+  // The `:io` immediates.  LdIoImm / LdIoImm16 emit no fixup and push a
+  // literal 0 for anything that is not a constant, so a constant is required.
+  bool isImmIO8() const {
+    if (Kind != k_Immediate)
+      return false;
+    const auto *CE = dyn_cast<MCConstantExpr>(Imm);
+    return CE && (isInt<8>(CE->getValue()) || isUInt<8>(CE->getValue()));
+  }
+  bool isImmIO16() const {
+    if (Kind != k_Immediate)
+      return false;
+    const auto *CE = dyn_cast<MCConstantExpr>(Imm);
+    return CE && (isInt<16>(CE->getValue()) || isUInt<16>(CE->getValue()));
+  }
+
   bool isCondCode() const { return Kind == k_CondCode; }
 
   SMLoc getStartLoc() const override { return StartLoc; }
@@ -121,6 +161,19 @@ public:
   unsigned getCondCode() const {
     assert(Kind == k_CondCode && "Invalid access!");
     return CC;
+  }
+
+  bool hasMemBase() const {
+    assert(Kind == k_Memory && "Invalid access!");
+    return Mem.Base.isValid();
+  }
+  const MCExpr *getMemDisp() const {
+    assert(Kind == k_Memory && "Invalid access!");
+    return Mem.Disp;
+  }
+  unsigned getMemAddrBytes() const {
+    assert(Kind == k_Memory && "Invalid access!");
+    return Mem.AddrBytes;
   }
 
   void addRegOperands(MCInst &Inst, unsigned N) const {
@@ -173,6 +226,12 @@ public:
       Inst.addOperand(MCOperand::createImm(CE->getValue()));
     else
       Inst.addOperand(MCOperand::createExpr(Mem.Disp));
+  }
+
+  // One MCOperand, exactly as `i32imm:$addr` rendered before the operand was
+  // retyped, so the MCInst layout the encoder sees is unchanged.
+  void addDaddr8Operands(MCInst &Inst, unsigned N) const {
+    addDaddr16Operands(Inst, N);
   }
 
   void addMemrrOperands(MCInst &Inst, unsigned N) const {
@@ -297,6 +356,7 @@ class TLCS900AsmParser : public MCTargetAsmParser {
   ParseStatus parseDirectAddrOperand(OperandVector &Operands);
   ParseStatus parseMemriOperand(OperandVector &Operands);
   ParseStatus parseCondCodeOperand(OperandVector &Operands);
+  ParseStatus parseEncodingSelector(OperandVector &Operands);
 
   bool parseOperand(OperandVector &Operands);
 
@@ -347,9 +407,18 @@ bool TLCS900AsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
     // an assertions build and undefined behaviour in a release one.
     SMLoc ErrorLoc = IDLoc;
     if (ErrorInfo != ~0ULL && ErrorInfo < Operands.size()) {
-      ErrorLoc = ((TLCS900Operand &)*Operands[ErrorInfo]).getStartLoc();
+      const auto &Op = (TLCS900Operand &)*Operands[ErrorInfo];
+      ErrorLoc = Op.getStartLoc();
       if (ErrorLoc == SMLoc())
         ErrorLoc = IDLoc;
+      // An encoding selector is a literal token; if no matchable took it,
+      // this instruction has no encoding under that selector for these
+      // operands (or a selector was written where none belongs).
+      if (Op.isToken() && Op.getToken().starts_with(":"))
+        return Error(ErrorLoc, "no encoding of '" +
+                                   ((TLCS900Operand &)*Operands[0]).getToken() +
+                                   "' takes the '" + Op.getToken() +
+                                   "' selector with these operands");
     }
     return Error(ErrorLoc, "invalid operand for instruction");
   }
@@ -559,6 +628,113 @@ ParseStatus TLCS900AsmParser::parseCondCodeOperand(OperandVector &Operands) {
   return ParseStatus::Success;
 }
 
+/// parseEncodingSelector - Parse an ENCODING SELECTOR written after an
+/// operand: `:i3`, `:opc` or `:io` (defined in TLCS900EncodingForms.td).
+///
+/// A selector names ONE encoding of the instruction.  It is pushed as a
+/// literal token operand, exactly like the `(` / `)` of `jp (xix)`, so the
+/// short form's matchable carries one more asm operand than the default
+/// form's and a source line that writes no selector is structurally unable
+/// to reach it.  Nothing here or in the matcher compares encoding lengths.
+///
+/// Each selector is bound to exactly one encoder path, so the contract that
+/// path imposes on its operand is checked here, at the selector, where the
+/// value is known and the message can name it:
+///   :i3  the value is packed into the opcode byte's low 3 bits -- a constant
+///        in 0..7, never a relocatable expression (no fixup reaches an opcode)
+///   :opc the operation's own primary-map opcode (0x20+r) -- its encoder emits
+///        a real fixup, so a symbolic immediate stays legal
+///   :io  the I/O-space store opcode (0x08 / 0x0A) -- its encoder has no
+///        fixup at all, so the value must be a constant and the address must
+///        be written (n:8) with n in 0..255
+/// The operand-class predicates (isImmI3, isImmIO8/16, isDaddr8) restate the
+/// same contracts for the matcher; these checks exist so the failure is a
+/// named error at the selector rather than a generic mismatch.
+ParseStatus TLCS900AsmParser::parseEncodingSelector(OperandVector &Operands) {
+  if (getLexer().isNot(AsmToken::Colon))
+    return ParseStatus::NoMatch;
+
+  SMLoc ColonLoc = getLexer().getLoc();
+  Parser.Lex(); // consume ':'
+
+  if (getLexer().is(AsmToken::Integer))
+    return Error(getLexer().getLoc(),
+                 "an encoding selector is an identifier such as ':i3'; a "
+                 "numeric ':N' is an ADDRESS WIDTH and is written inside the "
+                 "parentheses of a direct address, e.g. (0x2075:16)");
+  if (getLexer().isNot(AsmToken::Identifier))
+    return Error(getLexer().getLoc(),
+                 "expected an encoding selector after ':' (:i3, :opc or :io)");
+
+  SMLoc NameLoc = getLexer().getLoc();
+  StringRef Name = getLexer().getTok().getString();
+  if (NameLoc.getPointer() != ColonLoc.getPointer() + 1)
+    return Error(NameLoc,
+                 "an encoding selector is written directly after the ':', "
+                 "with no space");
+
+  // The token pushed is a string literal, so it has static lifetime and is
+  // exactly the spelling the matcher's token class compares against.
+  StringRef Selector = StringSwitch<StringRef>(Name)
+                           .Case("i3", ":i3")
+                           .Case("opc", ":opc")
+                           .Case("io", ":io")
+                           .Default("");
+  if (Selector.empty())
+    return Error(NameLoc, "unknown encoding selector ':" + Name +
+                              "'; expected :i3, :opc or :io");
+
+  const auto *Prev = Operands.size() > 1
+                         ? &(TLCS900Operand &)*Operands.back()
+                         : nullptr;
+  if (Selector == ":i3") {
+    if (!Prev || !Prev->isImm())
+      return Error(ColonLoc, "':i3' selects a 3-bit immediate field and is "
+                             "written after an immediate operand");
+    const auto *CE = dyn_cast<MCConstantExpr>(Prev->getImm());
+    if (!CE)
+      return Error(Prev->getStartLoc(),
+                   "the 3-bit opcode field cannot hold a relocatable "
+                   "expression");
+    if (!isUInt<3>(CE->getValue()))
+      return Error(Prev->getStartLoc(),
+                   Twine(CE->getValue()) +
+                       " does not fit the 3-bit opcode field (must be 0..7)");
+  } else if (Selector == ":io") {
+    if (!Prev || !Prev->isImm())
+      return Error(ColonLoc, "':io' is written after the value of an "
+                             "I/O-space store: ld (n:8), value:io");
+    if (!isa<MCConstantExpr>(Prev->getImm()))
+      return Error(Prev->getStartLoc(),
+                   "the I/O short form cannot hold a relocatable expression; "
+                   "its encoder has no fixup");
+    const auto *Addr = Operands.size() > 2
+                           ? &(TLCS900Operand &)*Operands[Operands.size() - 2]
+                           : nullptr;
+    if (!Addr || !Addr->isMemri() || Addr->hasMemBase() ||
+        Addr->getMemAddrBytes() != 1)
+      return Error(Addr ? Addr->getStartLoc() : ColonLoc,
+                   "the I/O short form takes an 8-bit direct address, "
+                   "written (n:8)");
+    const auto *ACE = dyn_cast<MCConstantExpr>(Addr->getMemDisp());
+    if (!ACE)
+      return Error(Addr->getStartLoc(),
+                   "the I/O short form's address must be a constant; its "
+                   "encoder has no fixup");
+    if (!isUInt<8>(ACE->getValue()))
+      return Error(Addr->getStartLoc(),
+                   "0x" + Twine::utohexstr(ACE->getValue()) +
+                       " does not fit an 8-bit direct address");
+  }
+
+  Parser.Lex(); // consume the selector name
+  if (getLexer().is(AsmToken::Colon))
+    return Error(getLexer().getLoc(), "one encoding selector per operand");
+
+  Operands.push_back(TLCS900Operand::createToken(Selector, ColonLoc));
+  return ParseStatus::Success;
+}
+
 /// parseOperand - Parse a single generic operand (register, immediate, or
 /// literal token like parentheses).
 bool TLCS900AsmParser::parseOperand(OperandVector &Operands) {
@@ -627,18 +803,15 @@ bool TLCS900AsmParser::parseInstruction(ParseInstructionInfo &Info,
   while (true) {
     // Try custom operand parsers first (MEMri, CondCode).
     ParseStatus Res = MatchOperandParserImpl(Operands, Name);
-    if (Res.isSuccess()) {
-      if (getLexer().is(AsmToken::Comma))
-        Parser.Lex(); // consume comma
-      if (getLexer().is(AsmToken::EndOfStatement))
-        break;
-      continue;
-    }
     if (Res.isFailure())
       return true;
 
     // Generic operand parsing.
-    if (parseOperand(Operands))
+    if (!Res.isSuccess() && parseOperand(Operands))
+      return true;
+
+    // An encoding selector (`:i3` / `:opc` / `:io`) may follow any operand.
+    if (parseEncodingSelector(Operands).isFailure())
       return true;
 
     if (getLexer().is(AsmToken::Comma))
