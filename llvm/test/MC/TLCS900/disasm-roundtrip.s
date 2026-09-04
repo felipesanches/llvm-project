@@ -39,8 +39,9 @@
 ;   - Direct memory addressing (E1/F1 prefix, 16-bit addr)
 ;   - EX (8/16-bit register exchange)
 ;   - SCC (set on condition, 8-bit)
-;   - Compact LD/CP (lds8/cps)
-;   - I/O instructions (LDIO/LDWIO)
+;   - Compact LD/CP (lds8/cps, retired spellings kept as parse-only aliases)
+;   - I/O instructions (LDIO/LDWIO, likewise)
+;   - Encoding selectors :i3 / :opc / :io and their untagged defaults
 ;   - PUSHW immediate
 
 ; ==========================================================================
@@ -598,4 +599,24 @@ ldwio 66, 4660
 ; PUSHW immediate
 ; ==========================================================================
 pushw 4660
+
+; ==========================================================================
+; Encoding selectors (TLCS900EncodingForms.td): the printer emits the
+; selector from the AsmString, so each of these must print back exactly as it
+; re-parses.  The untagged defaults ride along so a swapped default would show
+; here as well as in encoding-selector.s.
+; ==========================================================================
+cp a, 4:i3
+cp hl, 4:i3
+cp xwa, 5:i3
+cp xwa, 5
+ld d, 4:i3
+ld d, 4:opc
+ld d, 4
+ld hl, 0:i3
+ld xiz, 0:i3
+ld (7:8), 255:io
+ld (7:8), 255
+ldw (237:8), 36352:io
+ldw (237:8), 36352
 pushw 0
