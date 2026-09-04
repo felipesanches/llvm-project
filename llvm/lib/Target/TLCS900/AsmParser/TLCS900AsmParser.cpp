@@ -339,7 +339,12 @@ bool TLCS900AsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                  "instruction requires a CPU feature not currently enabled");
   case Match_MnemonicFail:
     return Error(IDLoc, "unrecognized instruction mnemonic");
-  case Match_InvalidOperand: {
+  case Match_InvalidOperand:
+  default: {
+    // An AsmOperandClass that declares a DiagnosticType makes TableGen return
+    // its own Match_<Type> code from MatchInstructionImpl, and that code lands
+    // here.  Without this arm it would fall into llvm_unreachable: an abort in
+    // an assertions build and undefined behaviour in a release one.
     SMLoc ErrorLoc = IDLoc;
     if (ErrorInfo != ~0ULL && ErrorInfo < Operands.size()) {
       ErrorLoc = ((TLCS900Operand &)*Operands[ErrorInfo]).getStartLoc();
