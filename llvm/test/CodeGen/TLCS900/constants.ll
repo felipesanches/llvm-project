@@ -4,14 +4,14 @@
 
 define i32 @const_zero() {
 ; CHECK-LABEL: const_zero:
-; CHECK:       lds32 xde, 0
+; CHECK:       ld xde, 0:i3
 ; CHECK:       ret
   ret i32 0
 }
 
 define i32 @const_one() {
 ; CHECK-LABEL: const_one:
-; CHECK:       lds32 xde, 1
+; CHECK:       ld xde, 1:i3
 ; CHECK:       ret
   ret i32 1
 }

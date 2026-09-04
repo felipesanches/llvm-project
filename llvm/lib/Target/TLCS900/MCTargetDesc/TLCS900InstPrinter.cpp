@@ -62,6 +62,15 @@ void TLCS900InstPrinter::printDirectAddr(const MCInst *MI, unsigned OpNo,
   O << ")";
 }
 
+// The 8-bit direct address of the I/O short form, `(n:8)`: the width is
+// stated so the assembler's daddr8 operand accepts the text back.
+void TLCS900InstPrinter::printDirectAddr8(const MCInst *MI, unsigned OpNo,
+                                           raw_ostream &O) {
+  O << "(";
+  printOperand(MI, OpNo, O);
+  O << ":8)";
+}
+
 void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
                                           raw_ostream &O) {
   const MCOperand &Base = MI->getOperand(OpNo);

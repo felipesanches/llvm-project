@@ -77,6 +77,7 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_CallSeqEnd,
 //===----------------------------------------------------------------------===//
 
 include "TLCS900InstrFormats.td"
+include "TLCS900EncodingForms.td"
 
 //===----------------------------------------------------------------------===//
 // Operand definitions
@@ -169,6 +170,56 @@ def Daddr16AsmOperand : AsmOperandClass {
 def daddr16 : Operand<i32> {
   let PrintMethod = "printDirectAddr";
   let ParserMatchClass = Daddr16AsmOperand;
+}
+
+// --- Operands of the ENCODING SELECTORS (TLCS900EncodingForms.td) ----------
+//
+// `:i3` -- a constant in 0..7 and never a relocatable expression: no fixup can
+// reach an opcode field, and PrefixSmallImm would otherwise mask the value
+// (`cps a, 9` -> c9 d9) or drop the symbol (`cps a, SYMX` -> c9 d8).  One
+// wrapper per MVT because InstAlias only retypes between Operands of the same
+// Type, and the legacy aliases retype i8imm/i16imm/i32imm to these.
+def ImmI3AsmOperand : AsmOperandClass {
+  let Name = "ImmI3";
+  let PredicateMethod = "isImmI3";
+  let RenderMethod = "addImmOperands";
+  let DiagnosticType = "ImmI3";
+}
+def immi3_8  : Operand<i8>  { let ParserMatchClass = ImmI3AsmOperand; }
+def immi3_16 : Operand<i16> { let ParserMatchClass = ImmI3AsmOperand; }
+def immi3_32 : Operand<i32> { let ParserMatchClass = ImmI3AsmOperand; }
+
+// `:io` -- the value of the I/O-space store.  LdIoImm / LdIoImm16 emit no
+// fixup and push a literal 0 for anything that is not a constant, so a
+// constant that fits the field is required.  `:opc` gets NO such class:
+// SingleByteRegImm emits a real fixup, and a symbolic immediate stays legal.
+def ImmIO8AsmOperand : AsmOperandClass {
+  let Name = "ImmIO8";
+  let PredicateMethod = "isImmIO8";
+  let RenderMethod = "addImmOperands";
+  let DiagnosticType = "ImmIO8";
+}
+def immio8 : Operand<i32> { let ParserMatchClass = ImmIO8AsmOperand; }
+def ImmIO16AsmOperand : AsmOperandClass {
+  let Name = "ImmIO16";
+  let PredicateMethod = "isImmIO16";
+  let RenderMethod = "addImmOperands";
+  let DiagnosticType = "ImmIO16";
+}
+def immio16 : Operand<i32> { let ParserMatchClass = ImmIO16AsmOperand; }
+
+// The 8-bit direct address of the I/O short form, written `(n:8)` -- the
+// width stated, never inferred: an unsuffixed `(n)` keeps its 24-bit default.
+// Renders ONE MCOperand, exactly as the `i32imm:$addr` it replaces.
+def Daddr8AsmOperand : AsmOperandClass {
+  let Name = "Daddr8";
+  let ParserMethod = "parseMemriOperand";
+  let RenderMethod = "addDaddr8Operands";
+  let DiagnosticType = "Daddr8";
+}
+def daddr8 : Operand<i32> {
+  let PrintMethod = "printDirectAddr8";
+  let ParserMatchClass = Daddr8AsmOperand;
 }
 
 // AsmOperandClass for parenthesized direct address (addr)
@@ -704,8 +755,8 @@ def CP32ri : PrefixRegImmInst<0xCF, 6, (outs), (ins GPR:$rs1, i32imm:$imm),
              Sched<[WriteIALU, ReadIALU]>;
 
 // CP rd, #(0-7) — Compare with small immediate: E8+r, 0xD8+val (2 bytes)
-def CP32_small : PrefixSmallImmInst<0xD8, (outs), (ins GPR:$rs1, i32imm:$imm),
-                                     "cps", "$rs1, $imm", []>,
+def CP32_small : PrefixSmallImmInst<0xD8, (outs), (ins GPR:$rs1, immi3_32:$imm),
+                                     "cp", "$rs1, ${imm}" # FormI3.AsmTail, []>,
                  Sched<[WriteIALU, ReadIALU]>;
 
 } // Defs = [SR]
@@ -1080,16 +1131,18 @@ def SWI : SingleByteImm8Inst<0xF8, (outs), (ins i32imm:$num),
                              "swi", "$num", []>,
           Sched<[WriteJmp]>;
 
-// LD (n), #n — I/O register write (3-byte: 0x08 + addr8 + imm8)
+// LD (n:8), #n:io — I/O register write (3-byte: 0x08 + addr8 + imm8).
+// The untagged `ld (n:8), #n` is the 4-byte LD8mi_dst (f0 n 00 imm).
 let mayStore = 1, hasSideEffects = 1 in
-def LDIO : LdIoImmInst<0x08, (outs), (ins i32imm:$addr, i32imm:$val),
-                         "ldio", "$addr, $val", []>,
+def LDIO : LdIoImmInst<0x08, (outs), (ins daddr8:$addr, immio8:$val),
+                         "ld", "$addr, ${val}" # FormIo.AsmTail, []>,
            Sched<[WriteSTW]>;
 
-// LDW (n), #nn — I/O register word write (4-byte: 0x0A + addr8 + imm16)
+// LDW (n:8), #nn:io — I/O register word write (4-byte: 0x0A + addr8 + imm16).
+// The untagged `ldw (n:8), #nn` is the 5-byte LD16mi_dst_02 (f0 n 02 imm16).
 let mayStore = 1, hasSideEffects = 1 in
-def LDWIO : LdIoImm16Inst<0x0A, (outs), (ins i32imm:$addr, i32imm:$val),
-                            "ldwio", "$addr, $val", []>,
+def LDWIO : LdIoImm16Inst<0x0A, (outs), (ins daddr8:$addr, immio16:$val),
+                            "ldw", "$addr, ${val}" # FormIo.AsmTail, []>,
             Sched<[WriteSTW]>;
 
 // RETI — Return from interrupt (pops SR then PC from stack)
@@ -2004,18 +2057,18 @@ def LD16ri_short_sp : SingleByteRegImmInst<0x30, 3, (outs GR16SP:$rd),
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 let OpSize = OpSize8.Value in
 def LD8ri_small : PrefixSmallImmInst<0xA8, (outs GR8:$rd),
-                                      (ins i8imm:$imm),
-                                      "lds8", "$rd, $imm", []>,
+                                      (ins immi3_8:$imm),
+                                      "ld", "$rd, ${imm}" # FormI3.AsmTail, []>,
                   Sched<[WriteIALU]>;
 let OpSize = OpSize16.Value in
 def LD16ri_small : PrefixSmallImmInst<0xA8, (outs GR16:$rd),
-                                       (ins i16imm:$imm),
-                                       "lds", "$rd, $imm", []>,
+                                       (ins immi3_16:$imm),
+                                       "ld", "$rd, ${imm}" # FormI3.AsmTail, []>,
                    Sched<[WriteIALU]>;
 let OpSize = OpSize32.Value in
 def LD32ri_small : PrefixSmallImmInst<0xA8, (outs GPR:$rd),
-                                       (ins i32imm:$imm),
-                                       "lds32", "$rd, $imm", []>,
+                                       (ins immi3_32:$imm),
+                                       "ld", "$rd, ${imm}" # FormI3.AsmTail, []>,
                    Sched<[WriteIALU]>;
 }
 
@@ -2174,8 +2227,8 @@ def CP16ri : PrefixRegImmInst<0xCF, 4, (outs), (ins GR16:$rs1, i16imm:$imm),
              Sched<[WriteIALU, ReadIALU]>;
 
 // CP rd16, #(0-7) — Compare with small immediate: D8+r, 0xD8+val (2 bytes)
-def CP16_small : PrefixSmallImmInst<0xD8, (outs), (ins GR16:$rs1, i16imm:$imm),
-                                     "cps", "$rs1, $imm", []>,
+def CP16_small : PrefixSmallImmInst<0xD8, (outs), (ins GR16:$rs1, immi3_16:$imm),
+                                     "cp", "$rs1, ${imm}" # FormI3.AsmTail, []>,
                  Sched<[WriteIALU, ReadIALU]>;
 
 } // Defs = [SR]
@@ -2336,7 +2389,7 @@ def LD8ri_asm : PrefixLDImmInst<0x03, 3, (outs GR8:$rd), (ins i8imm:$imm),
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
 def LD8ri_short : SingleByteRegImmInst<0x20, 2, (outs GR8:$rd),
                                         (ins i8imm:$imm),
-                                        "ldb", "$rd, $imm", []>,
+                                        "ld", "$rd, ${imm}" # FormOpc.AsmTail, []>,
                   Sched<[WriteIALU]>;
 
 // --- Arithmetic ---
@@ -2490,8 +2543,8 @@ def CP8ri : PrefixRegImmInst<0xCF, 3, (outs), (ins GR8:$rs1, i8imm:$imm),
             Sched<[WriteIALU, ReadIALU]>;
 
 // CP rd8, #(0-7) — Compare with small immediate: C8+r, 0xD8+val (2 bytes)
-def CP8_small : PrefixSmallImmInst<0xD8, (outs), (ins GR8:$rs1, i8imm:$imm),
-                                    "cps", "$rs1, $imm", []>,
+def CP8_small : PrefixSmallImmInst<0xD8, (outs), (ins GR8:$rs1, immi3_8:$imm),
+                                    "cp", "$rs1, ${imm}" # FormI3.AsmTail, []>,
                 Sched<[WriteIALU, ReadIALU]>;
 
 } // Defs = [SR]
@@ -5953,3 +6006,21 @@ def : InstAlias<"stcfm $bit, $addr", (STCFm MEMri:$addr, i32imm:$bit)>;
 // rename to avoid two definitions printing the same string.
 def : InstAlias<"scc $cc, $rd", (SCC8 GR8:$rd, cc:$cc)>;
 def : InstAlias<"scc $cc, $rd", (SCC16 GR16:$rd, cc:$cc)>;
+
+// The retired spellings of the encoding-selector families, PARSE-ONLY.
+// EmitPriority 0: AsmWriterEmitter never prints an alias below priority 1, so
+// the printer emits `cp a, 4:i3`, never `cps a, 4`, while every committed
+// site keeps assembling until it is converted.  ⚠ These render through the
+// ALIAS's operand records (i8imm, not immi3_8) and so bypass the selector
+// predicates; `cps a, 9` keeps masking to c9 d9 until they are deleted.
+def : InstAlias<"cps $rs1, $imm",    (CP8_small  GR8:$rs1,  i8imm:$imm),  0>;
+def : InstAlias<"cps $rs1, $imm",    (CP16_small GR16:$rs1, i16imm:$imm), 0>;
+def : InstAlias<"cps $rs1, $imm",    (CP32_small GPR:$rs1,  i32imm:$imm), 0>;
+def : InstAlias<"lds8 $rd, $imm",    (LD8ri_small  GR8:$rd,  i8imm:$imm),  0>;
+def : InstAlias<"lds $rd, $imm",     (LD16ri_small GR16:$rd, i16imm:$imm), 0>;
+def : InstAlias<"lds32 $rd, $imm",   (LD32ri_small GPR:$rd,  i32imm:$imm), 0>;
+def : InstAlias<"ldb $rd, $imm",     (LD8ri_short  GR8:$rd,  i8imm:$imm),  0>;
+def : InstAlias<"ldio $addr, $val",  (LDIO  i32imm:$addr, i32imm:$val), 0>;
+def : InstAlias<"ldwio $addr, $val", (LDWIO i32imm:$addr, i32imm:$val), 0>;
+
+include "TLCS900EncodingFamilies.td"
