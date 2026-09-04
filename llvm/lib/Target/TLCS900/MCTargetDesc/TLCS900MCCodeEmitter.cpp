@@ -20,6 +20,7 @@
 #include "TLCS900FixupKinds.h"
 #include "TLCS900MCTargetDesc.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCFixup.h"
@@ -960,13 +961,27 @@ void TLCS900MCCodeEmitter::encodeInstruction(
   }
 
   case TLCS900II::PrefixSmallImm: {
-    // reg_prefix(rd) + (opcode + imm3).
-    // LD r, 0-7: prefix + (0xA8 + value). Value 0-7 in bits 0-2.
-    // op 0 = rd, op 1 = imm(0-7).
+    // reg_prefix(rd) + (opcode | imm3).
+    // LD r, 0-7: prefix + (0xA8 + value); CP r, 0-7: prefix + (0xD8 + value).
+    // op 0 = rd, op 1 = imm(0-7).  The value lives in the opcode byte's low
+    // three bits, so no fixup can reach it: a relocatable expression and a
+    // value outside 0..7 are refused rather than encoded as 0 or masked
+    // (`cps a, 9` used to emit c9 d9 and `cps a, SYMX` c9 d8, both silently).
     unsigned RegEnc = getRegEncoding(MI.getOperand(0));
     CB.push_back(PrefixBase + RegEnc);
-    unsigned Imm = MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0;
-    CB.push_back(Opcode + (Imm & 0x7));
+    const MCOperand &ImmOp = MI.getOperand(1);
+    if (!ImmOp.isImm()) {
+      Ctx.reportError(MI.getLoc(), "the 3-bit opcode field cannot hold a "
+                                   "relocatable expression");
+      break;
+    }
+    if (!isUInt<3>(ImmOp.getImm())) {
+      Ctx.reportError(MI.getLoc(),
+                      Twine(ImmOp.getImm()) +
+                          " does not fit the 3-bit opcode field (must be 0..7)");
+      break;
+    }
+    CB.push_back(static_cast<char>(Opcode + ImmOp.getImm()));
     break;
   }
 
@@ -1165,26 +1180,35 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     break;
   }
 
-  case TLCS900II::LdIoImm: {
-    // 0x08 + addr8 + imm8. op 0 = addr, op 1 = imm.
-    CB.push_back(Opcode);
-    CB.push_back(MI.getOperand(0).isImm() ? MI.getOperand(0).getImm() : 0);
-    CB.push_back(MI.getOperand(1).isImm() ? MI.getOperand(1).getImm() : 0);
-    break;
-  }
-
+  case TLCS900II::LdIoImm:
   case TLCS900II::LdIoImm16: {
-    // 0x0A + addr8 + imm16_LE. op 0 = addr, op 1 = imm.
+    // 0x08 + addr8 + imm8, or 0x0A + addr8 + imm16_LE.  op 0 = addr, op 1 = imm.
+    // Neither field has a fixup, so a relocatable address or value is refused
+    // rather than emitted as 0x00, and an address beyond 0xFF is refused
+    // rather than truncated (`ldio 0x1ff, 0xff` used to emit 08 ff ff).
     CB.push_back(Opcode);
-    CB.push_back(MI.getOperand(0).isImm() ? MI.getOperand(0).getImm() : 0);
-    if (MI.getOperand(1).isImm()) {
-      int64_t Val = MI.getOperand(1).getImm();
-      CB.push_back(static_cast<uint8_t>(Val & 0xFF));
-      CB.push_back(static_cast<uint8_t>((Val >> 8) & 0xFF));
-    } else {
-      CB.push_back(0);
-      CB.push_back(0);
+    const MCOperand &AddrOp = MI.getOperand(0);
+    if (!AddrOp.isImm()) {
+      Ctx.reportError(MI.getLoc(), "the I/O short form's address must be a "
+                                   "constant; its encoder has no fixup");
+      break;
     }
+    if (!isUInt<8>(AddrOp.getImm())) {
+      Ctx.reportError(MI.getLoc(),
+                      "0x" + Twine::utohexstr(uint64_t(AddrOp.getImm())) +
+                          " does not fit an 8-bit direct address");
+      break;
+    }
+    CB.push_back(static_cast<char>(AddrOp.getImm()));
+    const MCOperand &ValOp = MI.getOperand(1);
+    if (!ValOp.isImm()) {
+      Ctx.reportError(MI.getLoc(), "the I/O short form cannot hold a "
+                                   "relocatable expression; its encoder has "
+                                   "no fixup");
+      break;
+    }
+    emitImmediate(ValOp.getImm(), Format == TLCS900II::LdIoImm ? 1 : 2, CB,
+                  &MI);
     break;
   }
 

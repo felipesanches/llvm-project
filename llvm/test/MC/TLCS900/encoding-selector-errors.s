@@ -70,6 +70,30 @@ ld (7:8), 4:i3
 ; CHECK: error: 8 does not fit the 3-bit opcode field (must be 0..7)
 ld hl, 8:i3
 
+; ---- the emitter backstop ------------------------------------------------
+; The retired spellings are aliases that render through THEIR OWN operand
+; records (i8imm, not immi3_8), so the parser checks above never see them, and
+; CodeGen reaches these opcodes through BuildMI.  The encoder refuses what the
+; field cannot hold instead of masking it.  Every line below assembled
+; SILENTLY before: c9 d9 / db a8 / c9 d8 / 08 ff ff / 08 00 ff / 0a 07 00 00 /
+; 08 07 ff / 0a 07 45 23.
+; CHECK: error: 9 does not fit the 3-bit opcode field (must be 0..7)
+cps a, 9
+; CHECK: error: 8 does not fit the 3-bit opcode field (must be 0..7)
+lds hl, 8
+; CHECK: error: the 3-bit opcode field cannot hold a relocatable expression
+cps a, SYMX
+; CHECK: error: 0x1ff does not fit an 8-bit direct address
+ldio 0x1ff, 0xff
+; CHECK: error: the I/O short form's address must be a constant; its encoder has no fixup
+ldio SYMA, 0xff
+; CHECK: error: the I/O short form cannot hold a relocatable expression; its encoder has no fixup
+ldwio 7, SYMV
+; CHECK: error: immediate 0x1ff does not fit in the 8-bit field of this instruction
+ldio 7, 0x1ff
+; CHECK: error: immediate 0x12345 does not fit in the 16-bit field of this instruction
+ldwio 7, 0x12345
+
 ; ---- controls: these lines must assemble ---------------------------------
 ; CTRL: cp a, 4:i3                 ; encoding: [0xc9,0xdc]
 cps a, 4
