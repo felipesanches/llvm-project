@@ -545,8 +545,8 @@
 # CHECK: ex8 a, b
 0xca 0xb9
 
-# 8-bit SCC: SCC T, A → C9 78 (cc=8=T)
-# CHECK: scc8 t, a
+# 8-bit SCC: SCC T, A → C9 78 (cc=8=T); printed through the `scc` alias
+# CHECK: scc t, a
 0xc9 0x78
 
 # 8-bit LD small: LD A, 3 → C9 AB (the :i3 form; `lds8` is a parse-only alias)
