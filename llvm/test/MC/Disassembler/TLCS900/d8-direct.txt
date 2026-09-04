@@ -27,12 +27,16 @@
 # CHECK: st_dd8l xbc, 10
 0xf0 0x0a 0x61
 
-# STIB_DD8: LD (addr8), #imm8: [F0, addr, 0x00, imm]
-# CHECK: stib_d8 41, 64
+# LD (addr8), #imm8: [F0, addr, 0x00, imm] -- decoded as LD8mi_dst with the
+# 8-bit direct address written out, the untagged default of the io family
+# (`ld (41:8), 64:io` is the 3-byte 08 29 40).  `stib_d8 41, 64` still
+# assembles to these bytes; it is no longer what they print as.
+# CHECK: ld (41:8), 64
 0xf0 0x29 0x00 0x40
 
-# STIW_DD8: LD (addr8), #imm16: [F0, addr, 0x02, lo, hi]
-# CHECK: stiw_d8 41, 52, 18
+# LD (addr8), #imm16: [F0, addr, 0x02, lo, hi] -- LD16mi_dst_02, the 16-bit
+# immediate printed as ONE value; `stiw_d8 41, 52, 18` split it in two.
+# CHECK: ldw (41:8), 4660
 0xf0 0x29 0x02 0x34 0x12
 
 # RES bit, (addr8): [F0, addr, 0xB0+bit]

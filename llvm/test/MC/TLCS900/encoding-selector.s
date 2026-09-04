@@ -128,7 +128,7 @@ lds32 xiz, 0
 ; The untagged default is exercised by TEN committed sites; pin it here.
 ; ==========================================================================
 ; CHECK: ld (7:8), 255             ; encoding: [0xf0,0x07,0x00,0xff]
-; INST: stib_d8 7, 255
+; INST: ld (7:8), 255
 ld (7:8), 255
 ; CHECK: ld (7:8), 255:io          ; encoding: [0x08,0x07,0xff]
 ; INST: ld (7:8), 255:io
@@ -145,7 +145,7 @@ ld (0xff:8), 0:io
 ; The untagged default is exercised by NO committed site; this is the pin.
 ; ==========================================================================
 ; CHECK: ldw (237:8), 36352        ; encoding: [0xf0,0xed,0x02,0x00,0x8e]
-; INST: stiw_d8 237, 0, 142
+; INST: ldw (237:8), 36352
 ldw (237:8), 36352
 ; CHECK: ldw (237:8), 36352:io     ; encoding: [0x0a,0xed,0x00,0x8e]
 ; INST: ldw (237:8), 36352:io

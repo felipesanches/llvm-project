@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/TLCS900MCTargetDesc.h"
+#include "TLCS900BaseInfo.h"
 #include "TargetInfo/TLCS900TargetInfo.h"
 #include "llvm/MC/MCDecoderOps.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
@@ -1585,25 +1586,33 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeD8Prefix(
   if (IsDst) {
     // === Destination 8-bit direct (F0 prefix) ===
 
-    // LD (addr8), #imm8: sub-opcode 0x00, followed by 1 imm byte
+    // LD (addr8), #imm8: sub-opcode 0x00, followed by 1 imm byte.  Decoded
+    // as the modelled store LD8mi_dst with a DIRECT MEMri -- the address in
+    // the base slot and the DirectAddrW8 width sentinel in the displacement
+    // slot, which is what the assembler builds for `ld (n:8), imm` -- so it
+    // prints `ld (7:8), 255`, the untagged default of the io family, instead
+    // of the raw-byte pseudo `stib_d8 7, 255`.  STIB_DD8 keeps assembling.
     if (SubOp == 0x00) {
       if (Bytes.size() < 4)
         return MCDisassembler::Fail;
-      MI.setOpcode(TLCS900::STIB_DD8);
+      MI.setOpcode(TLCS900::LD8mi_dst);
       MI.addOperand(MCOperand::createImm(Addr8));
+      MI.addOperand(MCOperand::createImm(TLCS900II::DirectAddrW8));
       MI.addOperand(MCOperand::createImm(Bytes[3]));
       Size = 4;
       return MCDisassembler::Success;
     }
 
-    // LD (addr8), #imm16: sub-opcode 0x02, followed by 2 imm bytes
+    // LD (addr8), #imm16: sub-opcode 0x02, followed by 2 imm bytes -- ONE
+    // 16-bit immediate (`ldw (237:8), 36352`) where STIW_DD8 printed the
+    // two bytes as two decimal operands (`stiw_d8 237, 0, 142`).
     if (SubOp == 0x02) {
       if (Bytes.size() < 5)
         return MCDisassembler::Fail;
-      MI.setOpcode(TLCS900::STIW_DD8);
+      MI.setOpcode(TLCS900::LD16mi_dst_02);
       MI.addOperand(MCOperand::createImm(Addr8));
-      MI.addOperand(MCOperand::createImm(Bytes[3]));
-      MI.addOperand(MCOperand::createImm(Bytes[4]));
+      MI.addOperand(MCOperand::createImm(TLCS900II::DirectAddrW8));
+      MI.addOperand(MCOperand::createImm(readU16LE(Bytes, 3)));
       Size = 5;
       return MCDisassembler::Success;
     }
