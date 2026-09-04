@@ -418,10 +418,10 @@
 
 # === LD (I/O) instructions ===
 
-# CHECK: ldio 66, 255
+# CHECK: ld (66:8), 255:io
 0x08 0x42 0xff
 
-# CHECK: ldwio 66, 4660
+# CHECK: ldw (66:8), 4660:io
 0x0a 0x42 0x34 0x12
 
 # === PUSHW immediate ===
@@ -431,10 +431,10 @@
 
 # === Short-encoded register instructions ===
 
-# CHECK: ldb w, 42
+# CHECK: ld w, 42:opc
 0x20 0x2a
 
-# CHECK: ldb a, 255
+# CHECK: ld a, 255:opc
 0x21 0xff
 
 # CHECK: pushw wa
@@ -549,12 +549,12 @@
 # CHECK: scc8 t, a
 0xc9 0x78
 
-# 8-bit LD small: LD A, 3 → C9 AB
-# CHECK: lds8 a, 3
+# 8-bit LD small: LD A, 3 → C9 AB (the :i3 form; `lds8` is a parse-only alias)
+# CHECK: ld a, 3:i3
 0xc9 0xab
 
-# 8-bit CP small: CP A, 0 → C9 D8
-# CHECK: cps a, 0
+# 8-bit CP small: CP A, 0 → C9 D8 (the :i3 form; `cps` is a parse-only alias)
+# CHECK: cp a, 0:i3
 0xc9 0xd8
 
 # 8-bit PUSH: C9 04

@@ -126,10 +126,10 @@
 # I/O instructions
 # ==========================================================================
 
-# CHECK: ldio 66, 255{{.*}}encoding: [0x08,0x42,0xff]
+# CHECK: ld (66:8), 255:io{{.*}}encoding: [0x08,0x42,0xff]
 0x08 0x42 0xff
 
-# CHECK: ldwio 66, 4660{{.*}}encoding: [0x0a,0x42,0x34,0x12]
+# CHECK: ldw (66:8), 4660:io{{.*}}encoding: [0x0a,0x42,0x34,0x12]
 0x0a 0x42 0x34 0x12
 
 # ==========================================================================
@@ -140,16 +140,16 @@
 0x0b 0x34 0x12
 
 # ==========================================================================
-# Compact LD: ldb (0x20+r) and ldw (0x30+r)
+# Compact LD: `ld r8, imm:opc` (0x20+r; `ldb` is a parse-only alias) and ldw (0x30+r)
 # ==========================================================================
 
-# CHECK: ldb w, 42{{.*}}encoding: [0x20,0x2a]
+# CHECK: ld w, 42:opc{{.*}}encoding: [0x20,0x2a]
 0x20 0x2a
 
-# CHECK: ldb a, 255{{.*}}encoding: [0x21,0xff]
+# CHECK: ld a, 255:opc{{.*}}encoding: [0x21,0xff]
 0x21 0xff
 
-# CHECK: ldb b, 0{{.*}}encoding: [0x22,0x00]
+# CHECK: ld b, 0:opc{{.*}}encoding: [0x22,0x00]
 0x22 0x00
 
 # CHECK: ldw wa, 4660{{.*}}encoding: [0x30,0x34,0x12]
@@ -752,7 +752,7 @@
 # CHECK: div a, 3{{.*}}encoding: [0xc9,0x0a,0x03]
 0xc9 0x0a 0x03
 
-# 8-bit special: DJNZ, EX, SCC, lds8, cps
+# 8-bit special: DJNZ, EX, SCC, and the :i3 forms once spelled lds8 / cps
 # CHECK: djnz8 a, 0{{.*}}encoding: [0xc9,0x1c,0x00]
 0xc9 0x1c 0x00
 
@@ -765,13 +765,13 @@
 # CHECK: scc8 nz, b{{.*}}encoding: [0xca,0x7e]
 0xca 0x7e
 
-# CHECK: lds8 a, 3{{.*}}encoding: [0xc9,0xab]
+# CHECK: ld a, 3:i3{{.*}}encoding: [0xc9,0xab]
 0xc9 0xab
 
-# CHECK: cps a, 0{{.*}}encoding: [0xc9,0xd8]
+# CHECK: cp a, 0:i3{{.*}}encoding: [0xc9,0xd8]
 0xc9 0xd8
 
-# CHECK: cps a, 7{{.*}}encoding: [0xc9,0xdf]
+# CHECK: cp a, 7:i3{{.*}}encoding: [0xc9,0xdf]
 0xc9 0xdf
 
 # ==========================================================================
