@@ -756,7 +756,7 @@ def CP32ri : PrefixRegImmInst<0xCF, 6, (outs), (ins GPR:$rs1, i32imm:$imm),
 
 // CP rd, #(0-7) — Compare with small immediate: E8+r, 0xD8+val (2 bytes)
 def CP32_small : PrefixSmallImmInst<0xD8, (outs), (ins GPR:$rs1, immi3_32:$imm),
-                                     "cp", "$rs1, ${imm}" # FormI3.AsmTail, []>,
+                                     "cp", !strconcat("$rs1, ${imm}", FormI3.AsmTail), []>,
                  Sched<[WriteIALU, ReadIALU]>;
 
 } // Defs = [SR]
@@ -1135,14 +1135,14 @@ def SWI : SingleByteImm8Inst<0xF8, (outs), (ins i32imm:$num),
 // The untagged `ld (n:8), #n` is the 4-byte LD8mi_dst (f0 n 00 imm).
 let mayStore = 1, hasSideEffects = 1 in
 def LDIO : LdIoImmInst<0x08, (outs), (ins daddr8:$addr, immio8:$val),
-                         "ld", "$addr, ${val}" # FormIo.AsmTail, []>,
+                         "ld", !strconcat("$addr, ${val}", FormIo.AsmTail), []>,
            Sched<[WriteSTW]>;
 
 // LDW (n:8), #nn:io — I/O register word write (4-byte: 0x0A + addr8 + imm16).
 // The untagged `ldw (n:8), #nn` is the 5-byte LD16mi_dst_02 (f0 n 02 imm16).
 let mayStore = 1, hasSideEffects = 1 in
 def LDWIO : LdIoImm16Inst<0x0A, (outs), (ins daddr8:$addr, immio16:$val),
-                            "ldw", "$addr, ${val}" # FormIo.AsmTail, []>,
+                            "ldw", !strconcat("$addr, ${val}", FormIo.AsmTail), []>,
             Sched<[WriteSTW]>;
 
 // RETI — Return from interrupt (pops SR then PC from stack)
@@ -2058,17 +2058,17 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 let OpSize = OpSize8.Value in
 def LD8ri_small : PrefixSmallImmInst<0xA8, (outs GR8:$rd),
                                       (ins immi3_8:$imm),
-                                      "ld", "$rd, ${imm}" # FormI3.AsmTail, []>,
+                                      "ld", !strconcat("$rd, ${imm}", FormI3.AsmTail), []>,
                   Sched<[WriteIALU]>;
 let OpSize = OpSize16.Value in
 def LD16ri_small : PrefixSmallImmInst<0xA8, (outs GR16:$rd),
                                        (ins immi3_16:$imm),
-                                       "ld", "$rd, ${imm}" # FormI3.AsmTail, []>,
+                                       "ld", !strconcat("$rd, ${imm}", FormI3.AsmTail), []>,
                    Sched<[WriteIALU]>;
 let OpSize = OpSize32.Value in
 def LD32ri_small : PrefixSmallImmInst<0xA8, (outs GPR:$rd),
                                        (ins immi3_32:$imm),
-                                       "ld", "$rd, ${imm}" # FormI3.AsmTail, []>,
+                                       "ld", !strconcat("$rd, ${imm}", FormI3.AsmTail), []>,
                    Sched<[WriteIALU]>;
 }
 
@@ -2228,7 +2228,7 @@ def CP16ri : PrefixRegImmInst<0xCF, 4, (outs), (ins GR16:$rs1, i16imm:$imm),
 
 // CP rd16, #(0-7) — Compare with small immediate: D8+r, 0xD8+val (2 bytes)
 def CP16_small : PrefixSmallImmInst<0xD8, (outs), (ins GR16:$rs1, immi3_16:$imm),
-                                     "cp", "$rs1, ${imm}" # FormI3.AsmTail, []>,
+                                     "cp", !strconcat("$rs1, ${imm}", FormI3.AsmTail), []>,
                  Sched<[WriteIALU, ReadIALU]>;
 
 } // Defs = [SR]
@@ -2389,7 +2389,7 @@ def LD8ri_asm : PrefixLDImmInst<0x03, 3, (outs GR8:$rd), (ins i8imm:$imm),
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in
 def LD8ri_short : SingleByteRegImmInst<0x20, 2, (outs GR8:$rd),
                                         (ins i8imm:$imm),
-                                        "ld", "$rd, ${imm}" # FormOpc.AsmTail, []>,
+                                        "ld", !strconcat("$rd, ${imm}", FormOpc.AsmTail), []>,
                   Sched<[WriteIALU]>;
 
 // --- Arithmetic ---
@@ -2544,7 +2544,7 @@ def CP8ri : PrefixRegImmInst<0xCF, 3, (outs), (ins GR8:$rs1, i8imm:$imm),
 
 // CP rd8, #(0-7) — Compare with small immediate: C8+r, 0xD8+val (2 bytes)
 def CP8_small : PrefixSmallImmInst<0xD8, (outs), (ins GR8:$rs1, immi3_8:$imm),
-                                    "cp", "$rs1, ${imm}" # FormI3.AsmTail, []>,
+                                    "cp", !strconcat("$rs1, ${imm}", FormI3.AsmTail), []>,
                 Sched<[WriteIALU, ReadIALU]>;
 
 } // Defs = [SR]

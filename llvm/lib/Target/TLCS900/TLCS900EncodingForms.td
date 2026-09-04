@@ -33,7 +33,7 @@
 // and the two short ones TIE, so "shortest" is not even a function here.
 //
 // MECHANISM.  The selector is spliced into the short def's AsmString as a
-// literal token (`"$rs1, ${imm}" # FormI3.AsmTail`), so that def's matchable
+// literal token (`!strconcat("$rs1, ${imm}", FormI3.AsmTail)`), so that def's matchable
 // carries one MORE asm operand than the default form's.  A line that writes no
 // selector therefore cannot reach a short encoding, by ARITY: there is no
 // priority field, no PreferSmallerInstructions and no arbitration to mis-tune.

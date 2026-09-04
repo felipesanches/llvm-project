@@ -361,6 +361,16 @@ class TLCS900AsmParser : public MCTargetAsmParser {
   bool parseOperand(OperandVector &Operands);
 
 public:
+  // The Match_<DiagnosticType> codes the generated matcher returns for an
+  // AsmOperandClass that declares a DiagnosticType (ImmI3, ImmIO8, ImmIO16,
+  // Daddr8).  They land in matchAndEmitInstruction's default arm.
+  enum TLCS900MatchResultTy : unsigned {
+    Match_Dummy = FIRST_TARGET_MATCH_RESULT_TY,
+#define GET_OPERAND_DIAGNOSTIC_TYPES
+#include "TLCS900GenAsmMatcher.inc"
+#undef GET_OPERAND_DIAGNOSTIC_TYPES
+  };
+
   TLCS900AsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
                    const MCInstrInfo &MII, const MCTargetOptions &Options)
       : MCTargetAsmParser(Options, STI, MII), STI(STI), Parser(Parser) {
