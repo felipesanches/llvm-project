@@ -31,10 +31,9 @@ ld c, 42
 ; Compact 8-bit LD (LDB): 2-byte form (0x20+reg, imm8)
 ; ==========================================================================
 
-; The 0x20+r form is selected with `:opc`; the retired spelling `ldb` still
-; parses (a parse-only alias) but prints as the selected form.
+; The 0x20+r form is selected with `:opc`.
 ; CHECK: ld a, 42:opc       ; encoding: [0x21,0x2a]
-ldb a, 42
+ld a, 42:opc
 ; CHECK: ld a, 0:opc        ; encoding: [0x21,0x00]
 ld a, 0:opc
 ; CHECK: ld a, 255:opc      ; encoding: [0x21,0xff]

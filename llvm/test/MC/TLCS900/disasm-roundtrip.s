@@ -39,7 +39,7 @@
 ;   - Direct memory addressing (E1/F1 prefix, 16-bit addr)
 ;   - EX (8/16-bit register exchange)
 ;   - SCC (set on condition, 8-bit)
-;   - Compact LD/CP (lds8/cps, retired spellings kept as parse-only aliases)
+;   - Compact LD/CP selector forms (:i3, :opc)
 ;   - I/O instructions (LDIO/LDWIO, likewise)
 ;   - Encoding selectors :i3 / :opc / :io and their untagged defaults
 ;   - PUSHW immediate
@@ -169,9 +169,9 @@ ld c, 42
 ; ==========================================================================
 ; Compact LD: ldb (8-bit) and ldw (16-bit)
 ; ==========================================================================
-ldb w, 42
-ldb a, 255
-ldb b, 0
+ld w, 42:opc
+ld a, 255:opc
+ld b, 0:opc
 ldw wa, 4660
 ldw bc, 0
 ldw de, 1234
@@ -582,18 +582,18 @@ scc8 nz, b
 ; ==========================================================================
 ; Compact LD / CP (small encoded value in opcode)
 ; ==========================================================================
-lds8 a, 0
-lds8 a, 3
-lds8 a, 7
-cps a, 0
-cps a, 3
-cps a, 7
+ld a, 0:i3
+ld a, 3:i3
+ld a, 7:i3
+cp a, 0:i3
+cp a, 3:i3
+cp a, 7:i3
 
 ; ==========================================================================
 ; I/O instructions
 ; ==========================================================================
-ldio 66, 255
-ldwio 66, 4660
+ld (66:8), 255:io
+ldw (66:8), 4660:io
 
 ; ==========================================================================
 ; PUSHW immediate

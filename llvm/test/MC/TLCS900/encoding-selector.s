@@ -16,9 +16,9 @@
 ; `ldw (237:8), 0x8e00` from five bytes to four.  This file is the only
 ; instrument that sees it.
 ;
-; The retired spellings (cps, lds8, lds, lds32, ldb, ldio, ldwio) are
-; EmitPriority-0 aliases: they still assemble, to the same bytes, and print as
-; the selected form -- the printer never emits them again.
+; The retired spellings (cps, lds8, lds, lds32, ldb, ldio, ldwio) no longer
+; exist: their parse-only aliases were deleted once every source was converted,
+; so only the selector forms and untagged defaults are testable here.
 
 ; ==========================================================================
 ; cp <GR8>, imm     default CP8ri (c9+r cf ii)   :i3 CP8_small (c9+r d8|n)
@@ -29,9 +29,6 @@ cp a, 4
 ; CHECK: cp a, 4:i3                ; encoding: [0xc9,0xdc]
 ; INST: cp a, 4:i3
 cp a, 4:i3
-; CHECK: cp a, 4:i3                ; encoding: [0xc9,0xdc]
-; INST: cp a, 4:i3
-cps a, 4
 ; CHECK: cp a, 7:i3                ; encoding: [0xc9,0xdf]
 ; INST: cp a, 7:i3
 cp a, 7:i3
@@ -48,9 +45,6 @@ cp hl, 4
 ; CHECK: cp hl, 4:i3               ; encoding: [0xdb,0xdc]
 ; INST: cp hl, 4:i3
 cp hl, 4:i3
-; CHECK: cp hl, 4:i3               ; encoding: [0xdb,0xdc]
-; INST: cp hl, 4:i3
-cps hl, 4
 
 ; ==========================================================================
 ; cp <GPR>, imm     default CP32ri (e8+r cf iiiiiiii)   :i3 CP32_small (e8+r d8|n)
@@ -63,9 +57,6 @@ cp xwa, 5
 ; CHECK: cp xwa, 5:i3              ; encoding: [0xe8,0xdd]
 ; INST: cp xwa, 5:i3
 cp xwa, 5:i3
-; CHECK: cp xwa, 5:i3              ; encoding: [0xe8,0xdd]
-; INST: cp xwa, 5:i3
-cps xwa, 5
 
 ; ==========================================================================
 ; ld <GR8>, imm  -- THREE encodings, and the two short ones are the same length,
@@ -80,15 +71,9 @@ ld d, 4
 ; CHECK: ld d, 4:i3                ; encoding: [0xcc,0xac]
 ; INST: ld d, 4:i3
 ld d, 4:i3
-; CHECK: ld d, 4:i3                ; encoding: [0xcc,0xac]
-; INST: ld d, 4:i3
-lds8 d, 4
 ; CHECK: ld d, 4:opc               ; encoding: [0x24,0x04]
 ; INST: ld d, 4:opc
 ld d, 4:opc
-; CHECK: ld d, 4:opc               ; encoding: [0x24,0x04]
-; INST: ld d, 4:opc
-ldb d, 4
 ; `:opc` keeps the whole 8-bit field: 255 is legal there and not for `:i3`.
 ; CHECK: ld d, 255:opc             ; encoding: [0x24,0xff]
 ; INST: ld d, 255:opc
@@ -103,9 +88,6 @@ ld hl, 0
 ; CHECK: ld hl, 0:i3               ; encoding: [0xdb,0xa8]
 ; INST: ld hl, 0:i3
 ld hl, 0:i3
-; CHECK: ld hl, 0:i3               ; encoding: [0xdb,0xa8]
-; INST: ld hl, 0:i3
-lds hl, 0
 
 ; ==========================================================================
 ; ld <GPR>, imm     default LD32ri (40+r iiiiiiii)   :i3 LD32ri_small (e8+r a8|n)
@@ -119,9 +101,6 @@ ld xiz, 0
 ; CHECK: ld xiz, 0:i3              ; encoding: [0xee,0xa8]
 ; INST: ld xiz, 0:i3
 ld xiz, 0:i3
-; CHECK: ld xiz, 0:i3              ; encoding: [0xee,0xa8]
-; INST: ld xiz, 0:i3
-lds32 xiz, 0
 
 ; ==========================================================================
 ; ld (n:8), imm     default LD8mi_dst (f0 nn 00 ii)   :io LDIO (08 nn ii)
@@ -133,9 +112,6 @@ ld (7:8), 255
 ; CHECK: ld (7:8), 255:io          ; encoding: [0x08,0x07,0xff]
 ; INST: ld (7:8), 255:io
 ld (7:8), 255:io
-; CHECK: ld (7:8), 255:io          ; encoding: [0x08,0x07,0xff]
-; INST: ld (7:8), 255:io
-ldio 7, 255
 ; CHECK: ld (255:8), 0:io          ; encoding: [0x08,0xff,0x00]
 ; INST: ld (255:8), 0:io
 ld (0xff:8), 0:io
@@ -150,9 +126,6 @@ ldw (237:8), 36352
 ; CHECK: ldw (237:8), 36352:io     ; encoding: [0x0a,0xed,0x00,0x8e]
 ; INST: ldw (237:8), 36352:io
 ldw (237:8), 0x8e00:io
-; CHECK: ldw (237:8), 36352:io     ; encoding: [0x0a,0xed,0x00,0x8e]
-; INST: ldw (237:8), 36352:io
-ldwio 237, 0x8e00
 
 ; ==========================================================================
 ; A numeric local label shares the `<int>:` shape with nothing here: the

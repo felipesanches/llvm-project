@@ -4,9 +4,9 @@
 ;
 ; Every spelling the encoding selectors REJECT is a named error -- never a byte,
 ; and never a silent fall-back to the long form.  The CTRL lines are the
-; controls that must keep assembling in the same file: the retired spellings
-; (parse-only aliases), a symbolic `:opc` immediate (SingleByteRegImm emits a
-; real fixup, so a symbol is legal there), and a numeric local label.
+; controls that must keep assembling in the same file: the valid selector forms,
+; a symbolic `:opc` immediate (SingleByteRegImm emits a real fixup, so a symbol
+; is legal there), and a numeric local label.
 
 ; A numeric `:N` is an ADDRESS WIDTH and belongs inside a direct address.
 ; CHECK: error: an encoding selector is an identifier such as ':i3'; a numeric ':N' is an ADDRESS WIDTH and is written inside the parentheses of a direct address, e.g. (0x2075:16)
@@ -70,37 +70,38 @@ ld (7:8), 4:i3
 ; CHECK: error: 8 does not fit the 3-bit opcode field (must be 0..7)
 ld hl, 8:i3
 
-; ---- the emitter backstop ------------------------------------------------
-; The retired spellings are aliases that render through THEIR OWN operand
-; records (i8imm, not immi3_8), so the parser checks above never see them, and
-; CodeGen reaches these opcodes through BuildMI.  The encoder refuses what the
-; field cannot hold instead of masking it.  Every line below assembled
-; SILENTLY before: c9 d9 / db a8 / c9 d8 / 08 ff ff / 08 00 ff / 0a 07 00 00 /
-; 08 07 ff / 0a 07 45 23.
+; ---- range and relocation backstops --------------------------------------
+; The selector forms carry the constrained operand classes (immi3_8, the io
+; address/value widths), so an out-of-range literal or a relocatable expression
+; is refused with a named diagnostic, never masked to a wrong encoding.  Under
+; the retired alias spellings (now deleted) these same eight assembled SILENTLY:
+; c9 d9 / db a8 / c9 d8 / 08 ff ff / 08 00 ff / 0a 07 00 00 / 08 07 ff /
+; 0a 07 45 23.  The CodeGen (BuildMI) path is guarded by the same emitter
+; backstops; that path is exercised by the CodeGen tests, not this MC file.
 ; CHECK: error: 9 does not fit the 3-bit opcode field (must be 0..7)
-cps a, 9
+cp a, 9:i3
 ; CHECK: error: 8 does not fit the 3-bit opcode field (must be 0..7)
-lds hl, 8
+ld hl, 8:i3
 ; CHECK: error: the 3-bit opcode field cannot hold a relocatable expression
-cps a, SYMX
+cp a, SYMX:i3
 ; CHECK: error: 0x1ff does not fit an 8-bit direct address
-ldio 0x1ff, 0xff
+ld (0x1ff:8), 0xff:io
 ; CHECK: error: the I/O short form's address must be a constant; its encoder has no fixup
-ldio SYMA, 0xff
+ld (SYMA:8), 0xff:io
 ; CHECK: error: the I/O short form cannot hold a relocatable expression; its encoder has no fixup
-ldwio 7, SYMV
-; CHECK: error: immediate 0x1ff does not fit in the 8-bit field of this instruction
-ldio 7, 0x1ff
-; CHECK: error: immediate 0x12345 does not fit in the 16-bit field of this instruction
-ldwio 7, 0x12345
+ldw (7:8), SYMV:io
+; CHECK: error: no encoding of 'ld' takes the ':io' selector with these operands
+ld (7:8), 0x1ff:io
+; CHECK: error: no encoding of 'ldw' takes the ':io' selector with these operands
+ldw (7:8), 0x12345:io
 
 ; ---- controls: these lines must assemble ---------------------------------
 ; CTRL: cp a, 4:i3                 ; encoding: [0xc9,0xdc]
-cps a, 4
+cp a, 4:i3
 ; CTRL: ld d, 4:opc                ; encoding: [0x24,0x04]
-ldb d, 4
+ld d, 4:opc
 ; CTRL: ld (7:8), 255:io           ; encoding: [0x08,0x07,0xff]
-ldio 7, 255
+ld (7:8), 255:io
 ; CTRL: ld b, SYMX:opc             ; encoding: [0x22,A]
 ; CTRL: fixup A - offset: 1, value: SYMX, kind: FK_Data_1
 ld b, SYMX:opc
