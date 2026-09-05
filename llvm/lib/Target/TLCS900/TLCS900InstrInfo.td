@@ -6007,20 +6007,4 @@ def : InstAlias<"stcfm $bit, $addr", (STCFm MEMri:$addr, i32imm:$bit)>;
 def : InstAlias<"scc $cc, $rd", (SCC8 GR8:$rd, cc:$cc)>;
 def : InstAlias<"scc $cc, $rd", (SCC16 GR16:$rd, cc:$cc)>;
 
-// The retired spellings of the encoding-selector families, PARSE-ONLY.
-// EmitPriority 0: AsmWriterEmitter never prints an alias below priority 1, so
-// the printer emits `cp a, 4:i3`, never `cps a, 4`, while every committed
-// site keeps assembling until it is converted.  ⚠ These render through the
-// ALIAS's operand records (i8imm, not immi3_8) and so bypass the selector
-// predicates; `cps a, 9` keeps masking to c9 d9 until they are deleted.
-def : InstAlias<"cps $rs1, $imm",    (CP8_small  GR8:$rs1,  i8imm:$imm),  0>;
-def : InstAlias<"cps $rs1, $imm",    (CP16_small GR16:$rs1, i16imm:$imm), 0>;
-def : InstAlias<"cps $rs1, $imm",    (CP32_small GPR:$rs1,  i32imm:$imm), 0>;
-def : InstAlias<"lds8 $rd, $imm",    (LD8ri_small  GR8:$rd,  i8imm:$imm),  0>;
-def : InstAlias<"lds $rd, $imm",     (LD16ri_small GR16:$rd, i16imm:$imm), 0>;
-def : InstAlias<"lds32 $rd, $imm",   (LD32ri_small GPR:$rd,  i32imm:$imm), 0>;
-def : InstAlias<"ldb $rd, $imm",     (LD8ri_short  GR8:$rd,  i8imm:$imm),  0>;
-def : InstAlias<"ldio $addr, $val",  (LDIO  i32imm:$addr, i32imm:$val), 0>;
-def : InstAlias<"ldwio $addr, $val", (LDWIO i32imm:$addr, i32imm:$val), 0>;
-
 include "TLCS900EncodingFamilies.td"
