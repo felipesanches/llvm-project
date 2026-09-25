@@ -549,6 +549,34 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
           return ParseStatus::Failure;
       }
 
+      // Optional DISPLACEMENT WIDTH request, `(xsp+0:8)` / `(xiz+5:16)`:
+      // the (Xrr+d8) and (Xrr+d16) encodings both hold a small displacement,
+      // firmware uses both, and the value alone picks only one of them.  Same
+      // shape as the direct-address width `(0x8a:24)`.
+      if (getLexer().is(AsmToken::Colon)) {
+        Parser.Lex(); // consume ':'
+        if (getLexer().isNot(AsmToken::Integer))
+          return Error(getLexer().getLoc(),
+                       "expected a displacement width of 8 or 16 after ':'");
+        SMLoc WLoc = getLexer().getLoc();
+        int64_t Bits = getLexer().getTok().getIntVal();
+        if (Bits != 8 && Bits != 16)
+          return Error(WLoc, "a register-indirect displacement width must be "
+                             "8 or 16");
+        const auto *CE = dyn_cast<MCConstantExpr>(Disp);
+        if (!CE)
+          return Error(WLoc, "a displacement whose width is written must be a "
+                             "constant");
+        int64_t D = CE->getValue();
+        if ((Bits == 8 && !isInt<8>(D)) || (Bits == 16 && !isInt<16>(D)))
+          return Error(WLoc, "displacement " + Twine(D) +
+                                 " does not fit the signed " + Twine(Bits) +
+                                 "-bit (Xrr+d" + Twine(Bits) + ") field");
+        Parser.Lex(); // consume the width
+        Disp = MCConstantExpr::create(
+            TLCS900II::makeForcedDisp(D, Bits / 8), getContext());
+      }
+
       if (getLexer().isNot(AsmToken::RParen))
         return Error(getLexer().getLoc(), "expected ')'");
 

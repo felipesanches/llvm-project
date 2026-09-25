@@ -91,6 +91,13 @@ void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
       // requested address width, which prints back as the `:8`/`:16`/`:24`
       // suffix the assembler accepts.
       O << ":" << (TLCS900II::getDirectAddrBytes(DispVal) * 8);
+    } else if (Base.isReg() && TLCS900II::isForcedDisp(DispVal)) {
+      // A requested displacement width, `(xsp+0:8)` / `(xiz+5:16)`: the
+      // encoding the bytes use is not the one the value alone would pick.
+      int64_t D = TLCS900II::getForcedDispValue(DispVal);
+      if (D >= 0)
+        O << "+";
+      O << D << ":" << (TLCS900II::getForcedDispBytes(DispVal) * 8);
     } else if (DispVal > 0) {
       O << "+" << DispVal;
     } else if (DispVal < 0) {

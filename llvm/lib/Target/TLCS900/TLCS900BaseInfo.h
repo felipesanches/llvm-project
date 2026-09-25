@@ -267,6 +267,38 @@ inline bool isDirectAddrWidth(int64_t DispSentinel) {
   return DispSentinel >= DirectAddrW8 && DispSentinel <= DirectAddrW24;
 }
 
+// --- Register-indirect displacement WIDTH ----------------------------------
+// A register-indirect operand has two encodings that hold a displacement:
+// (Xrr+d8), a 2-byte prefix, and (Xrr+d16), the SRI prefix + mode byte + two
+// bytes.  Left alone the assembler takes d8 when the value fits a signed byte
+// and d16 otherwise.  Firmware also uses the two "wasteful" spellings --
+// `bf 00 30` (d8 carrying 0) and `f3 fd 05 00 30` (d16 carrying 5) -- so the
+// width is a choice the source must be able to state, exactly as `(0x8a:24)`
+// states a direct-address width: `(xsp+0:8)` and `(xiz+5:16)`.
+//
+// The request rides in MEMri's displacement immediate, tagged far above any
+// real d16 (-32768..32767) and any DirectAddrW* sentinel, with the signed
+// displacement in the low 16 bits.
+enum : int64_t {
+  DispForcedD8Tag = int64_t(1) << 40,
+  DispForcedD16Tag = int64_t(1) << 41,
+};
+
+inline int64_t makeForcedDisp(int64_t D, unsigned Bytes) {
+  return (Bytes == 1 ? DispForcedD8Tag : DispForcedD16Tag) | (D & 0xFFFF);
+}
+inline bool isForcedDisp(int64_t V) {
+  int64_t Tag = V & ~int64_t(0xFFFF);
+  return Tag == DispForcedD8Tag || Tag == DispForcedD16Tag;
+}
+// 1 for `:8`, 2 for `:16`.
+inline unsigned getForcedDispBytes(int64_t V) {
+  return (V & ~int64_t(0xFFFF)) == DispForcedD8Tag ? 1 : 2;
+}
+inline int64_t getForcedDispValue(int64_t V) {
+  return static_cast<int16_t>(V & 0xFFFF);
+}
+
 // Direct-memory prefix for an address width of Bytes (1, 2 or 3):
 //   source:      C0/C1/C2 (byte), D0/D1/D2 (word), E0/E1/E2 (long)
 //   destination: F0/F1/F2 -- size-independent

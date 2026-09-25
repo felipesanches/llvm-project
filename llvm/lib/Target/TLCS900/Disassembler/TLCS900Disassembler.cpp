@@ -744,8 +744,13 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // (Disp == 256 means "force the d8 form with displacement 0"); nothing
   // upstream ever produced it. PrefixSize == 2 means a disp8 byte was
   // actually consumed, so a real zero there is exactly that case.
+  //
+  // ★ UPDATE 17: the request is now a TAGGED width, `(xrr+0:8)`, not the
+  // literal 256 -- which is a legal d16 displacement and printed as one, so
+  // the ROM's `f3 fd 00 01 30` (lda xwa,(xsp+256)) and `bf 00 30` (d8 with 0)
+  // used to print the SAME text.
   if (PrefixSize == 2 && Disp == 0)
-    Disp = 256;
+    Disp = TLCS900II::makeForcedDisp(0, 1);
 
   // The SAME collision exists one width up: the SRI-prefixed 4-byte
   // (Xrr+d16) encoding with an explicit d16 of 0x0000 prints identically to
@@ -760,8 +765,14 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // never collide with a genuine displacement) to force this 4-byte form
   // with a real displacement of 0; PrefixSize == 4 means a real d16 pair was
   // actually consumed, so a real zero there is exactly that case.
-  if (PrefixSize == 4 && Disp == 0)
-    Disp = 65536;
+  //
+  // ★ UPDATE 17: every d16 displacement that a d8 could have held is a width
+  // CHOICE, not just 0 -- `c3 f9 05 00` printed "(xiz+5)" and reassembled two
+  // bytes shorter -- so all of -128..127 now decode as `(xrr+D:16)`.
+  // ⚠ 256 too, for as long as the assembler still reads a literal 256 as the
+  // retired d8-with-0 sentinel (LEGACY, removed with it).
+  if (PrefixSize == 4 && (isInt<8>(Disp) || Disp == 256))
+    Disp = TLCS900II::makeForcedDisp(Disp, 2);
 
   unsigned OpByteIdx = PrefixSize;
   if (Bytes.size() <= OpByteIdx)
@@ -1858,8 +1869,15 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeSRIPrefix(
   unsigned PrefixSize; // Total bytes consumed before the sub-opcode.
 
   if (ModeType == 0x00) {
-    // (Xrr) — no displacement. Prefix = 2 bytes (SRI prefix + mode byte).
-    PrefixSize = 2;
+    // (Xrr) through the SRI prefix -- `c3 e4 21` is ld A,(XBC) in three
+    // bytes where `89 21` says the same in two.  ⚠ REFUSED, not decoded: this
+    // path used to hand decodeMemPrefix a PrefixSize of 2 with no d8 byte
+    // behind it, which that function reads as "(Xrr+d8) carrying 0" -- so the
+    // bytes printed as the d8 form and reassembled to `89 00 21`, a different
+    // instruction encoding, with no diagnostic.  The assembler has no spelling
+    // for the SRI (Xrr) form; a decode that cannot be written back is worse
+    // than none.
+    return MCDisassembler::Fail;
   } else if (ModeType == 0x01) {
     // (Xrr+d16) — 16-bit signed displacement.
     if (Bytes.size() < 5) // prefix + mode + d16(2) + sub-opcode(1)

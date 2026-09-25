@@ -455,10 +455,10 @@ setm 7, (xsp+4)
 chgm 2, (xhl+14)
 
 ; kn5000_v10_program.rom +0x1391F9 (rom 0xF391F9) -- unidasm: bit 7,(XSP+0x00)
-; CHECK: bitm 7, (xsp+256)
+; CHECK: bitm 7, (xsp+0:8)
 ; CHECK-ENC: encoding: [0xbf,0x00,0xcf]
-; CHECK-INST: bitm 7, (xsp+256)
-bitm 7, (xsp+256)
+; CHECK-INST: bitm 7, (xsp+0:8)
+bitm 7, (xsp+0:8)
 ;==========================================================================
 ; Destination table, no register in the opcode
 ;==========================================================================

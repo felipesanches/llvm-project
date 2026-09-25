@@ -1,0 +1,33 @@
+# RUN: llvm-mc -triple=tlcs900 -disassemble -show-encoding < %s 2>/dev/null | FileCheck %s
+# RUN: llvm-mc -triple=tlcs900 -disassemble < %s 2>&1 >/dev/null | FileCheck --check-prefix=WARN %s
+#
+# Displacement widths the value alone does not select print with their width,
+# `(xrr+D:8)` / `(xrr+D:16)`, and re-encode to their own bytes.  MAME's
+# unidasm reading of each is quoted.
+
+# unidasm: lda XWA,XSP+0x00       -- d8 carrying 0 (was printed "+256")
+# CHECK: lda xwa, (xsp+0:8){{.*}}encoding: [0xbf,0x00,0x30]
+0xbf 0x00 0x30
+
+# unidasm: lda XWA,XSP+0x0100     -- a REAL +256, which printed the same text
+# CHECK: lda xwa, (xsp+256:16){{.*}}encoding: [0xf3,0xfd,0x00,0x01,0x30]
+0xf3 0xfd 0x00 0x01 0x30
+
+# unidasm: ld A,(XIZ+0x0000)      -- d16 carrying 0 (v7 PanelEvt_Handler_4)
+# CHECK: ld a, (xiz+0:16){{.*}}encoding: [0xc3,0xf9,0x00,0x00,0x21]
+0xc3 0xf9 0x00 0x00 0x21
+
+# unidasm: ld A,(XIZ+0x0005)      -- d16 carrying a d8-sized value: used to
+# print "(xiz+5)" and reassemble two bytes shorter
+# CHECK: ld a, (xiz+5:16){{.*}}encoding: [0xc3,0xf9,0x05,0x00,0x21]
+0xc3 0xf9 0x05 0x00 0x21
+
+# unidasm: ld A,(XIZ+0x0080)      -- a d16 value d8 cannot hold: plain
+# CHECK: ld a, (xiz+128){{.*}}encoding: [0xc3,0xf9,0x80,0x00,0x21]
+0xc3 0xf9 0x80 0x00 0x21
+
+# unidasm: ld A,(XBC)             -- (Xrr) through the SRI prefix: REFUSED.
+# It used to print as the d8 form "(xbc+256)" and reassemble to 89 00 21.
+# WARN: :[[@LINE+2]]:1: warning: invalid instruction encoding
+# CHECK-NOT: (xbc
+0xc3 0xe4 0x21

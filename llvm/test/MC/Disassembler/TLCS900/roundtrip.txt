@@ -1342,13 +1342,19 @@
 #
 # No existing spelling changes what it assembles to -- (xix) below still
 # encodes as the 2-byte form, proving no regression.
+#
+# ★ UPDATE 17 (2026-09-25): the sentinel 256 was itself a trap -- +256 is a
+# LEGAL d16 displacement, so `lda xwa,(xsp+256)` assembled to bf 00 30,
+# which is (xsp+0), and the ROM's real f3 fd 00 01 30 printed the same text.
+# The explicit d8-with-0 form is now spelled with a displacement WIDTH,
+# `(reg+0:8)`, the way `(0x8a:24)` spells a direct-address width.
 
 # CHECK: ld wa, (xix){{.*}}encoding: [0x94,0x20]
 0x94 0x20
 
 # The true 3-byte ROM encoding with an explicit zero displacement --
 # previously indistinguishable from the line above.
-# CHECK: ld wa, (xix+256){{.*}}encoding: [0x9c,0x00,0x20]
+# CHECK: ld wa, (xix+0:8){{.*}}encoding: [0x9c,0x00,0x20]
 0x9c 0x00 0x20
 
 # Non-zero displacements are untouched by the fix (PrefixSize == 2 but
@@ -1359,18 +1365,18 @@
 0x9c 0xff 0x20
 
 # Destination-memory (store) direction: same collision, same fix.
-# CHECK: ld (xix+256), wa{{.*}}encoding: [0xbc,0x00,0x50]
+# CHECK: ld (xix+0:8), wa{{.*}}encoding: [0xbc,0x00,0x50]
 0xbc 0x00 0x50
 
 # LDA (load effective address) direction: same collision, same fix.
-# CHECK: lda xwa, (xix+256){{.*}}encoding: [0xbc,0x00,0x30]
+# CHECK: lda xwa, (xix+0:8){{.*}}encoding: [0xbc,0x00,0x30]
 0xbc 0x00 0x30
 
 # ALU-with-memory-operand direction (XOR (mem), r8): same collision, same
 # fix -- this family retires the xor8_mem_rid8 forced mnemonic.
-# CHECK: xor (xix+256), w{{.*}}encoding: [0x8c,0x00,0xd8]
+# CHECK: xor (xix+0:8), w{{.*}}encoding: [0x8c,0x00,0xd8]
 0x8c 0x00 0xd8
 
 # 8-bit LD source direction: retires ld8_src_rid8.
-# CHECK: ld a, (xix+256){{.*}}encoding: [0x8c,0x00,0x21]
+# CHECK: ld a, (xix+0:8){{.*}}encoding: [0x8c,0x00,0x21]
 0x8c 0x00 0x21

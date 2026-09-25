@@ -281,10 +281,32 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     PrefixD8 = PrefixNoDisp + 0x08;
   }
 
-  // Sentinel: displacement of 256 means "force d8 form with displacement 0".
-  // Used by the assembly converter to reproduce exact ROM encoding where
-  // the original firmware used the 2-byte (Xrr+d8) prefix with d8=0x00
-  // instead of the shorter 1-byte (Xrr) prefix.
+  // A REQUESTED displacement width, `(xrr+D:8)` / `(xrr+D:16)`.  The parser
+  // has already refused a D that does not fit the requested field.
+  if (DispOp.isImm() && TLCS900II::isForcedDisp(Disp)) {
+    int64_t D = TLCS900II::getForcedDispValue(Disp);
+    if (TLCS900II::getForcedDispBytes(Disp) == 1) {
+      if (!isInt<8>(D)) {
+        Ctx.reportError(MI.getLoc(),
+                        "displacement " + Twine(D) +
+                            " does not fit the signed 8-bit (Xrr+d8) field");
+        return 0;
+      }
+      CB.push_back(PrefixD8 + BaseReg);
+      CB.push_back(static_cast<char>(D & 0xFF));
+      return 2;
+    }
+    CB.push_back(IsDstMem ? 0xF3 : (0xC3 + OpSize * 0x10));
+    CB.push_back(0xE0 + (BaseReg << 2) + 0x01);
+    emitImmediate(D, 2, CB);
+    return 4;
+  }
+
+  // ⚠ LEGACY SENTINELS, retired by TOOLCHAIN_VERSION UPDATE 17 once no
+  // source spells them.  A literal displacement of 256 used to MEAN "the d8
+  // form with displacement 0", so `lda xwa, (xsp+256)` assembled to bf 00 30
+  // -- which is (xsp+0) -- in silence, and the ROM's real `f3 fd 00 01 30`
+  // had no spelling at all.  `(xrr+0:8)` / `(xrr+0:16)` above replace them.
   if (Disp == 256 && DispOp.isImm()) {
     CB.push_back(PrefixD8 + BaseReg);
     CB.push_back(0);
