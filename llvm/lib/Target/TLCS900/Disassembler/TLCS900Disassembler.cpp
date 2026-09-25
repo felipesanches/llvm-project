@@ -2422,8 +2422,8 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeERPPrefix(
     unsigned Opc = 0;
     switch (Base) {
     case 0x80: Opc = TLCS900::ADD_BERP; break;  // addb_erp
-    case 0x88: Opc = TLCS900::LDTO_BERP; break; // stb_erp
-    case 0x98: Opc = TLCS900::LDFR_BERP; break; // ldb_erp
+    case 0x88: Opc = TLCS900::LDTO_BERP; break; // ldto_berp: R <- r
+    case 0x98: Opc = TLCS900::LDFR_BERP; break; // ldfr_berp: r <- R
     case 0xA0: Opc = TLCS900::SUB_BERP; break;  // subb_erp
     case 0xC0: Opc = TLCS900::AND_BERP; break;  // andb_erp
     case 0xD0: Opc = TLCS900::XOR_BERP; break;  // xorb_erp

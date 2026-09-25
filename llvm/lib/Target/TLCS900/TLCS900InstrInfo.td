@@ -3883,6 +3883,17 @@ def DJNZ16 : PrefixDJNZInst<0x1C, (outs GR16:$rd),
     Sched<[WriteIALU, WriteJmp]>;
 
 // --- Extended Register Prefix (C7/D7/E7) — Native typed definitions ---
+//
+// ⚠ LD between the named register R and the register-file register r the
+// prefix addresses: 0x88+R is LD R,r (R <- r) and 0x98+R is LD r,R (r <- R)
+// -- the TLCS-900 table, and MAME: `c7 fb 89` = ld A,QIZH, `d7 30 98` =
+// ld RWA3,WA.  The byte and word forms were spelled `stb_erp`/`ldb_erp` and
+// `stw_erp`/`ldw_erp` -- names that read BACKWARDS: `ldw_erp WA, 0x30` looks
+// like "load WA" and stores WA into RWA3 (the KN5000 SLIDE decompressor's
+// `ldw_erp WA,0x30 / or_erpw 0x30,.. / stw_erp WA,0x30 / bit 0,wa` only makes
+// sense read the right way round).  They now use the long form's names,
+// which the definitions always had: ldto_* = load TO R, ldfr_* = load FROM R
+// (TOOLCHAIN_VERSION UPDATE 17).
 // These use ERPRegInst (register as operand) and ERPSmallImmInst (immediate 0-7),
 // collapsing per-register defs into one def per operation+size.
 // Encoding: [prefix, bank_idx, SubOpcode_base + reg_enc_or_imm3]
@@ -3890,9 +3901,9 @@ def DJNZ16 : PrefixDJNZInst<0x1C, (outs GR16:$rd),
 // 8-bit ERP operations with register operand
 let OpSize = OpSize8.Value in {
 def LDTO_BERP : ERPRegInst<0x88, (outs), (ins GR8:$rd, i32imm:$bank),
-    "stb_erp", "$rd, $bank", []>, Sched<[WriteSTW]>;
+    "ldto_berp", "$rd, $bank", []>, Sched<[WriteSTW]>;
 def LDFR_BERP : ERPRegInst<0x98, (outs), (ins GR8:$rs, i32imm:$bank),
-    "ldb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "ldfr_berp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def ADD_BERP : ERPRegInst<0x80, (outs), (ins GR8:$rs, i32imm:$bank),
     "addb_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def SUB_BERP : ERPRegInst<0xA0, (outs), (ins GR8:$rs, i32imm:$bank),
@@ -3918,9 +3929,9 @@ def XOR_BERP : ERPRegInst<0xD0, (outs), (ins GR8:$rs, i32imm:$bank),
 // 16-bit ERP operations with register operand
 let OpSize = OpSize16.Value in {
 def LDTO_WERP : ERPRegInst<0x88, (outs), (ins GR16:$rd, i32imm:$bank),
-    "stw_erp", "$rd, $bank", []>, Sched<[WriteSTW]>;
+    "ldto_werp", "$rd, $bank", []>, Sched<[WriteSTW]>;
 def LDFR_WERP : ERPRegInst<0x98, (outs), (ins GR16:$rs, i32imm:$bank),
-    "ldw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+    "ldfr_werp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def ADD_WERP : ERPRegInst<0x80, (outs), (ins GR16:$rs, i32imm:$bank),
     "addw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def SUB_WERP : ERPRegInst<0xA0, (outs), (ins GR16:$rs, i32imm:$bank),

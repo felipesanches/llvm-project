@@ -1199,19 +1199,19 @@
 # ==========================================================================
 
 # --- ERPRegInst byte forms: [C7, bank, SubOpcBase + reg] ---
-# CHECK: stb_erp a, 251{{.*}}encoding: [0xc7,0xfb,0x89]
+# CHECK: ldto_berp a, 251{{.*}}encoding: [0xc7,0xfb,0x89]
 0xc7 0xfb 0x89
 
-# CHECK: stb_erp c, 251{{.*}}encoding: [0xc7,0xfb,0x8b]
+# CHECK: ldto_berp c, 251{{.*}}encoding: [0xc7,0xfb,0x8b]
 0xc7 0xfb 0x8b
 
-# CHECK: ldb_erp a, 251{{.*}}encoding: [0xc7,0xfb,0x99]
+# CHECK: ldfr_berp a, 251{{.*}}encoding: [0xc7,0xfb,0x99]
 0xc7 0xfb 0x99
 
 # Real SX-WSA1R ROM bytes (wsa1_prom_a.ic12, offset 0xF831FF): the tree's own
-# comment at wsa1/prom_a/wsa1_prom_a.s:6785 reads `ldb_erp a, 0xe3  ; F831FF
+# comment at wsa1/prom_a/wsa1_prom_a.s:6785 reads `ldfr_berp a, 0xe3  ; F831FF
 # c7 e3 99  ld QW,A`.
-# CHECK: ldb_erp a, 227{{.*}}encoding: [0xc7,0xe3,0x99]
+# CHECK: ldfr_berp a, 227{{.*}}encoding: [0xc7,0xe3,0x99]
 0xc7 0xe3 0x99
 
 # CHECK: addb_erp a, 251{{.*}}encoding: [0xc7,0xfb,0x81]

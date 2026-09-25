@@ -20,22 +20,22 @@
 
 ; prom_a 0xF831FF, in sub_F831B3, which writes the DSP register file at
 ; 0x007F0000.  unidasm: ld QW,A -- 0xE3 = the PREVIOUS bank's W.
-; CHECK: ldb_erp a, 227                 ; encoding: [0xc7,0xe3,0x99]
-ldb_erp a, 0xe3
+; CHECK: ldfr_berp a, 227                 ; encoding: [0xc7,0xe3,0x99]
+ldfr_berp a, 0xe3
 ; prom_a 0xF83202, the next instruction.  unidasm: ld QA,A -- 0xE2 = the
 ; previous bank's A.  0xE0/0xE1 would be the CURRENT bank's A and W.
-; CHECK: ldb_erp a, 226                 ; encoding: [0xc7,0xe2,0x99]
-ldb_erp a, 0xe2
+; CHECK: ldfr_berp a, 226                 ; encoding: [0xc7,0xe2,0x99]
+ldfr_berp a, 0xe2
 ; prom_a 0xFE6254.  unidasm: ld QIZH,A
-; CHECK: ldb_erp a, 251                 ; encoding: [0xc7,0xfb,0x99]
-ldb_erp a, 0xfb
+; CHECK: ldfr_berp a, 251                 ; encoding: [0xc7,0xfb,0x99]
+ldfr_berp a, 0xfb
 ; prom_a 0xF819C2.  unidasm: ld RL3,A -- a banked register below 0xE0, which is
 ; why this operand is an address and not a register name.
-; CHECK: ldb_erp a, 60                  ; encoding: [0xc7,0x3c,0x99]
-ldb_erp a, 0x3c
+; CHECK: ldfr_berp a, 60                  ; encoding: [0xc7,0x3c,0x99]
+ldfr_berp a, 0x3c
 ; prom_a 0xFC9FF7.  unidasm: ld IYL,E
-; CHECK: ldb_erp e, 244                 ; encoding: [0xc7,0xf4,0x9d]
-ldb_erp e, 0xf4
+; CHECK: ldfr_berp e, 244                 ; encoding: [0xc7,0xf4,0x9d]
+ldfr_berp e, 0xf4
 
 ; ==========================================================================
 ; LD r8, (regfile) -- the other direction, sub-opcode 0x88 + reg.
