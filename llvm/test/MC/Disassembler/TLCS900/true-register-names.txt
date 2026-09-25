@@ -1,4 +1,5 @@
 # RUN: llvm-mc -triple=tlcs900 -disassemble -show-encoding < %s 2>/dev/null | FileCheck %s
+# RUN: echo "0xf1 0x1e 0x23 0x14 0x34 0x12" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
 #
 # Instructions that round-tripped byte-exactly but PRINTED THE WRONG REGISTER
 # or an invented mnemonic.  A byte gate cannot see these; only a second
@@ -56,3 +57,14 @@
 # unidasm: add (XIX),0x1234         (was `addiw_da`)
 # CHECK: addw (xix), 4660{{.*}}encoding: [0x94,0x38,0x34,0x12]
 0x94 0x38 0x34 0x12
+
+# --- memory-to-memory with both addresses direct.  unidasm: ld (0x1e),(0x1234)
+# CHECK: ld (30:8), (4660){{.*}}encoding: [0xf0,0x1e,0x14,0x34,0x12]
+0xf0 0x1e 0x14 0x34 0x12
+# unidasm: ldw (0x00231e),(0x1234)
+# CHECK: ldw (8990:24), (4660){{.*}}encoding: [0xf2,0x1e,0x23,0x00,0x16,0x34,0x12]
+0xf2 0x1e 0x23 0x00 0x16 0x34 0x12
+# ⚠ With a 16-bit destination address (F1) the text `ld (8990:16), (4660)`
+# also matches the SOURCE-direct form (c2 34 12 00 19 1e 23) and the
+# assembler takes that, so the decode is REFUSED (the echo RUN line).
+# REFUSE: <stdin>:1:1: warning: invalid instruction encoding

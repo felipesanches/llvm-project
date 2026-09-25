@@ -811,6 +811,17 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // Jumps, calls and returns keep their own decoders for a direct address.
   if (IsDirect && IsDstMem && OpByte >= 0xD0)
     return MCDisassembler::Fail;
+  // ⚠ Memory-to-memory with BOTH addresses direct and the destination's
+  // address 16 bits wide (F1 + 0x14/0x16: `ld (0x231e),(0x1234)`) has no
+  // unambiguous spelling: `ld (8990:16), (4660)` also matches the SOURCE-
+  // direct form (C2 .. 19) with the operands the other way round, and the
+  // assembler takes that one -- printing it would re-encode to different
+  // bytes.  Refused, as before direct operands were decoded here.  With an
+  // 8- or 24-bit destination (`(30:8)`, `(8990:24)`) only the destination
+  // form matches, so F0/F2 decode and round-trip.
+  if (IsDirect && IsDstMem && PrefixSize == 3 &&
+      (OpByte == 0x14 || OpByte == 0x16))
+    return MCDisassembler::Fail;
 
   // Block transfer instructions: sub-opcodes 0x10-0x17 of the byte (0x80) and
   // word (0x90) source memory tables.
