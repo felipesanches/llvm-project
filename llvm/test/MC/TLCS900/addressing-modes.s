@@ -249,5 +249,5 @@ cp (xhl), wa
 cp (xhl), 42
 
 ; ANDMI8 — AND memory immediate (8-bit)
-; CHECK: andmi8 (xhl), 42   ; encoding: [0x83,0x3c,0x2a]
+; CHECK: and (xhl), 42   ; encoding: [0x83,0x3c,0x2a]
 andmi8 (xhl), 42

@@ -1747,14 +1747,17 @@ def STCFm : MemDstBitOpInst<0xA0, 2, (outs),
                               (ins MEMri:$addr, i32imm:$bit),
                               "stcf", "$bit, $addr", []>,
             Sched<[WriteSTW, ReadMemBase]>;
+// CHG / TSET n,(mem) under their real mnemonics (they were "chgm" and
+// "tsetm", so `chg 2, (xhl+14)` -- MAME's text for bb 0e c2 -- did not
+// assemble).  The old names stay as parse-only aliases below.
 def CHGm : MemDstBitOpInst<0xC0, 2, (outs),
                              (ins MEMri:$addr, i32imm:$bit),
-                             "chgm", "$bit, $addr", []>,
+                             "chg", "$bit, $addr", []>,
            Sched<[WriteSTW, ReadMemBase]>;
 let Defs = [SR] in
 def TSETm : MemDstBitOpInst<0xA8, 2, (outs),
                               (ins MEMri:$addr, i32imm:$bit),
-                              "tsetm", "$bit, $addr", []>,
+                              "tset", "$bit, $addr", []>,
             Sched<[WriteSTW, ReadMemBase]>;
 } // mayLoad, mayStore, hasSideEffects
 
@@ -5989,31 +5992,39 @@ def EXTPFX10 : ExtPrefixInst<10, (outs),
 // The old spellings are kept as aliases: kn5000-roms-disasm uses them in
 // hundreds of files (bitm in 53, incm in 80), and renaming alone would break
 // every one of them.
+//
+// ⚠ PARSE-ONLY (EmitPriority 0) since UPDATE 17.  They were added with the
+// default priority, which makes the PRINTER prefer them: the real mnemonics
+// this block exists to provide were never printed -- `b0 c8` came out as
+// "bitm 0, (xwa)", `90 04` as "pushm (xwa)", `c5 e0 60` as "incm8 8, (xwa+)"
+// (MAME: bit / pushw / inc).  Assembly is unchanged.
 // ---------------------------------------------------------------------------
-def : InstAlias<"andmi8 $addr, $imm", (AND8mi MEMri:$addr, i8imm:$imm)>;
-def : InstAlias<"ormi8 $addr, $imm", (OR8mi MEMri:$addr, i8imm:$imm)>;
-def : InstAlias<"addmi8 $addr, $imm", (ADD8mi MEMri:$addr, i8imm:$imm)>;
-def : InstAlias<"submi8 $addr, $imm", (SUB8mi MEMri:$addr, i8imm:$imm)>;
-def : InstAlias<"xormi8 $addr, $imm", (XOR8mi MEMri:$addr, i8imm:$imm)>;
-def : InstAlias<"adcmi8 $addr, $imm", (ADC8mi MEMri:$addr, i8imm:$imm)>;
-def : InstAlias<"sbcmi8 $addr, $imm", (SBC8mi MEMri:$addr, i8imm:$imm)>;
-def : InstAlias<"ormi16 $addr, $imm", (OR16mi MEMri:$addr, i16imm:$imm)>;
-def : InstAlias<"addiw_da $addr, $imm", (ADD16mi MEMri:$addr, i16imm:$imm)>;
-def : InstAlias<"submi16 $addr, $imm", (SUB16mi MEMri:$addr, i16imm:$imm)>;
-def : InstAlias<"xormi16 $addr, $imm", (XOR16mi MEMri:$addr, i16imm:$imm)>;
-def : InstAlias<"adcmi16 $addr, $imm", (ADC16mi MEMri:$addr, i16imm:$imm)>;
-def : InstAlias<"sbcmi16 $addr, $imm", (SBC16mi MEMri:$addr, i16imm:$imm)>;
-def : InstAlias<"pushm $addr", (PUSHW_m MEMri:$addr)>;
-def : InstAlias<"incm8 $count, $addr", (INC8m MEMri:$addr, i32imm:$count)>;
-def : InstAlias<"decm8 $count, $addr", (DEC8m MEMri:$addr, i32imm:$count)>;
-def : InstAlias<"incm $count, $addr", (INC16m MEMri:$addr, i32imm:$count)>;
-def : InstAlias<"decm $count, $addr", (DEC16m MEMri:$addr, i32imm:$count)>;
-def : InstAlias<"andmi16 $addr, $imm", (AND16mi MEMri:$addr, i16imm:$imm)>;
-def : InstAlias<"bitm $bit, $addr", (BITm MEMri:$addr, i32imm:$bit)>;
-def : InstAlias<"setm $bit, $addr", (SETm MEMri:$addr, i32imm:$bit)>;
-def : InstAlias<"resm $bit, $addr", (RESm MEMri:$addr, i32imm:$bit)>;
-def : InstAlias<"ldcfm $bit, $addr", (LDCFm MEMri:$addr, i32imm:$bit)>;
-def : InstAlias<"stcfm $bit, $addr", (STCFm MEMri:$addr, i32imm:$bit)>;
+def : InstAlias<"andmi8 $addr, $imm", (AND8mi MEMri:$addr, i8imm:$imm), 0>;
+def : InstAlias<"ormi8 $addr, $imm", (OR8mi MEMri:$addr, i8imm:$imm), 0>;
+def : InstAlias<"addmi8 $addr, $imm", (ADD8mi MEMri:$addr, i8imm:$imm), 0>;
+def : InstAlias<"submi8 $addr, $imm", (SUB8mi MEMri:$addr, i8imm:$imm), 0>;
+def : InstAlias<"xormi8 $addr, $imm", (XOR8mi MEMri:$addr, i8imm:$imm), 0>;
+def : InstAlias<"adcmi8 $addr, $imm", (ADC8mi MEMri:$addr, i8imm:$imm), 0>;
+def : InstAlias<"sbcmi8 $addr, $imm", (SBC8mi MEMri:$addr, i8imm:$imm), 0>;
+def : InstAlias<"ormi16 $addr, $imm", (OR16mi MEMri:$addr, i16imm:$imm), 0>;
+def : InstAlias<"addiw_da $addr, $imm", (ADD16mi MEMri:$addr, i16imm:$imm), 0>;
+def : InstAlias<"submi16 $addr, $imm", (SUB16mi MEMri:$addr, i16imm:$imm), 0>;
+def : InstAlias<"xormi16 $addr, $imm", (XOR16mi MEMri:$addr, i16imm:$imm), 0>;
+def : InstAlias<"adcmi16 $addr, $imm", (ADC16mi MEMri:$addr, i16imm:$imm), 0>;
+def : InstAlias<"sbcmi16 $addr, $imm", (SBC16mi MEMri:$addr, i16imm:$imm), 0>;
+def : InstAlias<"pushm $addr", (PUSHW_m MEMri:$addr), 0>;
+def : InstAlias<"incm8 $count, $addr", (INC8m MEMri:$addr, i32imm:$count), 0>;
+def : InstAlias<"decm8 $count, $addr", (DEC8m MEMri:$addr, i32imm:$count), 0>;
+def : InstAlias<"incm $count, $addr", (INC16m MEMri:$addr, i32imm:$count), 0>;
+def : InstAlias<"decm $count, $addr", (DEC16m MEMri:$addr, i32imm:$count), 0>;
+def : InstAlias<"andmi16 $addr, $imm", (AND16mi MEMri:$addr, i16imm:$imm), 0>;
+def : InstAlias<"bitm $bit, $addr", (BITm MEMri:$addr, i32imm:$bit), 0>;
+def : InstAlias<"setm $bit, $addr", (SETm MEMri:$addr, i32imm:$bit), 0>;
+def : InstAlias<"resm $bit, $addr", (RESm MEMri:$addr, i32imm:$bit), 0>;
+def : InstAlias<"ldcfm $bit, $addr", (LDCFm MEMri:$addr, i32imm:$bit), 0>;
+def : InstAlias<"stcfm $bit, $addr", (STCFm MEMri:$addr, i32imm:$bit), 0>;
+def : InstAlias<"chgm $bit, $addr", (CHGm MEMri:$addr, i32imm:$bit), 0>;
+def : InstAlias<"tsetm $bit, $addr", (TSETm MEMri:$addr, i32imm:$bit), 0>;
 
 // SCC under its real mnemonic. SCC8/SCC16 are the encodable forms and were
 // reachable only as "scc8"/"scc16"; SCC32 above is a codegen pseudo that already

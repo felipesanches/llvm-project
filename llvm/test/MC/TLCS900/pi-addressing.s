@@ -76,24 +76,24 @@ cp_spib_mr B, 0xec
 cp_spib_im 0xe0, 0x30
 
 ; CHECK: add_spib_im 224, 5 ; encoding: [0xc5,0xe0,0x38,0x05]
-; DISASM: addmi8 (xwa+), 5
+; DISASM: add (xwa+), 5
 add_spib_im 0xe0, 0x05
 
 ; CHECK: and_spib_im 236, 15 ; encoding: [0xc5,0xec,0x3c,0x0f]
-; DISASM: andmi8 (xhl+), 15
+; DISASM: and (xhl+), 15
 and_spib_im 0xec, 0x0f
 
 ; CHECK: or_spib_im 224, 128 ; encoding: [0xc5,0xe0,0x3e,0x80]
-; DISASM: ormi8 (xwa+), 128
+; DISASM: or (xwa+), 128
 or_spib_im 0xe0, 0x80
 
 ; --- INC/DEC ---
 ; CHECK: inc_spib 3, 224 ; encoding: [0xc5,0xe0,0x63]
-; DISASM: incm8 3, (xwa+)
+; DISASM: inc 3, (xwa+)
 inc_spib 3, 0xe0
 
 ; CHECK: dec_spib 1, 240 ; encoding: [0xc5,0xf0,0x69]
-; DISASM: decm8 1, (xix+)
+; DISASM: dec 1, (xix+)
 dec_spib 1, 0xf0
 
 ; --- PUSH ---
@@ -128,11 +128,11 @@ cp_spiw_im 0xe0, 0x12, 0x34
 add_spiw_mr DE, 0xe1
 
 ; CHECK: inc_spiw 2, 224 ; encoding: [0xd5,0xe0,0x62]
-; DISASM: incm 2, (xwa+:1)
+; DISASM: incw 2, (xwa+:1)
 inc_spiw 2, 0xe0
 
 ; CHECK: push_spiw 228 ; encoding: [0xd5,0xe4,0x04]
-; DISASM: pushm (xbc+:1)
+; DISASM: pushw (xbc+:1)
 push_spiw 0xe4
 
 ; ======= SPI Long (prefix E5) =======

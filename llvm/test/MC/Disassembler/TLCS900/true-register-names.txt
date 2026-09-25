@@ -1,0 +1,58 @@
+# RUN: llvm-mc -triple=tlcs900 -disassemble -show-encoding < %s 2>/dev/null | FileCheck %s
+#
+# Instructions that round-tripped byte-exactly but PRINTED THE WRONG REGISTER
+# or an invented mnemonic.  A byte gate cannot see these; only a second
+# decoder can.  Each expectation quotes MAME's unidasm reading of the bytes.
+
+# --- direct-address ALU forms: the register was printed through the 32-bit
+# --- table (`cpda8 xbc, (8990)` for cp A,(0x231e))
+# unidasm: cp A,(0x231e)
+# CHECK: cp a, (8990:16){{.*}}encoding: [0xc1,0x1e,0x23,0xf1]
+0xc1 0x1e 0x23 0xf1
+# unidasm: add BC,(0x231e)          (was `addda16 xbc, (8990)`)
+# CHECK: add bc, (8990:16){{.*}}encoding: [0xd1,0x1e,0x23,0x81]
+0xd1 0x1e 0x23 0x81
+# unidasm: and HL,(0x231e)          (was `andda16 xhl, (8990)`)
+# CHECK: and hl, (8990:16){{.*}}encoding: [0xd1,0x1e,0x23,0xc3]
+0xd1 0x1e 0x23 0xc3
+# unidasm: and A,(0xc07f)           (was `andda8 xbc, (49279)`)
+# CHECK: and a, (49279:16){{.*}}encoding: [0xc1,0x7f,0xc0,0xc1]
+0xc1 0x7f 0xc0 0xc1
+# unidasm: cp A,(0x00231e)          (was `cpda8_24 xbc, (8990)`)
+# CHECK: cp a, (8990:24){{.*}}encoding: [0xc2,0x1e,0x23,0x00,0xf1]
+0xc2 0x1e 0x23 0x00 0xf1
+# unidasm: cp A,(0x1e) -- the 8-bit address form did not decode at all
+# CHECK: cp a, (30:8){{.*}}encoding: [0xc0,0x1e,0xf1]
+0xc0 0x1e 0xf1
+# unidasm: adc A,(0x231e) -- did not decode at all
+# CHECK: adc a, (8990:16){{.*}}encoding: [0xc1,0x1e,0x23,0x91]
+0xc1 0x1e 0x23 0x91
+
+# --- LDA r16 through a direct address: printed as the LOAD `ldda32 xwa`,
+# --- whose own encoding is e1 40 10 20
+# unidasm: lda WA,0x1040
+# CHECK: lda wa, (4160:16){{.*}}encoding: [0xf1,0x40,0x10,0x20]
+0xf1 0x40 0x10 0x20
+# unidasm: lda WA,0x001040          (was `ldl_da xwa` = e2 ... 20, a load)
+# CHECK: lda wa, (4160:24){{.*}}encoding: [0xf2,0x40,0x10,0x00,0x20]
+0xf2 0x40 0x10 0x00 0x20
+
+# --- real mnemonics the printer skipped in favour of legacy aliases
+# unidasm: bit 0,(XWA)              (was `bitm`)
+# CHECK: bit 0, (xwa){{.*}}encoding: [0xb0,0xc8]
+0xb0 0xc8
+# unidasm: pushw (XWA)              (was `pushm`)
+# CHECK: pushw (xwa){{.*}}encoding: [0x90,0x04]
+0x90 0x04
+# unidasm: chg 2,(XHL+0x0e)         (was `chgm`, and `chg` did not assemble)
+# CHECK: chg 2, (xhl+14){{.*}}encoding: [0xbb,0x0e,0xc2]
+0xbb 0x0e 0xc2
+# unidasm: tset 0,(XWA)             (was `tsetm`)
+# CHECK: tset 0, (xwa){{.*}}encoding: [0xb0,0xa8]
+0xb0 0xa8
+# unidasm: and (XIX),0x7f           (was `andmi8`)
+# CHECK: and (xix), 127{{.*}}encoding: [0x84,0x3c,0x7f]
+0x84 0x3c 0x7f
+# unidasm: add (XIX),0x1234         (was `addiw_da`)
+# CHECK: addw (xix), 4660{{.*}}encoding: [0x94,0x38,0x34,0x12]
+0x94 0x38 0x34 0x12

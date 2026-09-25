@@ -646,29 +646,29 @@
 # === Direct addressing (E1=32-bit src, 16-bit addr) ===
 
 # LD xwa, (0x1234): E1 34 12 20
-# CHECK: ldda32 xwa, (4660)
+# CHECK: ld xwa, (4660:16)
 0xe1 0x34 0x12 0x20
 
 # LD xbc, (0x1234): E1 34 12 21
-# CHECK: ldda32 xbc, (4660)
+# CHECK: ld xbc, (4660:16)
 0xe1 0x34 0x12 0x21
 
 # ADD (0x1234), xwa: E1 34 12 88
-# CHECK: adddm32 (4660), xwa
+# CHECK: add (4660:16), xwa
 0xe1 0x34 0x12 0x88
 
 # === Direct addressing (E2=32-bit src, 24-bit addr) ===
 
 # LD xwa, (0x123456): E2 56 34 12 20
-# CHECK: ldl_da xwa, (1193046)
+# CHECK: ld xwa, (1193046:24)
 0xe2 0x56 0x34 0x12 0x20
 
 # === Direct addressing destination (F1=dst, 16-bit addr) ===
 
 # LD (0x1234), xwa: F1 34 12 60
-# CHECK: stda32 (4660), xwa
+# CHECK: ld (4660:16), xwa
 0xf1 0x34 0x12 0x60
 
 # LDA xwa, 0x1234: F1 34 12 30
-# CHECK: lda_d16 xwa, (4660)
+# CHECK: lda xwa, (4660:16)
 0xf1 0x34 0x12 0x30

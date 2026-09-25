@@ -18,6 +18,7 @@
 #include "TargetInfo/TLCS900TargetInfo.h"
 #include "llvm/MC/MCDecoderOps.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -58,11 +59,22 @@ private:
   /// Decode a source/destination memory-prefixed instruction.
   /// MemSize: 0=byte, 1=word, 2=long (selects sub-opcode interpretations).
   /// IsDstMem: true for B0/B8 destination table, false for source tables.
+  /// IsDirect: the operand is a DIRECT address `(Addr:W)`; Disp then carries
+  /// the DirectAddrW* width sentinel and BaseReg is unused.
   DecodeStatus decodeMemPrefix(MCInst &MI, uint64_t &Size,
                                ArrayRef<uint8_t> Bytes, unsigned BaseReg,
                                int64_t Disp, unsigned PrefixSize,
                                unsigned MemSize = 2,
-                               bool IsDstMem = false) const;
+                               bool IsDstMem = false,
+                               bool IsDirect = false,
+                               int64_t Addr = 0) const;
+  /// Decode a direct-address operand `(n:8)`, `(nn:16)`, `(nnn:24)` through
+  /// decodeMemPrefix, so the instruction prints as the real mnemonic with a
+  /// MEMri operand.  Fails (leaving MI untouched) where decodeMemPrefix has no
+  /// row or the row is a jump/call/return (kept on the legacy path).
+  DecodeStatus decodeDirectAsMem(MCInst &MI, uint64_t &Size,
+                                 ArrayRef<uint8_t> Bytes, bool IsDst,
+                                 unsigned OpSize, unsigned AddrBytes) const;
   /// Decode a direct-address-prefixed instruction.
   /// IsDst: true = F1/F2 (destination), false = C1..E2 (source).
   /// OpSize: 0=byte, 1=word, 2=long.  AddrBytes: 2 or 3.
@@ -735,7 +747,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGR8Prefix(
 MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, unsigned BaseReg,
     int64_t Disp, unsigned PrefixSize, unsigned MemSize,
-    bool IsDstMem) const {
+    bool IsDstMem, bool IsDirect, int64_t Addr) const {
   // The 3-byte (Xrr+d8) encoding and the 2-byte (Xrr) encoding print
   // IDENTICALLY through printMemOperand when the true displacement is zero
   // -- both show "(reg)" -- so an instruction actually decoded from the
@@ -750,7 +762,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // literal 256 -- which is a legal d16 displacement and printed as one, so
   // the ROM's `f3 fd 00 01 30` (lda xwa,(xsp+256)) and `bf 00 30` (d8 with 0)
   // used to print the SAME text.
-  if (PrefixSize == 2 && Disp == 0)
+  if (!IsDirect && PrefixSize == 2 && Disp == 0)
     Disp = TLCS900II::makeForcedDisp(0, 1);
 
   // The SAME collision exists one width up: the SRI-prefixed 4-byte
@@ -772,7 +784,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // bytes shorter -- so all of -128..127 now decode as `(xrr+D:16)`.
   // ⚠ 256 too, for as long as the assembler still reads a literal 256 as the
   // retired d8-with-0 sentinel (LEGACY, removed with it).
-  if (PrefixSize == 4 && (isInt<8>(Disp) || Disp == 256))
+  if (!IsDirect && PrefixSize == 4 && (isInt<8>(Disp) || Disp == 256))
     Disp = TLCS900II::makeForcedDisp(Disp, 2);
 
   unsigned OpByteIdx = PrefixSize;
@@ -781,6 +793,21 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
 
   uint8_t OpByte = Bytes[OpByteIdx];
   unsigned Base = decodeGPR(BaseReg);
+  // The MEMri pair: (base register, displacement) for a register-indirect
+  // operand, (address expression, width sentinel) for a direct one -- the
+  // shape the assembler's parser builds for `(0x231e:16)`, so that
+  // `-disassemble -show-encoding` can re-encode what it prints.
+  auto addMem = [&]() {
+    if (IsDirect)
+      MI.addOperand(
+          MCOperand::createExpr(MCConstantExpr::create(Addr, getContext())));
+    else
+      MI.addOperand(MCOperand::createReg(Base));
+    MI.addOperand(MCOperand::createImm(Disp));
+  };
+  // Jumps, calls and returns keep their own decoders for a direct address.
+  if (IsDirect && IsDstMem && OpByte >= 0xD0)
+    return MCDisassembler::Fail;
 
   // Block transfer instructions: sub-opcodes 0x10-0x17 of the byte (0x80) and
   // word (0x90) source memory tables.
@@ -831,8 +858,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   if (IsDstMem && OpByte >= 0x20 && OpByte <= 0x27) {
     MI.setOpcode(TLCS900::LDA16);
     MI.addOperand(MCOperand::createReg(decodeGR16(OpByte & 0x7)));
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -854,8 +880,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     }
     MI.setOpcode(Opc);
     MI.addOperand(MCOperand::createReg(DstReg));
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -865,8 +890,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     unsigned DstReg = decodeGPR(OpByte & 0x7);
     MI.setOpcode(TLCS900::LDA32);
     MI.addOperand(MCOperand::createReg(DstReg));
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -882,8 +906,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
       return MCDisassembler::Fail;
     uint8_t Imm = Bytes[OpByteIdx + 1];
     MI.setOpcode(TLCS900::LD8mi_dst);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createImm(Imm));
     Size = PrefixSize + 2;
     return MCDisassembler::Success;
@@ -904,8 +927,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
       return MCDisassembler::Fail;
     uint16_t Imm = readU16LE(Bytes, OpByteIdx + 1);
     MI.setOpcode(TLCS900::LD16mi_dst_02);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createImm(Imm));
     Size = PrefixSize + 3;
     return MCDisassembler::Success;
@@ -941,8 +963,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     else
       MMOpc = (MemSize == 0) ? TLCS900::LD8_MM_src : TLCS900::LD16_MM_src;
     MI.setOpcode(MMOpc);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createImm(Addr));
     Size = PrefixSize + 3;
     return MCDisassembler::Success;
@@ -955,8 +976,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   if (IsDstMem && OpByte >= 0x40 && OpByte <= 0x47) {
     unsigned SrcReg = decodeGR8(OpByte & 0x7);
     MI.setOpcode(TLCS900::LD8mr_asm);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createReg(SrcReg));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
@@ -964,8 +984,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   if (IsDstMem && OpByte >= 0x50 && OpByte <= 0x57) {
     unsigned SrcReg = decodeGR16(OpByte & 0x7);
     MI.setOpcode(TLCS900::LD16mr_asm);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createReg(SrcReg));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
@@ -973,8 +992,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   if (IsDstMem && OpByte >= 0x60 && OpByte <= 0x67) {
     unsigned SrcReg = decodeGPR(OpByte & 0x7);
     MI.setOpcode(TLCS900::LD32mr);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createReg(SrcReg));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
@@ -987,8 +1005,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // single byte 0x3a -- a three-to-one byte loss that nothing reported.
   if (OpByte == 0x04 && MemSize <= 1) {
     MI.setOpcode(MemSize == 0 ? TLCS900::PUSHB_m : TLCS900::PUSHW_m);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -1004,8 +1021,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     else
       Opc = IsInc ? TLCS900::INC16m : TLCS900::DEC16m;
     MI.setOpcode(Opc);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createImm(Count));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
@@ -1054,8 +1070,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // order taken from anywhere but the instruction's own declared list.
   if (IsDstMem && OpByte >= 0xD0 && OpByte <= 0xEF) {
     MI.setOpcode(OpByte < 0xE0 ? TLCS900::JPCC_m : TLCS900::CALLCC_m);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createImm(OpByte & 0xF));
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
@@ -1082,8 +1097,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     for (const auto &E : DstUnaryOps) {
       if (OpByte == E.Sub) {
         MI.setOpcode(E.Opc);
-        MI.addOperand(MCOperand::createReg(Base));
-        MI.addOperand(MCOperand::createImm(Disp));
+        addMem();
         Size = PrefixSize + 1;
         return MCDisassembler::Success;
       }
@@ -1100,8 +1114,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     for (const auto &E : DstBitOps) {
       if ((OpByte & 0xF8) == E.Base) {
         MI.setOpcode(E.Opc);
-        MI.addOperand(MCOperand::createReg(Base));
-        MI.addOperand(MCOperand::createImm(Disp));
+        addMem();
         MI.addOperand(MCOperand::createImm(OpByte & 0x7));
         Size = PrefixSize + 1;
         return MCDisassembler::Success;
@@ -1128,8 +1141,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   if (OpByte >= 0x30 && OpByte <= 0x37 && MemSize <= 1) {
     MI.setOpcode(MemSize == 0 ? TLCS900::EX8m : TLCS900::EX16m);
     MI.addOperand(MCOperand::createReg(decodeRegForSize(OpByte & 0x7, MemSize)));
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -1144,8 +1156,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     };
     MI.setOpcode(MULDIVm[(OpByte >> 3) & 0x3][MemSize]);
     MI.addOperand(MCOperand::createReg(decodeRegForSize(OpByte & 0x7, MemSize)));
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -1162,8 +1173,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
         {TLCS900::SLL8m, TLCS900::SLL16m}, {TLCS900::SRL8m, TLCS900::SRL16m},
     };
     MI.setOpcode(SHIFTm[OpByte & 0x7][MemSize]);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
   }
@@ -1175,8 +1185,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     if (Bytes.size() < OpByteIdx + 1 + NumImm)
       return MCDisassembler::Fail;
     MI.setOpcode(ALUmi[MemSize][OpByte & 0x7]);
-    MI.addOperand(MCOperand::createReg(Base));
-    MI.addOperand(MCOperand::createImm(Disp));
+    addMem();
     MI.addOperand(MCOperand::createImm(readImmLE(Bytes, OpByteIdx + 1, NumImm)));
     Size = PrefixSize + 1 + NumImm;
     return MCDisassembler::Success;
@@ -1190,15 +1199,13 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
     if (OpByte & 0x08) {
       // OP (mem), r -- memory is the destination, register the source.
       MI.setOpcode(ALUmr[MemSize][AluIdx]);
-      MI.addOperand(MCOperand::createReg(Base));
-      MI.addOperand(MCOperand::createImm(Disp));
+      addMem();
       MI.addOperand(MCOperand::createReg(Reg));
     } else {
       // OP r, (mem) -- register is the destination.
       MI.setOpcode(ALUrm[MemSize][AluIdx]);
       MI.addOperand(MCOperand::createReg(Reg));
-      MI.addOperand(MCOperand::createReg(Base));
-      MI.addOperand(MCOperand::createImm(Disp));
+      addMem();
     }
     Size = PrefixSize + 1;
     return MCDisassembler::Success;
@@ -1211,9 +1218,41 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
 // Direct address prefix decoder
 //===----------------------------------------------------------------------===//
 
+// ★ UPDATE 17: a direct-address operand is decoded through decodeMemPrefix,
+// the table every register-indirect form already uses, so `c1 1e 23 f1` prints
+// `cp a, (8990:16)` -- the text the assembler has accepted since UPDATE 7 --
+// instead of the pseudo `cpda8 xbc, (8990)`, which named XBC where the CPU
+// compares A: the 8- and 16-bit ALU direct forms printed their register
+// through the 32-bit table.  The same routing fixes `f1 40 10 20`, LDA WA,
+// which printed "ldda32 xwa, (4160)" -- a LOAD whose own encoding is e1 40 10
+// 20.  Anything decodeMemPrefix does not model (jumps, calls, returns, the
+// long ALU-immediate row) falls through to the legacy decoders below.
+MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAsMem(
+    MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, bool IsDst,
+    unsigned OpSize, unsigned AddrBytes) const {
+  if (Bytes.size() < 2 + AddrBytes)
+    return MCDisassembler::Fail;
+  int64_t Addr = readImmLE(Bytes, 1, AddrBytes);
+  int64_t Width = AddrBytes == 1   ? TLCS900II::DirectAddrW8
+                  : AddrBytes == 2 ? TLCS900II::DirectAddrW16
+                                   : TLCS900II::DirectAddrW24;
+  MCInst Tmp;
+  uint64_t TmpSize = 0;
+  if (decodeMemPrefix(Tmp, TmpSize, Bytes, 0, Width, 1 + AddrBytes,
+                      IsDst ? 2 : OpSize, IsDst, /*IsDirect=*/true,
+                      Addr) != MCDisassembler::Success)
+    return MCDisassembler::Fail;
+  MI = Tmp;
+  Size = TmpSize;
+  return MCDisassembler::Success;
+}
+
 MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, bool IsDst,
     unsigned OpSize, unsigned AddrBytes) const {
+  if (decodeDirectAsMem(MI, Size, Bytes, IsDst, OpSize, AddrBytes) ==
+      MCDisassembler::Success)
+    return MCDisassembler::Success;
   // Prefix byte already consumed. Next: address bytes, then sub-opcode.
   unsigned AddrOffset = 1;
   if (Bytes.size() < AddrOffset + AddrBytes + 1)
@@ -1593,6 +1632,9 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
 MCDisassembler::DecodeStatus TLCS900Disassembler::decodeD8Prefix(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes,
     unsigned OpSize, bool IsDst) const {
+  if (decodeDirectAsMem(MI, Size, Bytes, IsDst, OpSize, 1) ==
+      MCDisassembler::Success)
+    return MCDisassembler::Success;
   // Prefix byte already consumed. Next: addr8, then sub-opcode.
   if (Bytes.size() < 3)
     return MCDisassembler::Fail;
