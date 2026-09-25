@@ -31,9 +31,9 @@ ret
 
 ; === EI / DI ===
 
-; CHECK: di
-; CHECK-ENC: encoding: [0x06,0x00]
-; CHECK-INST: di
+; CHECK: ei 7
+; CHECK-ENC: encoding: [0x06,0x07]
+; CHECK-INST: ei 7
 di
 
 ; CHECK: ei 3

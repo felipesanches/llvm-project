@@ -207,7 +207,7 @@ muls xwa, xbc
 
 ; === EI / DI / SWI / RETD ===
 
-; CHECK-NEXT: di
+; CHECK-NEXT: ei 7
 di
 
 ; CHECK-NEXT: ei 3

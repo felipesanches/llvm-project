@@ -103,8 +103,8 @@ nop
 ; CHECK: halt
 halt
 
-; DI is an alias for EI 0 (prints back as "di")
-; CHECK: di
+; DI is an alias for EI 7 (parse-only; prints back as "ei 7")
+; CHECK: ei	7
 di
 
 ; CHECK: ei	3

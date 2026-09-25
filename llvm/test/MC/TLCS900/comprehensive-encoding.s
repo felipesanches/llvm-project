@@ -24,7 +24,7 @@ ret
 ; ==========================================================================
 
 ; DI is an alias for EI 0
-; CHECK: di               ; encoding: [0x06,0x00]
+; CHECK: ei 7             ; encoding: [0x06,0x07]
 di
 
 ; CHECK: ei 3             ; encoding: [0x06,0x03]

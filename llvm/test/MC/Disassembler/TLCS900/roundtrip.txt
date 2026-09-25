@@ -81,7 +81,8 @@
 # EI / DI
 # ==========================================================================
 
-# CHECK: di{{.*}}encoding: [0x06,0x00]
+# EI 0 accepts every level; DI is EI 7 (below), and `di` is parse-only.
+# CHECK: ei 0{{.*}}encoding: [0x06,0x00]
 0x06 0x00
 
 # CHECK: ei 1{{.*}}encoding: [0x06,0x01]

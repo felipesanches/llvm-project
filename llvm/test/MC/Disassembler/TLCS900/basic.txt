@@ -16,8 +16,9 @@
 
 # === EI / DI (0x06 + level byte) ===
 
-# DI is EI 0
-# CHECK: di
+# EI 0 accepts every interrupt level; it is NOT DI.  DI is EI 7 (below),
+# printed as `ei 7` because the `di` alias is parse-only.
+# CHECK: ei 0
 0x06 0x00
 
 # CHECK: ei 3

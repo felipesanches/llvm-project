@@ -1120,9 +1120,15 @@ def EI : SingleByteImm8Inst<0x06, (outs), (ins i32imm:$level),
                             "ei", "$level", []>,
          Sched<[WriteNop]>;
 
-// DI is an alias for EI 0 (setting interrupt level to 0 disables interrupts).
-// There is no separate DI opcode in the TLCS-900/H instruction set.
-def : InstAlias<"di", (EI 0)>;
+// DI is EI 7: EI n loads the interrupt mask IFF with n, and a maskable
+// interrupt is accepted only when its level is >= IFF, so IFF=7 masks every
+// maskable level (TMP94C241 reference: "DI ; IFF=7"; MAME op_EI).  EI 0 is the
+// OPPOSITE -- IFF=0 accepts every level.  This alias used to say (EI 0), so
+// `di` assembled to 06 00 and 06 00 printed back as `di`: 213 source lines in
+// the KN5000/SX-WSA1R disassembly read as the opposite of what the CPU does.
+// There is no separate DI opcode.  Parse-only (emit priority 0): 06 07 keeps
+// printing as `ei 7`, and 06 00 prints as `ei 0`.
+def : InstAlias<"di", (EI 7), 0>;
 
 // SWI — Software interrupt (with vector number)
 // Encoding: 0xF8+num (1 byte, num in bits 0-2)

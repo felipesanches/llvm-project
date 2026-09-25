@@ -14,8 +14,8 @@ ret
 ; CHECK: halt    ; encoding: [0x05]
 halt
 
-; DI is an alias for EI 0 (prints back as "di")
-; CHECK: di      ; encoding: [0x06,0x00]
+; DI is an alias for EI 7 (parse-only; prints back as "ei 7")
+; CHECK: ei 7    ; encoding: [0x06,0x07]
 di
 
 ; CHECK: reti    ; encoding: [0x07]
@@ -228,8 +228,8 @@ cpdr
 ; === SingleByteImm8 (immediate encoded in opcode byte) ===
 
 ; EI level: 0x06, level
-; EI 0 prints as "di" due to InstAlias
-; CHECK: di               ; encoding: [0x06,0x00]
+; EI 0 accepts every interrupt level; it is NOT DI
+; CHECK: ei 0             ; encoding: [0x06,0x00]
 ei 0
 
 ; CHECK: ei 3             ; encoding: [0x06,0x03]
