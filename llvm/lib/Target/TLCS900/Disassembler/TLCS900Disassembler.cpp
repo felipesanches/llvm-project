@@ -787,9 +787,7 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
   // ★ UPDATE 17: every d16 displacement that a d8 could have held is a width
   // CHOICE, not just 0 -- `c3 f9 05 00` printed "(xiz+5)" and reassembled two
   // bytes shorter -- so all of -128..127 now decode as `(xrr+D:16)`.
-  // ⚠ 256 too, for as long as the assembler still reads a literal 256 as the
-  // retired d8-with-0 sentinel (LEGACY, removed with it).
-  if (!IsDirect && PrefixSize == 4 && (isInt<8>(Disp) || Disp == 256))
+  if (!IsDirect && PrefixSize == 4 && isInt<8>(Disp))
     Disp = TLCS900II::makeForcedDisp(Disp, 2);
 
   unsigned OpByteIdx = PrefixSize;

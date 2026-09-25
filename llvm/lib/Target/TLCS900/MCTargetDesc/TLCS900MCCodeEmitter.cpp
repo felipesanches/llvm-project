@@ -321,31 +321,11 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     return 4;
   }
 
-  // ⚠ LEGACY SENTINELS, retired by TOOLCHAIN_VERSION UPDATE 17 once no
-  // source spells them.  A literal displacement of 256 used to MEAN "the d8
-  // form with displacement 0", so `lda xwa, (xsp+256)` assembled to bf 00 30
-  // -- which is (xsp+0) -- in silence, and the ROM's real `f3 fd 00 01 30`
-  // had no spelling at all.  `(xrr+0:8)` / `(xrr+0:16)` above replace them.
-  if (Disp == 256 && DispOp.isImm()) {
-    CB.push_back(PrefixD8 + BaseReg);
-    CB.push_back(0);
-    return 2;
-  }
-
-  // Sentinel: displacement of 65536 means "force the 4-byte SRI (Xrr+d16)
-  // form with a real displacement of 0" -- the same collapse as the 256
-  // sentinel above, one width up (see decodeMemPrefix's PrefixSize==4
-  // comment). 65536 is outside any real d16's -32768..32767 range, so it
-  // can never be confused with a genuine displacement.
-  if (Disp == 65536 && DispOp.isImm()) {
-    uint8_t SRIPrefix0 = IsDstMem ? 0xF3 : (0xC3 + OpSize * 0x10);
-    CB.push_back(SRIPrefix0);
-    CB.push_back(0xE0 + (BaseReg << 2) + 0x01);
-    CB.push_back(0);
-    CB.push_back(0);
-    return 4;
-  }
-
+  // (A literal 256 and 65536 used to be SENTINELS for "d8 carrying 0" and
+  // "d16 carrying 0" -- so `lda xwa, (xsp+256)` assembled to bf 00 30, which
+  // is (xsp+0), in silence.  Retired in TOOLCHAIN_VERSION UPDATE 17 once no
+  // source spelled them: 256 is an ordinary d16 displacement, 65536 is out of
+  // range, and the width is requested as `(xrr+0:8)` / `(xrr+0:16)` above.)
   if (Disp == 0 && DispOp.isImm()) {
     // (Xrr) — no displacement, 1-byte prefix.
     CB.push_back(PrefixNoDisp + BaseReg);

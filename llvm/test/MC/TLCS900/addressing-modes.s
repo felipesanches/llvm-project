@@ -90,7 +90,11 @@ ld a, (xix+10)
 ; 8-bit memory load + d16
 ; ==========================================================================
 
-; CHECK: ld a, (xhl+256)    ; encoding: [0x8b,0x00,0x21]
+; ⚠ This line used to pin [0x8b,0x00,0x21] -- the d8 form carrying 0, i.e.
+; (xhl+0) -- under a heading that says d16: 256 was the assembler's sentinel
+; for "d8 with 0" and this test recorded the miscompile.  unidasm reads
+; c3 ed 00 01 21 as ld A,(XHL+0x0100).  (TOOLCHAIN_VERSION UPDATE 17)
+; CHECK: ld a, (xhl+256)    ; encoding: [0xc3,0xed,0x00,0x01,0x21]
 ld a, (xhl+256)
 ; CHECK: ld a, (xhl+1000)   ; encoding: [0xc3,0xed,0xe8,0x03,0x21]
 ld a, (xhl+1000)
