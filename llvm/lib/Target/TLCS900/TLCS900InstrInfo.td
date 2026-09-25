@@ -1325,6 +1325,15 @@ def LDA32 : MemLoadDstInst<0x30, 4, (outs GPR:$rd), (ins MEMri:$addr),
                            "lda", "$rd, $addr", []>,
             Sched<[WriteIALU]>;
 
+// LDA r16, mem -- the destination table's 0x20+r row: the low 16 bits of the
+// effective address.  It had no definition, so the decoder read `b1 20`
+// (lda WA,(XBC)) as the LOAD "ld xwa, (xbc)" and `f1 40 10 20` as "ldda32",
+// both of which reassemble to different bytes.
+let hasSideEffects = 0 in
+def LDA16 : MemLoadDstInst<0x20, 4, (outs GR16:$rd), (ins MEMri:$addr),
+                           "lda", "$rd, $addr", []>,
+            Sched<[WriteIALU]>;
+
 //===----------------------------------------------------------------------===//
 // Loop Instruction
 //===----------------------------------------------------------------------===//

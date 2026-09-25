@@ -281,6 +281,25 @@ unsigned TLCS900MCCodeEmitter::emitMemPrefix(
     PrefixD8 = PrefixNoDisp + 0x08;
   }
 
+  // POST-INCREMENT / PRE-DECREMENT, `(R+)` / `(-R)`: prefix C5/D5/E5 (source,
+  // size in the high nibble) or F5 (destination), C4/D4/E4/F4 for the pre-
+  // decrement, then the register-file byte with the step in its low two bits.
+  // The base-register operand is not consulted: the byte names the register,
+  // and it may be a bank register (XBC3) that has no MCRegister at all.
+  if (DispOp.isImm() && TLCS900II::isAutoInc(Disp)) {
+    if (TLCS900II::isAutoIncStepUnset(Disp)) {
+      Ctx.reportError(MI.getLoc(), "post-increment/pre-decrement operand "
+                                   "reached the encoder without a step");
+      return 0;
+    }
+    bool Pre = TLCS900II::isAutoIncPreDec(Disp);
+    unsigned Prefix = IsDstMem ? (Pre ? 0xF4 : 0xF5)
+                               : (Pre ? 0xC4 : 0xC5) + OpSize * 0x10;
+    CB.push_back(static_cast<char>(Prefix));
+    CB.push_back(static_cast<char>(TLCS900II::getAutoIncRegByte(Disp)));
+    return 2;
+  }
+
   // A REQUESTED displacement width, `(xrr+D:8)` / `(xrr+D:16)`.  The parser
   // has already refused a D that does not fit the requested field.
   if (DispOp.isImm() && TLCS900II::isForcedDisp(Disp)) {

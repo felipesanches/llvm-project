@@ -76,6 +76,24 @@ void TLCS900InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Disp = MI->getOperand(OpNo + 1);
 
+  // POST-INCREMENT / PRE-DECREMENT, `(xde+)` / `(-xde)`.  The step is printed
+  // only where the instruction's data size does not already imply it -- and
+  // always for LDA and JP/CALL cc, which move no data: `(xwa+:1)`.
+  if (Disp.isImm() && TLCS900II::isAutoInc(Disp.getImm())) {
+    int64_t V = Disp.getImm();
+    unsigned Byte = TLCS900II::getAutoIncRegByte(V);
+    const char *Name = TLCS900II::getAutoIncRegName(Byte & 0xFC);
+    unsigned Step = 1u << (Byte & 3);
+    unsigned Natural =
+        TLCS900II::getAutoIncNaturalStep(MII.get(MI->getOpcode()).TSFlags);
+    bool Pre = TLCS900II::isAutoIncPreDec(V);
+    O << "(" << (Pre ? "-" : "") << (Name ? Name : "?") << (Pre ? "" : "+");
+    if (Natural == 0 || Step != Natural)
+      O << ":" << Step;
+    O << ")";
+    return;
+  }
+
   O << "(";
   if (Base.isReg())
     O << StringRef(getRegisterName(Base.getReg())).lower();

@@ -1,0 +1,48 @@
+# RUN: llvm-mc -triple=tlcs900 -disassemble -show-encoding < %s 2>/dev/null | FileCheck %s
+# RUN: echo "0xc5 0xa4 0x21" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xc5 0xeb 0x21" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xb0 0x08 0x78 0x56 0x34 0x12" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+#
+# The C4/C5, D4/D5, E4/E5, F4/F5 prefixes decode through the same sub-opcode
+# table as every other memory addressing mode, printing `(R+)` / `(-R)`.
+# MAME unidasm's reading of each is quoted; each re-encodes to its own bytes.
+
+# unidasm: lda XBC,XWA+           (was `stb_dpi a, 224` -- a STORE name)
+# CHECK: lda xbc, (xwa+:1){{.*}}encoding: [0xf5,0xe0,0x31]
+0xf5 0xe0 0x31
+# unidasm: ld (XDE+),A            (was `lda_dpi xbc, 232` -- an LDA name)
+# CHECK: ld (xde+), a{{.*}}encoding: [0xf5,0xe8,0x41]
+0xf5 0xe8 0x41
+# unidasm: lda XBC,-XWA           (was `st_dpdb a, 224`)
+# CHECK: lda xbc, (-xwa:1){{.*}}encoding: [0xf4,0xe0,0x31]
+0xf4 0xe0 0x31
+# unidasm: ld (-XDE),A            (was `lda_dpd xbc, 232`)
+# CHECK: ld (-xde), a{{.*}}encoding: [0xf4,0xe8,0x41]
+0xf4 0xe8 0x41
+
+# unidasm: incw 1,(-XWA)   -- pre-decrement WORD inc used to decode as the
+# POST-increment pseudo `inc_spiw`, which re-encodes to d5 e0 61
+# CHECK: (-xwa:1){{.*}}encoding: [0xd4,0xe0,0x61]
+0xd4 0xe0 0x61
+
+# unidasm: lda BC,XWA+     -- LDA r16 had no definition; refused before
+# CHECK: lda bc, (xwa+:1){{.*}}encoding: [0xf5,0xe0,0x21]
+0xf5 0xe0 0x21
+
+# unidasm: ld E,(XBC3+) / ld (XDE3+),E   -- bank-3 registers
+# CHECK: ld e, (xbc3+){{.*}}encoding: [0xc5,0x34,0x25]
+0xc5 0x34 0x25
+# CHECK: ld (xde3+), e{{.*}}encoding: [0xf5,0x38,0x45]
+0xf5 0x38 0x45
+
+# The register-indirect LDA r16 row (destination 0x20+r) was read as a LOAD
+# from the source table: `b1 20` printed "ld xwa, (xbc)" = a1 20.
+# unidasm: lda WA,XBC
+# CHECK: lda wa, (xbc){{.*}}encoding: [0xb1,0x20]
+0xb1 0x20
+
+# REFUSED (the three `echo` RUN lines above): a register-file byte naming no
+# register (`c5 a4 21`, unidasm `ld A,(rA4L+)`), step 3 (`c5 eb 21`, unidasm
+# `ld A,(rEDL+)`), and destination sub-opcode 0x08 (`b0 08 ...`), a 32-bit
+# store-immediate the CPU does not have (unidasm `db`), which used to decode.
+# REFUSE: <stdin>:1:1: warning: invalid instruction encoding

@@ -357,6 +357,8 @@ class TLCS900AsmParser : public MCTargetAsmParser {
   ParseStatus parseMemriOperand(OperandVector &Operands);
   ParseStatus parseCondCodeOperand(OperandVector &Operands);
   ParseStatus parseEncodingSelector(OperandVector &Operands);
+  ParseStatus tryParseAutoIncOperand(OperandVector &Operands);
+  bool finalizeMemOperands(MCInst &Inst, SMLoc IDLoc);
 
   bool parseOperand(OperandVector &Operands);
 
@@ -402,6 +404,8 @@ bool TLCS900AsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
   case Match_Success:
     Inst.setLoc(IDLoc);
+    if (finalizeMemOperands(Inst, IDLoc))
+      return true;
     Out.emitInstruction(Inst, STI);
     return false;
   case Match_MissingFeature:
@@ -773,6 +777,150 @@ ParseStatus TLCS900AsmParser::parseEncodingSelector(OperandVector &Operands) {
   return ParseStatus::Success;
 }
 
+/// Look up a register usable as the base of `(R+)` / `(-R)`: its
+/// register-file address (4-aligned), or -1.  The eight current-bank 32-bit
+/// registers, and XWA0..XHL3 -- the four 32-bit registers of banks 0-3, which
+/// the KN5000 SLIDE decompressor walks as (XBC3+) / (XDE3+).
+static int autoIncRegAddr(StringRef Name) {
+  std::string L = Name.lower();
+  for (unsigned A = 0; A < 0x100; A += 4)
+    if (const char *N = TLCS900II::getAutoIncRegName(A))
+      if (L == N)
+        return A;
+  return -1;
+}
+
+/// tryParseAutoIncOperand - `(R+)`, `(R+:N)`, `(-R)`, `(-R:N)`.
+///
+/// The TLCS-900 has a POST-increment and a PRE-decrement mode and nothing
+/// else, so the two other shapes are refused by name rather than falling
+/// through to the expression parser: `(+R)` would otherwise assemble to the
+/// absolute address of a symbol called R, and `(R-)` is a syntax error that
+/// says nothing useful.  N is the step, 1, 2 or 4; left out, the instruction's
+/// own data size supplies it (finalizeMemOperands), and an instruction that
+/// moves no data -- LDA -- must write it.
+ParseStatus TLCS900AsmParser::tryParseAutoIncOperand(OperandVector &Operands) {
+  if (getLexer().isNot(AsmToken::LParen))
+    return ParseStatus::NoMatch;
+
+  AsmToken Buf[4];
+  size_t N = getLexer().peekTokens(Buf);
+  auto IsBaseName = [&](const AsmToken &T) {
+    return T.is(AsmToken::Identifier) &&
+           (autoIncRegAddr(T.getString()) >= 0 ||
+            MatchRegisterName(T.getString().lower()));
+  };
+
+  bool Pre;
+  if (N >= 2 && (Buf[0].is(AsmToken::Plus) || Buf[0].is(AsmToken::Minus)) &&
+      IsBaseName(Buf[1])) {
+    if (Buf[0].is(AsmToken::Plus))
+      return Error(Buf[0].getLoc(),
+                   "'(+" + Buf[1].getString() + ")' is not a TLCS-900 "
+                   "addressing mode: post-increment is written (" +
+                       Buf[1].getString() + "+), pre-decrement (-" +
+                       Buf[1].getString() + ")");
+    Pre = true;
+  } else if (N >= 3 && IsBaseName(Buf[0]) &&
+             (Buf[1].is(AsmToken::Plus) || Buf[1].is(AsmToken::Minus)) &&
+             (Buf[2].is(AsmToken::RParen) || Buf[2].is(AsmToken::Colon))) {
+    if (Buf[1].is(AsmToken::Minus))
+      return Error(Buf[1].getLoc(),
+                   "'(" + Buf[0].getString() + "-)' is not a TLCS-900 "
+                   "addressing mode: there is no post-decrement; "
+                   "pre-decrement is written (-" + Buf[0].getString() + ")");
+    Pre = false;
+  } else {
+    return ParseStatus::NoMatch;
+  }
+
+  SMLoc S = getLexer().getLoc();
+  Parser.Lex(); // '('
+  if (Pre)
+    Parser.Lex(); // '-'
+  SMLoc RegLoc = getLexer().getLoc();
+  StringRef RegName = getLexer().getTok().getString();
+  int Addr = autoIncRegAddr(RegName);
+  if (Addr < 0)
+    return Error(RegLoc, "the base of a post-increment / pre-decrement "
+                         "operand is a 32-bit register (xwa..xsp, or "
+                         "xwa0..xhl3 in banks 0-3), not '" +
+                             RegName + "'");
+  Parser.Lex(); // register
+  if (!Pre)
+    Parser.Lex(); // '+'
+
+  bool StepUnset = true;
+  unsigned StepBits = 0;
+  if (getLexer().is(AsmToken::Colon)) {
+    Parser.Lex(); // ':'
+    if (getLexer().isNot(AsmToken::Integer))
+      return Error(getLexer().getLoc(), "expected a step of 1, 2 or 4 after ':'");
+    int64_t Step = getLexer().getTok().getIntVal();
+    switch (Step) {
+    case 1: StepBits = 0; break;
+    case 2: StepBits = 1; break;
+    case 4: StepBits = 2; break;
+    default:
+      return Error(getLexer().getLoc(), "a post-increment / pre-decrement step "
+                                        "is 1, 2 or 4");
+    }
+    StepUnset = false;
+    Parser.Lex(); // the step
+  }
+  if (getLexer().isNot(AsmToken::RParen))
+    return Error(getLexer().getLoc(), "expected ')'");
+  SMLoc E = SMLoc::getFromPointer(getLexer().getLoc().getPointer() + 1);
+  Parser.Lex(); // ')'
+
+  // The MEMri base register is informational (the encoder writes the
+  // register-file byte carried in the displacement): the current-bank
+  // register itself, or XWA as a placeholder for a bank register.
+  MCRegister Base = Addr >= 0xE0 ? MatchRegisterName(RegName.lower())
+                                 : MCRegister(TLCS900::XWA);
+  const MCExpr *Disp = MCConstantExpr::create(
+      TLCS900II::makeAutoInc(unsigned(Addr) | StepBits, Pre, StepUnset),
+      getContext());
+  Operands.push_back(TLCS900Operand::createMem(Base, Disp, S, E));
+  return ParseStatus::Success;
+}
+
+/// finalizeMemOperands - after a match, settle what only the matched
+/// instruction knows: the step of a `(R+)` / `(-R)` written without `:N`,
+/// and whether its encoding can hold a post-increment or width-requested
+/// operand at all.  Returns true (having reported) on error.
+bool TLCS900AsmParser::finalizeMemOperands(MCInst &Inst, SMLoc IDLoc) {
+  uint64_t TSFlags = MII.get(Inst.getOpcode()).TSFlags;
+  for (unsigned I = 0, E = Inst.getNumOperands(); I != E; ++I) {
+    MCOperand &Op = Inst.getOperand(I);
+    if (!Op.isImm())
+      continue;
+    int64_t V = Op.getImm();
+    bool AI = TLCS900II::isAutoInc(V), FD = TLCS900II::isForcedDisp(V);
+    if (!AI && !FD)
+      continue;
+    StringRef Mn = MII.getName(Inst.getOpcode());
+    if (!TLCS900II::usesGenericMemPrefix(TSFlags))
+      return Error(IDLoc, Twine("this instruction form (") + Mn +
+                              ") has no " +
+                              (AI ? "post-increment / pre-decrement"
+                                  : "width-requested displacement") +
+                              " operand");
+    if (AI && TLCS900II::isAutoIncStepUnset(V)) {
+      unsigned Step = TLCS900II::getAutoIncNaturalStep(TSFlags);
+      if (!Step)
+        return Error(IDLoc, "this instruction moves no data through its "
+                            "post-increment / pre-decrement operand, so the "
+                            "step must be written: (R+:1), (R+:2) or (R+:4)");
+      unsigned Byte = TLCS900II::getAutoIncRegByte(V) |
+                      (Step == 1 ? 0 : Step == 2 ? 1 : 2);
+      Op.setImm(TLCS900II::makeAutoInc(Byte, TLCS900II::isAutoIncPreDec(V),
+                                       false));
+    }
+  }
+  return false;
+}
+
 /// parseOperand - Parse a single generic operand (register, immediate, or
 /// literal token like parentheses).
 bool TLCS900AsmParser::parseOperand(OperandVector &Operands) {
@@ -839,8 +987,16 @@ bool TLCS900AsmParser::parseInstruction(ParseInstructionInfo &Info,
 
   // Parse operands.
   while (true) {
+    // A post-increment `(R+)` / pre-decrement `(-R)` operand is recognised
+    // before any other parser, whatever the mnemonic: left to them, `(+xde)`
+    // and `(-xde)` parse as the ABSOLUTE address expressions +xde / -xde (an
+    // undefined symbol each) and assemble in silence.
+    ParseStatus Res = tryParseAutoIncOperand(Operands);
+    if (Res.isFailure())
+      return true;
     // Try custom operand parsers first (MEMri, CondCode).
-    ParseStatus Res = MatchOperandParserImpl(Operands, Name);
+    if (!Res.isSuccess())
+      Res = MatchOperandParserImpl(Operands, Name);
     if (Res.isFailure())
       return true;
 

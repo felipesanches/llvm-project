@@ -10,211 +10,217 @@
 ; SPD source: C4 (byte), D4 (word), E4 (long)
 ; DPI dest:   F5
 ; DPD dest:   F4
+;
+; ★ UPDATE 17: the pseudo spellings still assemble (CHECK lines), but the
+; decoder now prints every one of them as the real instruction with a
+; `(R+)` / `(-R)` operand (DISASM lines), each checked against MAME's unidasm.
+; Two of them were the WRONG instruction: `stb_dpi` (F5 0x30+r) is LDA r32
+; and `lda_dpi` (F5 0x40+r) is LD (mem),r8 -- see postinc-predec.s.
 
 ; ======= SPI Byte (prefix C5) =======
 
 ; --- Load ---
 ; CHECK: ldb_spi a, 224 ; encoding: [0xc5,0xe0,0x21]
-; DISASM: ldb_spi a, 224
+; DISASM: ld a, (xwa+)
 ldb_spi A, 0xe0
 
 ; --- ALU reg,(mem) ---
 ; CHECK: add_spib c, 236 ; encoding: [0xc5,0xec,0x83]
-; DISASM: add_spib c, 236
+; DISASM: add c, (xhl+)
 add_spib C, 0xec
 
 ; CHECK: adc_spib a, 224 ; encoding: [0xc5,0xe0,0x91]
-; DISASM: adc_spib a, 224
+; DISASM: adc a, (xwa+)
 adc_spib A, 0xe0
 
 ; CHECK: sub_spib a, 224 ; encoding: [0xc5,0xe0,0xa1]
-; DISASM: sub_spib a, 224
+; DISASM: sub a, (xwa+)
 sub_spib A, 0xe0
 
 ; CHECK: sbc_spib b, 228 ; encoding: [0xc5,0xe4,0xb2]
-; DISASM: sbc_spib b, 228
+; DISASM: sbc b, (xbc+)
 sbc_spib B, 0xe4
 
 ; CHECK: and_spib a, 240 ; encoding: [0xc5,0xf0,0xc1]
-; DISASM: and_spib a, 240
+; DISASM: and a, (xix+)
 and_spib A, 0xf0
 
 ; CHECK: xor_spib a, 224 ; encoding: [0xc5,0xe0,0xd1]
-; DISASM: xor_spib a, 224
+; DISASM: xor a, (xwa+)
 xor_spib A, 0xe0
 
 ; CHECK: or_spib_rm a, 228 ; encoding: [0xc5,0xe4,0xe1]
-; DISASM: or_spib_rm a, 228
+; DISASM: or a, (xbc+)
 or_spib_rm A, 0xe4
 
 ; CHECK: cp_spib a, 244 ; encoding: [0xc5,0xf4,0xf1]
-; DISASM: cp_spib a, 244
+; DISASM: cp a, (xiy+)
 cp_spib A, 0xf4
 
 ; --- ALU (mem),reg ---
 ; CHECK: add_spib_mr c, 228 ; encoding: [0xc5,0xe4,0x8b]
-; DISASM: add_spib_mr c, 228
+; DISASM: add (xbc+), c
 add_spib_mr C, 0xe4
 
 ; CHECK: sub_spib_mr a, 224 ; encoding: [0xc5,0xe0,0xa9]
-; DISASM: sub_spib_mr a, 224
+; DISASM: sub (xwa+), a
 sub_spib_mr A, 0xe0
 
 ; CHECK: cp_spib_mr b, 236 ; encoding: [0xc5,0xec,0xfa]
-; DISASM: cp_spib_mr b, 236
+; DISASM: cp (xhl+), b
 cp_spib_mr B, 0xec
 
 ; --- ALU (mem),#imm ---
 ; CHECK: cp_spib_im 224, 48 ; encoding: [0xc5,0xe0,0x3f,0x30]
-; DISASM: cp_spib_im 224, 48
+; DISASM: cp (xwa+), 48
 cp_spib_im 0xe0, 0x30
 
 ; CHECK: add_spib_im 224, 5 ; encoding: [0xc5,0xe0,0x38,0x05]
-; DISASM: add_spib_im 224, 5
+; DISASM: addmi8 (xwa+), 5
 add_spib_im 0xe0, 0x05
 
 ; CHECK: and_spib_im 236, 15 ; encoding: [0xc5,0xec,0x3c,0x0f]
-; DISASM: and_spib_im 236, 15
+; DISASM: andmi8 (xhl+), 15
 and_spib_im 0xec, 0x0f
 
 ; CHECK: or_spib_im 224, 128 ; encoding: [0xc5,0xe0,0x3e,0x80]
-; DISASM: or_spib_im 224, 128
+; DISASM: ormi8 (xwa+), 128
 or_spib_im 0xe0, 0x80
 
 ; --- INC/DEC ---
 ; CHECK: inc_spib 3, 224 ; encoding: [0xc5,0xe0,0x63]
-; DISASM: inc_spib 3, 224
+; DISASM: incm8 3, (xwa+)
 inc_spib 3, 0xe0
 
 ; CHECK: dec_spib 1, 240 ; encoding: [0xc5,0xf0,0x69]
-; DISASM: dec_spib 1, 240
+; DISASM: decm8 1, (xix+)
 dec_spib 1, 0xf0
 
 ; --- PUSH ---
 ; CHECK: push_spib 224 ; encoding: [0xc5,0xe0,0x04]
-; DISASM: push_spib 224
+; DISASM: push (xwa+)
 push_spib 0xe0
 
 ; ======= SPI Word (prefix D5) =======
 
 ; CHECK: ld_spiw de, 237 ; encoding: [0xd5,0xed,0x22]
-; DISASM: ld_spiw de, 237
+; DISASM: ld de, (xhl+)
 ld_spiw DE, 0xed
 
 ; CHECK: add_spiw de, 225 ; encoding: [0xd5,0xe1,0x82]
-; DISASM: add_spiw de, 225
+; DISASM: add de, (xwa+)
 add_spiw DE, 0xe1
 
 ; CHECK: cp_spiw wa, 224 ; encoding: [0xd5,0xe0,0xf0]
-; DISASM: cp_spiw wa, 224
+; DISASM: cp wa, (xwa+:1)
 cp_spiw WA, 0xe0
 
 ; CHECK: cpm_spiw wa, 224 ; encoding: [0xd5,0xe0,0xf8]
-; DISASM: cpm_spiw wa, 224
+; DISASM: cp (xwa+:1), wa
 cpm_spiw WA, 0xe0
 
 ; CHECK: cp_spiw_im 224, 18, 52 ; encoding: [0xd5,0xe0,0x3f,0x12,0x34]
-; DISASM: cp_spiw_im 224, 18, 52
+; DISASM: cpw (xwa+:1), 13330
 cp_spiw_im 0xe0, 0x12, 0x34
 
 ; CHECK: add_spiw_mr de, 225 ; encoding: [0xd5,0xe1,0x8a]
-; DISASM: add_spiw_mr de, 225
+; DISASM: add (xwa+), de
 add_spiw_mr DE, 0xe1
 
 ; CHECK: inc_spiw 2, 224 ; encoding: [0xd5,0xe0,0x62]
-; DISASM: inc_spiw 2, 224
+; DISASM: incm 2, (xwa+:1)
 inc_spiw 2, 0xe0
 
 ; CHECK: push_spiw 228 ; encoding: [0xd5,0xe4,0x04]
-; DISASM: push_spiw 228
+; DISASM: pushm (xbc+:1)
 push_spiw 0xe4
 
 ; ======= SPI Long (prefix E5) =======
 
 ; CHECK: ld_spil xbc, 224 ; encoding: [0xe5,0xe0,0x21]
-; DISASM: ld_spil xbc, 224
+; DISASM: ld xbc, (xwa+:1)
 ld_spil XBC, 0xe0
 
 ; CHECK: add_spil xwa, 232 ; encoding: [0xe5,0xe8,0x80]
-; DISASM: add_spil xwa, 232
+; DISASM: add xwa, (xde+:1)
 add_spil XWA, 0xe8
 
 ; CHECK: cp_spil xbc, 224 ; encoding: [0xe5,0xe0,0xf1]
-; DISASM: cp_spil xbc, 224
+; DISASM: cp xbc, (xwa+:1)
 cp_spil XBC, 0xe0
 
 ; ======= SPD Byte (prefix C4) =======
 
 ; CHECK: ld_spdb a, 224 ; encoding: [0xc4,0xe0,0x21]
-; DISASM: ld_spdb a, 224
+; DISASM: ld a, (-xwa)
 ld_spdb A, 0xe0
 
 ; CHECK: cp_spdb a, 224 ; encoding: [0xc4,0xe0,0xf1]
-; DISASM: cp_spdb a, 224
+; DISASM: cp a, (-xwa)
 cp_spdb A, 0xe0
 
 ; CHECK: cp_spdb_im 224, 66 ; encoding: [0xc4,0xe0,0x3f,0x42]
-; DISASM: cp_spdb_im 224, 66
+; DISASM: cp (-xwa), 66
 cp_spdb_im 0xe0, 0x42
 
 ; CHECK: push_spdb 224 ; encoding: [0xc4,0xe0,0x04]
-; DISASM: push_spdb 224
+; DISASM: push (-xwa)
 push_spdb 0xe0
 
 ; ======= SPD Word (prefix D4) =======
 
 ; CHECK: ld_spdw de, 224 ; encoding: [0xd4,0xe0,0x22]
-; DISASM: ld_spdw de, 224
+; DISASM: ld de, (-xwa:1)
 ld_spdw DE, 0xe0
 
 ; ======= DPI (prefix F5) =======
 
 ; CHECK: stb_dpi a, 226 ; encoding: [0xf5,0xe2,0x31]
-; DISASM: stb_dpi a, 226
+; DISASM: lda xbc, (xwa+:4)
 stb_dpi A, 0xe2
 
 ; CHECK: stw_dpi ix, 237 ; encoding: [0xf5,0xed,0x54]
-; DISASM: stw_dpi ix, 237
+; DISASM: ld (xhl+), ix
 stw_dpi IX, 0xed
 
 ; CHECK: stl_dpi xbc, 224 ; encoding: [0xf5,0xe0,0x61]
-; DISASM: stl_dpi xbc, 224
+; DISASM: ld (xwa+:1), xbc
 stl_dpi XBC, 0xe0
 
 ; CHECK: lda_dpi xbc, 224 ; encoding: [0xf5,0xe0,0x41]
-; DISASM: lda_dpi xbc, 224
+; DISASM: ld (xwa+), a
 lda_dpi XBC, 0xe0
 
 ; CHECK: stib_dsp 224, 42 ; encoding: [0xf5,0xe0,0x00,0x2a]
-; DISASM: stib_dsp 224, 42
+; DISASM: ld (xwa+), 42
 stib_dsp 0xe0, 0x2a
 
 ; CHECK: popb_dpi 224 ; encoding: [0xf5,0xe0,0x04]
-; DISASM: popb_dpi 224
+; DISASM: pop (xwa+)
 popb_dpi 0xe0
 
 ; CHECK: popw_dpi 224 ; encoding: [0xf5,0xe0,0x06]
-; DISASM: popw_dpi 224
+; DISASM: popw (xwa+:1)
 popw_dpi 0xe0
 
 ; ======= DPD (prefix F4) =======
 
 ; CHECK: st_dpdb a, 224 ; encoding: [0xf4,0xe0,0x31]
-; DISASM: st_dpdb a, 224
+; DISASM: lda xbc, (-xwa:1)
 st_dpdb A, 0xe0
 
 ; CHECK: st_dpdw wa, 224 ; encoding: [0xf4,0xe0,0x50]
-; DISASM: st_dpdw wa, 224
+; DISASM: ld (-xwa:1), wa
 st_dpdw WA, 0xe0
 
 ; CHECK: lda_dpd xwa, 228 ; encoding: [0xf4,0xe4,0x40]
-; DISASM: lda_dpd xwa, 228
+; DISASM: ld (-xbc), w
 lda_dpd XWA, 0xe4
 
 ; CHECK: stib_dpd 224, 99 ; encoding: [0xf4,0xe0,0x00,0x63]
-; DISASM: stib_dpd 224, 99
+; DISASM: ld (-xwa), 99
 stib_dpd 0xe0, 0x63
 
 ; CHECK: popb_dpd 224 ; encoding: [0xf4,0xe0,0x04]
-; DISASM: popb_dpd 224
+; DISASM: pop (-xwa)
 popb_dpd 0xe0

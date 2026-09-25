@@ -299,6 +299,92 @@ inline int64_t getForcedDispValue(int64_t V) {
   return static_cast<int16_t>(V & 0xFFFF);
 }
 
+// --- Post-increment / pre-decrement: `(R+)` and `(-R)` ----------------------
+// The addressing modes behind the C4/C5 (byte), D4/D5 (word), E4/E5 (long)
+// source prefixes and the F4/F5 destination prefix.  The byte after the
+// prefix is a REGISTER-FILE ADDRESS: bits 7-2 name a 32-bit register (0xE0 =
+// XWA ... 0xFC = XSP in the current bank; 0x00-0x3C = XWA0 ... XHL3 in banks
+// 0-3), and bits 1-0 name the STEP the register moves by: 0 = 1, 1 = 2,
+// 2 = 4 (3 is not a TLCS-900 step).  The step is part of the encoding and is
+// independent of the operand size -- `f5 e0 31` is lda XBC,(XWA+) with a
+// step of 1, the C idiom p = q++ -- so the syntax states it when the
+// instruction's own data size does not imply it: `(xwa+:1)`.
+//
+// The operand is a MEMri whose displacement immediate carries this tag, the
+// full register-file byte in its low eight bits, and two flags.
+enum : int64_t {
+  AutoIncTag = int64_t(1) << 42,
+  AutoIncPreDec = int64_t(1) << 9,    // (-R) rather than (R+)
+  AutoIncStepUnset = int64_t(1) << 8, // no `:N` written (parser-internal)
+};
+
+inline int64_t makeAutoInc(unsigned RegByte, bool PreDec, bool StepUnset) {
+  return AutoIncTag | (PreDec ? AutoIncPreDec : 0) |
+         (StepUnset ? AutoIncStepUnset : 0) | (RegByte & 0xFF);
+}
+inline bool isAutoInc(int64_t V) {
+  return (V & ~int64_t(0x3FF)) == AutoIncTag;
+}
+inline unsigned getAutoIncRegByte(int64_t V) { return V & 0xFF; }
+inline bool isAutoIncPreDec(int64_t V) { return V & AutoIncPreDec; }
+inline bool isAutoIncStepUnset(int64_t V) { return V & AutoIncStepUnset; }
+
+// The name of the 32-bit register at a (4-aligned) register-file address,
+// or nullptr where the file has no 32-bit register this backend can name.
+inline const char *getAutoIncRegName(unsigned Addr) {
+  static const char *const Cur[8] = {"xwa", "xbc", "xde", "xhl",
+                                     "xix", "xiy", "xiz", "xsp"};
+  static const char *const Bank[16] = {
+      "xwa0", "xbc0", "xde0", "xhl0", "xwa1", "xbc1", "xde1", "xhl1",
+      "xwa2", "xbc2", "xde2", "xhl2", "xwa3", "xbc3", "xde3", "xhl3"};
+  if (Addr & 3)
+    return nullptr;
+  if (Addr >= 0xE0)
+    return Cur[(Addr - 0xE0) >> 2];
+  if (Addr < 0x40)
+    return Bank[Addr >> 2];
+  return nullptr;
+}
+
+// The step an instruction's own data size implies for `(R+)` / `(-R)`
+// written without `:N`: 1, 2 or 4.  0 means the instruction moves no data
+// through the operand (LDA, JP/CALL cc), so the step must be written.
+inline unsigned getAutoIncNaturalStep(uint64_t TSFlags) {
+  switch (getInstFormat(TSFlags)) {
+  case MemLoadDst: // LDA r16/r32, mem -- an address, no data moves
+  case MemDstCC:   // JP cc, mem / CALL cc, mem
+    return 0;
+  case MemDstBitOp: // BIT/SET/RES/CHG/TSET/LDCF/STCF n, (mem): one byte
+    return 1;
+  default:
+    return 1u << getOpSize(TSFlags); // 1, 2 or 4 bytes
+  }
+}
+
+// True for the encoding formats whose memory operand is written by
+// emitMemPrefix -- the only ones a `(R+)` / `(-R)` or `(xrr+D:8/16)`
+// operand can reach.  Any other format holding a MEMri reads the
+// displacement itself and would put the tag bits into the instruction.
+inline bool usesGenericMemPrefix(uint64_t TSFlags) {
+  switch (getInstFormat(TSFlags)) {
+  case MemLoad:
+  case MemLoadDst:
+  case MemStore:
+  case MemALU:
+  case MemStoreImm:
+  case MemIncDec:
+  case MemPush:
+  case MemDstUnary:
+  case MemDstCC:
+  case MemDstBitOp:
+  case MemToMemDst:
+  case MemToMemSrc:
+    return true;
+  default:
+    return false;
+  }
+}
+
 // Direct-memory prefix for an address width of Bytes (1, 2 or 3):
 //   source:      C0/C1/C2 (byte), D0/D1/D2 (word), E0/E1/E2 (long)
 //   destination: F0/F1/F2 -- size-independent
