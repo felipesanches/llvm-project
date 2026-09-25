@@ -140,6 +140,26 @@ public:
 
   bool isCondCode() const { return Kind == k_CondCode; }
 
+  // MUL/DIV registers named as the CPU names them (TLCS900InstrInfo.td,
+  // mulpair8 / gr16asx / gpraslo16).  Each accepts ONLY the true name: the
+  // old spellings (`mul a, (xbc)` for mul WA,(XBC), `div xwa, xbc` for
+  // div XWA,BC) are refused rather than kept as aliases, because `mul wa,
+  // (xbc)` used to mean the WORD multiply and now names the byte one -- an
+  // alias could not keep both readings.  The tree was respelled in lockstep.
+  bool isMulPair8() const {
+    return Kind == k_Register &&
+           (Reg == TLCS900::WA || Reg == TLCS900::BC || Reg == TLCS900::DE ||
+            Reg == TLCS900::HL);
+  }
+  bool isGR16AsX() const {
+    return Kind == k_Register &&
+           TLCS900MCRegisterClasses[TLCS900::GPRRegClassID].contains(Reg);
+  }
+  bool isGPRAsLo16() const {
+    return Kind == k_Register &&
+           TLCS900MCRegisterClasses[TLCS900::GR16SPRegClassID].contains(Reg);
+  }
+
   SMLoc getStartLoc() const override { return StartLoc; }
   SMLoc getEndLoc() const override { return EndLoc; }
 
@@ -179,6 +199,49 @@ public:
   void addRegOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     Inst.addOperand(MCOperand::createReg(getReg()));
+  }
+
+  // The byte multiply's result pair travels as the GR8 of its low byte,
+  // whose register field (A=1, C=3, E=5, L=7) is the one the CPU decodes.
+  void addMulPair8Operands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    MCRegister R = Reg == TLCS900::WA   ? TLCS900::A
+                   : Reg == TLCS900::BC ? TLCS900::C
+                   : Reg == TLCS900::DE ? TLCS900::E
+                                        : TLCS900::L;
+    Inst.addOperand(MCOperand::createReg(R));
+  }
+  // XWA..XSP -> WA..SP: the same register field.
+  void addGR16AsXOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    static const MCRegister Lo[8] = {TLCS900::WA, TLCS900::BC, TLCS900::DE,
+                                     TLCS900::HL, TLCS900::IX, TLCS900::IY,
+                                     TLCS900::IZ, TLCS900::SP};
+    static const MCRegister X[8] = {TLCS900::XWA, TLCS900::XBC, TLCS900::XDE,
+                                    TLCS900::XHL, TLCS900::XIX, TLCS900::XIY,
+                                    TLCS900::XIZ, TLCS900::XSP};
+    for (unsigned I = 0; I < 8; ++I)
+      if (X[I] == Reg) {
+        Inst.addOperand(MCOperand::createReg(Lo[I]));
+        return;
+      }
+    llvm_unreachable("isGR16AsX admitted a non-GPR register");
+  }
+  // WA..SP -> XWA..XSP: codegen models the 16-bit operand as its GPR.
+  void addGPRAsLo16Operands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    static const MCRegister Lo[8] = {TLCS900::WA, TLCS900::BC, TLCS900::DE,
+                                     TLCS900::HL, TLCS900::IX, TLCS900::IY,
+                                     TLCS900::IZ, TLCS900::SP};
+    static const MCRegister X[8] = {TLCS900::XWA, TLCS900::XBC, TLCS900::XDE,
+                                    TLCS900::XHL, TLCS900::XIX, TLCS900::XIY,
+                                    TLCS900::XIZ, TLCS900::XSP};
+    for (unsigned I = 0; I < 8; ++I)
+      if (Lo[I] == Reg) {
+        Inst.addOperand(MCOperand::createReg(X[I]));
+        return;
+      }
+    llvm_unreachable("isGPRAsLo16 admitted a non-GR16 register");
   }
 
   void addImmOperands(MCInst &Inst, unsigned N) const {

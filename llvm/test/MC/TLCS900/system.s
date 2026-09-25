@@ -171,34 +171,34 @@ extz xbc
 ; ==========================================================================
 
 ; MUL rd, rs: D8+src, 0x40+dst_idx
-; CHECK: mul xwa, xbc       ; encoding: [0xd9,0x40]
-mul xwa, xbc
-; CHECK: mul xde, xhl       ; encoding: [0xdb,0x42]
-mul xde, xhl
-; CHECK: mul xhl, xwa       ; encoding: [0xd8,0x43]
-mul xhl, xwa
+; CHECK: mul xwa, bc       ; encoding: [0xd9,0x40]
+mul xwa, bc
+; CHECK: mul xde, hl       ; encoding: [0xdb,0x42]
+mul xde, hl
+; CHECK: mul xhl, wa       ; encoding: [0xd8,0x43]
+mul xhl, wa
 
 ; MULS rd, rs: D8+src, 0x48+dst_idx
-; CHECK: muls xwa, xbc      ; encoding: [0xd9,0x48]
-muls xwa, xbc
-; CHECK: muls xde, xwa      ; encoding: [0xd8,0x4a]
-muls xde, xwa
+; CHECK: muls xwa, bc      ; encoding: [0xd9,0x48]
+muls xwa, bc
+; CHECK: muls xde, wa      ; encoding: [0xd8,0x4a]
+muls xde, wa
 
 ; ==========================================================================
 ; DIV / DIVS (32/16 -> 16, uses D8+src prefix)
 ; ==========================================================================
 
 ; DIV rd, rs: D8+src, 0x50+dst_idx
-; CHECK: div xwa, xbc       ; encoding: [0xd9,0x50]
-div xwa, xbc
-; CHECK: div xde, xhl       ; encoding: [0xdb,0x52]
-div xde, xhl
+; CHECK: div xwa, bc       ; encoding: [0xd9,0x50]
+div xwa, bc
+; CHECK: div xde, hl       ; encoding: [0xdb,0x52]
+div xde, hl
 
 ; DIVS rd, rs: D8+src, 0x58+dst_idx
-; CHECK: divs xwa, xbc      ; encoding: [0xd9,0x58]
-divs xwa, xbc
-; CHECK: divs xhl, xwa      ; encoding: [0xd8,0x5b]
-divs xhl, xwa
+; CHECK: divs xwa, bc      ; encoding: [0xd9,0x58]
+divs xwa, bc
+; CHECK: divs xhl, wa      ; encoding: [0xd8,0x5b]
+divs xhl, wa
 
 ; ==========================================================================
 ; DJNZ (decrement and jump if not zero)

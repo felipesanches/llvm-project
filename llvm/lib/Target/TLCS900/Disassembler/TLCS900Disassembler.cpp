@@ -533,6 +533,11 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGenericRegPrefix(
   if (SB >= 0x40 && SB <= 0x5F) {
     if (OpSize >= 2)
       return MCDisassembler::Fail;
+    // A byte multiply/divide names its 16-bit result pair by the register
+    // field of the pair's LOW byte (A/C/E/L = 1/3/5/7); an even field is no
+    // pair at all -- MAME prints `mul ??,A` for c9 40.  Refused, not printed.
+    if (OpSize == 0 && !(SB & 1))
+      return MCDisassembler::Fail;
     unsigned SecondReg;
     // MUL16rr/MULS16rr/DIV16rr/DIVS16rr use GPR operands;
     // MUL8rr etc. use GR8.
@@ -1154,6 +1159,10 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeMemPrefix(
         {TLCS900::DIV8m, TLCS900::DIV16m},
         {TLCS900::DIVS8m, TLCS900::DIVS16m},
     };
+    // Byte form: an even register field names no result pair (see the
+    // register-register decoder); MAME prints `mul ??,(XBC)` for 81 40.
+    if (MemSize == 0 && !(OpByte & 1))
+      return MCDisassembler::Fail;
     MI.setOpcode(MULDIVm[(OpByte >> 3) & 0x3][MemSize]);
     MI.addOperand(MCOperand::createReg(decodeRegForSize(OpByte & 0x7, MemSize)));
     addMem();

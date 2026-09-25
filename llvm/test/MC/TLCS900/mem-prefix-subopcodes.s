@@ -362,22 +362,22 @@ ldirw93
 ex (xhl), a
 
 ; kn5000_v10_program.rom +0x19E150 (rom 0xF9E150) -- unidasm: muls XWA,(XIZ)
-; CHECK: muls wa, (xiz)
+; CHECK: muls xwa, (xiz)
 ; CHECK-ENC: encoding: [0x96,0x48]
-; CHECK-INST: muls wa, (xiz)
-muls wa, (xiz)
+; CHECK-INST: muls xwa, (xiz)
+muls xwa, (xiz)
 
 ; kn5000_v10_program.rom +0x19D960 (rom 0xF9D960) -- unidasm: muls XBC,(XDE)
-; CHECK: muls bc, (xde)
+; CHECK: muls xbc, (xde)
 ; CHECK-ENC: encoding: [0x92,0x49]
-; CHECK-INST: muls bc, (xde)
-muls bc, (xde)
+; CHECK-INST: muls xbc, (xde)
+muls xbc, (xde)
 
 ; kn5000_v10_program.rom +0x1956E7 (rom 0xF956E7) -- unidasm: mul XWA,(XSP+0x0c)
-; CHECK: mul wa, (xsp+12)
+; CHECK: mul xwa, (xsp+12)
 ; CHECK-ENC: encoding: [0x9f,0x0c,0x40]
-; CHECK-INST: mul wa, (xsp+12)
-mul wa, (xsp+12)
+; CHECK-INST: mul xwa, (xsp+12)
+mul xwa, (xsp+12)
 
 ; kn5000_v10_program.rom +0x1F26E0 (rom 0xFF26E0) -- unidasm: sllw (XWA)
 ; CHECK: sllw (xwa)

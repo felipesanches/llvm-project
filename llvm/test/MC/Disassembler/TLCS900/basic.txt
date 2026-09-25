@@ -369,11 +369,11 @@
 # === MUL / MULS (D8+src, opcode+dst) ===
 
 # mul xwa, xbc: D8+1=D9, 0x40+0=40
-# CHECK: mul xwa, xbc
+# CHECK: mul xwa, bc
 0xd9 0x40
 
 # muls xwa, xbc: D8+1=D9, 0x48+0=48
-# CHECK: muls xwa, xbc
+# CHECK: muls xwa, bc
 0xd9 0x48
 
 # === Additional single-byte instructions ===

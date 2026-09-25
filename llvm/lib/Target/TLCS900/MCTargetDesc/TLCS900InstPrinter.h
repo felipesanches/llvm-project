@@ -45,6 +45,8 @@ private:
   void printCondCode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printGPRAsLoByte(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printGPRAsLoWord(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printMulPair8(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printGR16AsX(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 };
 } // end namespace llvm
 

@@ -248,6 +248,59 @@ def GPR_lo16 : RegisterOperand<GPR> {
   let PrintMethod = "printGPRAsLoWord";
 }
 
+// --- MUL / MULS / DIV / DIVS registers, named as the CPU names them --------
+//
+// The register-register and memory forms of the multiply/divide group write a
+// DOUBLE-WIDTH result: `d9 40` is mul XWA,BC (XWA <- WA * BC) and `81 41` is
+// mul WA,(XBC) (WA <- A * (XBC)).  This backend printed both operands at the
+// operand size instead -- `mul xwa, xbc`, `mul a, (xbc)` -- so the text named
+// a 32-bit multiplier and an 8-bit result.  MAME's decoder and the TLCS-900
+// manual name them as below.  The MCInst keeps the registers it always had,
+// so no encoding moves; only the text that maps to it does.
+//
+// ⚠ The IMMEDIATE forms are NOT retyped: MAME prints `c9 08 05` as
+// `mul A,0x05` and `d8 08 05 00` as `mul WA,0x0005` -- the prefix register --
+// which is what this backend prints too.  (ASL writes the result register
+// there, `MUL WA,5`; the two references disagree, see TOOLCHAIN_VERSION
+// UPDATE 17.)
+
+// The 16-bit result of a BYTE multiply/divide: WA, BC, DE or HL.  Encoded as
+// the register field of its LOW byte (A=1, C=3, E=5, L=7) -- an even field
+// (W/B/D/H) has no meaning ("??" in MAME) -- so the MCInst carries that GR8.
+def MulPair8AsmOperand : AsmOperandClass {
+  let Name = "MulPair8";
+  let PredicateMethod = "isMulPair8";
+  let RenderMethod = "addMulPair8Operands";
+}
+def mulpair8 : RegisterOperand<GR8> {
+  let PrintMethod = "printMulPair8";
+  let ParserMatchClass = MulPair8AsmOperand;
+}
+
+// The 32-bit result of a WORD multiply/divide, carried as the GR16 with the
+// same register field (XWA <-> WA).
+def GR16AsXAsmOperand : AsmOperandClass {
+  let Name = "GR16AsX";
+  let PredicateMethod = "isGR16AsX";
+  let RenderMethod = "addGR16AsXOperands";
+}
+def gr16asx : RegisterOperand<GR16> {
+  let PrintMethod = "printGR16AsX";
+  let ParserMatchClass = GR16AsXAsmOperand;
+}
+
+// The 16-bit multiplier/divisor of MUL16rr & co, carried (for codegen) as the
+// GPR whose low word it is.
+def GPRAsLo16AsmOperand : AsmOperandClass {
+  let Name = "GPRAsLo16";
+  let PredicateMethod = "isGPRAsLo16";
+  let RenderMethod = "addGPRAsLo16Operands";
+}
+def gpraslo16 : RegisterOperand<GPR> {
+  let PrintMethod = "printGPRAsLoWord";
+  let ParserMatchClass = GPRAsLo16AsmOperand;
+}
+
 //===----------------------------------------------------------------------===//
 // Data Transfer Instructions
 //===----------------------------------------------------------------------===//
@@ -1629,25 +1682,25 @@ def DEC16m : MemIncDecInst<0x68, 2, (outs),
 // every other memory form.
 let Defs = [SR], mayLoad = 1, hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in {
-def MUL8m  : MemLoadInst<0x40, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+def MUL8m  : MemLoadInst<0x40, 2, (outs), (ins mulpair8:$rd, MEMri:$addr),
                           "mul", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
-def MULS8m : MemLoadInst<0x48, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+def MULS8m : MemLoadInst<0x48, 2, (outs), (ins mulpair8:$rd, MEMri:$addr),
                           "muls", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
-def DIV8m  : MemLoadInst<0x50, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+def DIV8m  : MemLoadInst<0x50, 2, (outs), (ins mulpair8:$rd, MEMri:$addr),
                           "div", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
-def DIVS8m : MemLoadInst<0x58, 2, (outs), (ins GR8:$rd, MEMri:$addr),
+def DIVS8m : MemLoadInst<0x58, 2, (outs), (ins mulpair8:$rd, MEMri:$addr),
                           "divs", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
 def EX8m   : MemLoadInst<0x30, 2, (outs), (ins GR8:$rs, MEMri:$addr),
                           "ex", "$addr, $rs", []>, Sched<[WriteSTW, ReadMemBase]>;
 } // OpSize8
 let OpSize = OpSize16.Value in {
-def MUL16m  : MemLoadInst<0x40, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+def MUL16m  : MemLoadInst<0x40, 2, (outs), (ins gr16asx:$rd, MEMri:$addr),
                            "mul", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
-def MULS16m : MemLoadInst<0x48, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+def MULS16m : MemLoadInst<0x48, 2, (outs), (ins gr16asx:$rd, MEMri:$addr),
                            "muls", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
-def DIV16m  : MemLoadInst<0x50, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+def DIV16m  : MemLoadInst<0x50, 2, (outs), (ins gr16asx:$rd, MEMri:$addr),
                            "div", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
-def DIVS16m : MemLoadInst<0x58, 2, (outs), (ins GR16:$rd, MEMri:$addr),
+def DIVS16m : MemLoadInst<0x58, 2, (outs), (ins gr16asx:$rd, MEMri:$addr),
                            "divs", "$rd, $addr", []>, Sched<[WriteIMul, ReadMemBase]>;
 def EX16m   : MemLoadInst<0x30, 2, (outs), (ins GR16:$rs, MEMri:$addr),
                            "ex", "$addr, $rs", []>, Sched<[WriteSTW, ReadMemBase]>;
@@ -1794,17 +1847,18 @@ def : Pat<(tlcs900_cmp (i32 (load addr:$a)), (i32 (imm):$v)),
 // Encoding: D8+src2, 0x40+dst (2 bytes) — 16-bit register prefix
 let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
 def MUL16rr : PrefixRegRegInst<0x40, (outs GPR:$rd),
-                                (ins GPR:$src1, GPR:$rs2),
-                                "mul", "$rd, $rs2",
-                                [(set GPR:$rd,
-                                  (tlcs900_mul16 GPR:$src1, GPR:$rs2))]>,
+                                (ins GPR:$src1, gpraslo16:$rs2),
+                                "mul", "$rd, $rs2", []>,
               Sched<[WriteIMul, ReadIALU, ReadIALU]>;
+// Separate Pat: a RegisterOperand (gpraslo16) cannot appear in an inline
+// instruction pattern -- the same reason LD16mr's truncstore is out of line.
+def : Pat<(tlcs900_mul16 GPR:$src1, GPR:$rs2), (MUL16rr GPR:$src1, GPR:$rs2)>;
 
 // MULS16rr: signed 16×16→32 multiply (same encoding with opcode 0x48).
 // No isel pattern — for future use / inline asm.
 let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
 def MULS16rr : PrefixRegRegInst<0x48, (outs GPR:$rd),
-                                 (ins GPR:$src1, GPR:$rs2),
+                                 (ins GPR:$src1, gpraslo16:$rs2),
                                  "muls", "$rd, $rs2", []>,
                Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
@@ -1814,14 +1868,14 @@ def MULS16rr : PrefixRegRegInst<0x48, (outs GPR:$rd),
 // Encoding: D8+src2, 0x50+dst (2 bytes) — 16-bit register prefix
 let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
 def DIV16rr : PrefixRegRegInst<0x50, (outs GPR:$rd),
-                                (ins GPR:$src1, GPR:$rs2),
+                                (ins GPR:$src1, gpraslo16:$rs2),
                                 "div", "$rd, $rs2", []>,
               Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
 // DIVS16rr: signed 32÷16→16q+16r.
 let Constraints = "$rd = $src1", Defs = [SR], OpSize = OpSize16.Value in
 def DIVS16rr : PrefixRegRegInst<0x58, (outs GPR:$rd),
-                                 (ins GPR:$src1, GPR:$rs2),
+                                 (ins GPR:$src1, gpraslo16:$rs2),
                                  "divs", "$rd, $rs2", []>,
                Sched<[WriteIMul, ReadIALU, ReadIALU]>;
 
@@ -3972,14 +4026,18 @@ def BS1B16 : PrefixUnaryInst<0x0F, (outs), (ins GR16:$rs1),
 
 // MUL/MULS/DIV/DIVS register-register 8-bit (2 bytes: C8+src, opc+dst)
 let Defs = [SR], hasSideEffects = 0, OpSize = OpSize8.Value in {
-def MUL8rr : PrefixRegRegInst<0x40, (outs), (ins GR8:$rs1, GR8:$rs2),
-    "mul8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
-def MULS8rr : PrefixRegRegInst<0x48, (outs), (ins GR8:$rs1, GR8:$rs2),
-    "muls8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
-def DIV8rr : PrefixRegRegInst<0x50, (outs), (ins GR8:$rs1, GR8:$rs2),
-    "div8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
-def DIVS8rr : PrefixRegRegInst<0x58, (outs), (ins GR8:$rs1, GR8:$rs2),
-    "divs8rr", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+// The real mnemonics, `mul bc, h` (ce 43): the register field names the
+// 16-bit RESULT pair (see mulpair8), the prefix the 8-bit multiplier.  These
+// were `mul8rr c, h` & co -- pseudo names whose first operand named C where
+// the CPU writes BC.
+def MUL8rr : PrefixRegRegInst<0x40, (outs), (ins mulpair8:$rs1, GR8:$rs2),
+    "mul", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+def MULS8rr : PrefixRegRegInst<0x48, (outs), (ins mulpair8:$rs1, GR8:$rs2),
+    "muls", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+def DIV8rr : PrefixRegRegInst<0x50, (outs), (ins mulpair8:$rs1, GR8:$rs2),
+    "div", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
+def DIVS8rr : PrefixRegRegInst<0x58, (outs), (ins mulpair8:$rs1, GR8:$rs2),
+    "divs", "$rs1, $rs2", []>, Sched<[WriteIMul]>;
 }
 
 // EX r,r — Exchange registers (2 bytes: prefix+src, 0xB8+dst)
@@ -4206,7 +4264,7 @@ def SUB_PBW : PrevBankRRInst<0xA0, (outs), (ins GR16:$rd, PrevGR16:$qs),
 def OR_PBW : PrevBankRRInst<0xE0, (outs), (ins GR16:$rd, PrevGR16:$qs),
     "or", "$rd, $qs", []>, Sched<[WriteSTW]>;
 // MUL r, QR
-def MUL_PBW : PrevBankRRInst<0x40, (outs), (ins GR16:$rd, PrevGR16:$qs),
+def MUL_PBW : PrevBankRRInst<0x40, (outs), (ins gr16asx:$rd, PrevGR16:$qs),
     "mul", "$rd, $qs", []>, Sched<[WriteSTW]>;
 // CP r, QR
 def CP_PBW : PrevBankRRInst<0xF0, (outs), (ins GR16:$rd, PrevGR16:$qs),

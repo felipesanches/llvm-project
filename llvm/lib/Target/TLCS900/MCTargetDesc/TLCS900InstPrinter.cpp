@@ -162,6 +162,32 @@ void TLCS900InstPrinter::printGPRAsLoByte(const MCInst *MI, unsigned OpNo,
   }
 }
 
+// The 16-bit result pair of a byte MUL/DIV, carried as the GR8 of its low
+// byte: A -> wa, C -> bc, E -> de, L -> hl.  An even register field has no
+// pair (MAME prints "??"); the decoder refuses it, so reaching one here means
+// an MCInst built by hand.
+void TLCS900InstPrinter::printMulPair8(const MCInst *MI, unsigned OpNo,
+                                       raw_ostream &O) {
+  switch (MI->getOperand(OpNo).getReg()) {
+  case TLCS900::A: O << "wa"; break;
+  case TLCS900::C: O << "bc"; break;
+  case TLCS900::E: O << "de"; break;
+  case TLCS900::L: O << "hl"; break;
+  default:
+    O << "<no-pair:"
+      << StringRef(getRegisterName(MI->getOperand(OpNo).getReg())).lower()
+      << ">";
+    break;
+  }
+}
+
+// The 32-bit result of a word MUL/DIV, carried as the GR16 of the same field.
+void TLCS900InstPrinter::printGR16AsX(const MCInst *MI, unsigned OpNo,
+                                      raw_ostream &O) {
+  O << "x"
+    << StringRef(getRegisterName(MI->getOperand(OpNo).getReg())).lower();
+}
+
 void TLCS900InstPrinter::printGPRAsLoWord(const MCInst *MI, unsigned OpNo,
                                            raw_ostream &O) {
   unsigned Reg = MI->getOperand(OpNo).getReg();

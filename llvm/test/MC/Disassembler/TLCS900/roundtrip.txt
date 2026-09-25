@@ -634,16 +634,16 @@
 # MUL / MULS (16-bit prefix, 32-bit result)
 # ==========================================================================
 
-# CHECK: mul xwa, xbc{{.*}}encoding: [0xd9,0x40]
+# CHECK: mul xwa, bc{{.*}}encoding: [0xd9,0x40]
 0xd9 0x40
 
-# CHECK: mul xde, xhl{{.*}}encoding: [0xdb,0x42]
+# CHECK: mul xde, hl{{.*}}encoding: [0xdb,0x42]
 0xdb 0x42
 
-# CHECK: muls xwa, xbc{{.*}}encoding: [0xd9,0x48]
+# CHECK: muls xwa, bc{{.*}}encoding: [0xd9,0x48]
 0xd9 0x48
 
-# CHECK: muls xde, xwa{{.*}}encoding: [0xd8,0x4a]
+# CHECK: muls xde, wa{{.*}}encoding: [0xd8,0x4a]
 0xd8 0x4a
 
 # ==========================================================================
@@ -978,7 +978,7 @@
 0xd7 0xee 0xf0
 
 # PrevBank MUL
-# CHECK: mul wa, qiz{{.*}}encoding: [0xd7,0xfa,0x40]
+# CHECK: mul xwa, qiz{{.*}}encoding: [0xd7,0xfa,0x40]
 0xd7 0xfa 0x40
 
 # PrevBank unary: PUSH, POP, CPL, NEG, BS1B

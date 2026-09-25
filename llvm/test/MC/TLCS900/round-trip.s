@@ -341,12 +341,12 @@ lddr
 
 ; === MUL / MULS (D8+src, 0x40/0x48+dst) ===
 
-; CHECK: mul xwa, xbc
+; CHECK: mul xwa, bc
 ; CHECK-ENC: encoding: [0xd9,0x40]
-; CHECK-INST: mul xwa, xbc
-mul xwa, xbc
+; CHECK-INST: mul xwa, bc
+mul xwa, bc
 
-; CHECK: muls xwa, xbc
+; CHECK: muls xwa, bc
 ; CHECK-ENC: encoding: [0xd9,0x48]
-; CHECK-INST: muls xwa, xbc
-muls xwa, xbc
+; CHECK-INST: muls xwa, bc
+muls xwa, bc

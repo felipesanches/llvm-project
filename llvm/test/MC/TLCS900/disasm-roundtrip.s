@@ -539,13 +539,13 @@ djnz16 wa, 0
 ; ==========================================================================
 ; MUL / MULS / DIV / DIVS (16-bit prefix, 32-bit result)
 ; ==========================================================================
-mul xwa, xbc
-mul xde, xhl
-mul xhl, xwa
-muls xwa, xbc
-muls xde, xwa
-div xwa, xbc
-divs xwa, xbc
+mul xwa, bc
+mul xde, hl
+mul xhl, wa
+muls xwa, bc
+muls xde, wa
+div xwa, bc
+divs xwa, bc
 
 ; ==========================================================================
 ; 8-bit MUL / DIV

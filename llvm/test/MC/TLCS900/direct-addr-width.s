@@ -67,14 +67,14 @@ popw (0x1234:16)
 ; [0xd8,0x08,0x34,0x12] -- MUL by the IMMEDIATE 0x1234, not by the contents
 ; of address 0x1234.
 ; ==========================================================================
-; CHECK: mul wa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x40]
-mul wa, (0x1234:16)
-; CHECK: muls wa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x48]
-muls wa, (0x1234:16)
-; CHECK: div wa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x50]
-div wa, (0x1234:16)
-; CHECK: divs wa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x58]
-divs wa, (0x1234:16)
+; CHECK: mul xwa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x40]
+mul xwa, (0x1234:16)
+; CHECK: muls xwa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x48]
+muls xwa, (0x1234:16)
+; CHECK: div xwa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x50]
+div xwa, (0x1234:16)
+; CHECK: divs xwa, (4660:16) ; encoding: [0xd1,0x34,0x12,0x58]
+divs xwa, (0x1234:16)
 
 ; ==========================================================================
 ; The rest of the forms this suffix unlocks.

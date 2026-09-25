@@ -199,11 +199,11 @@ jp (xhl)
 
 ; === MUL / MULS ===
 
-; CHECK-NEXT: mul xwa, xbc
-mul xwa, xbc
+; CHECK-NEXT: mul xwa, bc
+mul xwa, bc
 
-; CHECK-NEXT: muls xwa, xbc
-muls xwa, xbc
+; CHECK-NEXT: muls xwa, bc
+muls xwa, bc
 
 ; === EI / DI / SWI / RETD ===
 
@@ -224,11 +224,11 @@ retd 4
 
 ; === 16-bit multiply (only 16-bit ops with disassembler support) ===
 
-; CHECK-NEXT: mul xwa, xde
-mul xwa, xde
+; CHECK-NEXT: mul xwa, de
+mul xwa, de
 
-; CHECK-NEXT: muls xde, xhl
-muls xde, xhl
+; CHECK-NEXT: muls xde, hl
+muls xde, hl
 
 ; === 8-bit memory load/store ===
 
