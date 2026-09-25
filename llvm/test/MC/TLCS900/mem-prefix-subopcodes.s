@@ -728,10 +728,12 @@ bitda_24 7, (132580)
 ;==========================================================================
 
 ; kn5000_v10_program.rom +0x1635C1 (rom 0xF635C1) -- unidasm: xor DE,(0x03d803)
-; CHECK: xorda16_24 xde, (251907)
+; (was `xorda16_24 xde, ...`: the GPR-typed pseudo named XDE for DE and is
+; deleted -- TOOLCHAIN_VERSION UPDATE 17)
+; CHECK: xor de, (251907:24)
 ; CHECK-ENC: encoding: [0xd2,0x03,0xd8,0x03,0xd2]
 ; CHECK-INST: xor de, (251907:24)
-xorda16_24 xde, (251907)
+xor de, (251907:24)
 ;==========================================================================
 ; LDCF / STCF / TSET on a direct address
 ;==========================================================================

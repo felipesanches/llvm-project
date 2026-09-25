@@ -108,14 +108,15 @@ jp t, (xde+:1)
 ; CHECK: ex (xde+), w              ; encoding: [0xc5,0xe8,0x30]
 ex (xde+), w
 
-; --- LEGACY pseudo spellings keep their bytes (retired in a follow-up) ----
-; CHECK: stb_dpi a, 224            ; encoding: [0xf5,0xe0,0x31]
-; INST:  lda xbc, (xwa+:1)
-stb_dpi a, 224
-; CHECK: lda_dpi xbc, 232          ; encoding: [0xf5,0xe8,0x41]
-; INST:  ld (xde+), a
-lda_dpi xbc, 232
 .else
+; The pseudo spellings are DELETED -- two of them named the wrong
+; instruction (`stb_dpi a, 224` was lda XBC,(XWA+)).
+; ERR: error: unrecognized instruction mnemonic
+stb_dpi a, 224
+; ERR: error: unrecognized instruction mnemonic
+lda_dpi xbc, 232
+; ERR: error: unrecognized instruction mnemonic
+ldb_spi a, 232
 ; ERR: error: '(+xde)' is not a TLCS-900 addressing mode: post-increment is written (xde+), pre-decrement (-xde)
 ld (+xde), a
 ; ERR: error: '(xde-)' is not a TLCS-900 addressing mode: there is no post-decrement; pre-decrement is written (-xde)

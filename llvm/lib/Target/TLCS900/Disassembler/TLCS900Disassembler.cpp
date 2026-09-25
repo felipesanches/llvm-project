@@ -1275,12 +1275,12 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
     unsigned DstReg = decodeRegForSize(SubOp & 0x7, OpSize);
     bool Is24 = (AddrBytes == 3);
     unsigned Opc;
-    if (OpSize == 0)
-      Opc = Is24 ? TLCS900::LD8_da24 : TLCS900::LD8_da16;
-    else if (OpSize == 1)
-      Opc = Is24 ? TLCS900::LD16_da24 : TLCS900::LD16_da16;
-    else
-      Opc = Is24 ? TLCS900::LD32_da24 : TLCS900::LD32_da16;
+    // 8/16-bit loads are decoded by decodeDirectAsMem (`ld a, (n:16)`); the
+    // GPR-typed LD8_da*/LD16_da* pseudos this used to pick named the
+    // register through the 32-bit table and are deleted (UPDATE 17).
+    if (OpSize != 2)
+      return MCDisassembler::Fail;
+    Opc = Is24 ? TLCS900::LD32_da24 : TLCS900::LD32_da16;
     MI.setOpcode(Opc);
     MI.addOperand(MCOperand::createReg(DstReg));
     MI.addOperand(MCOperand::createImm(Addr));
@@ -1300,30 +1300,11 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
     return MCDisassembler::Success;
   }
 
-  // LD (addr), rs: destination table store operations
-  // 0x40-0x47 = LD (addr), r8
-  // 0x50-0x57 = LD (addr), r16
+  // LD (addr), rs: destination table store operations.  0x40-0x47 (r8) and
+  // 0x50-0x57 (r16) are decoded by decodeDirectAsMem as `ld (n:16), a`; the
+  // GPR-typed pseudos this used to pick (LD8m_da*/LD16m_da*) named the
+  // register through the 32-bit table and are deleted (UPDATE 17).
   // 0x60-0x67 = LD (addr), r32
-  if (IsDst && SubOp >= 0x40 && SubOp <= 0x47) {
-    unsigned SrcReg = decodeGR8(SubOp & 0x7);
-    bool Is24 = (AddrBytes == 3);
-    unsigned Opc = Is24 ? TLCS900::LD8m_da24 : TLCS900::LD8m_da16;
-    MI.setOpcode(Opc);
-    MI.addOperand(MCOperand::createImm(Addr));
-    MI.addOperand(MCOperand::createReg(SrcReg));
-    Size = PrefixSize + 1;
-    return MCDisassembler::Success;
-  }
-  if (IsDst && SubOp >= 0x50 && SubOp <= 0x57) {
-    unsigned SrcReg = decodeGR16(SubOp & 0x7);
-    bool Is24 = (AddrBytes == 3);
-    unsigned Opc = Is24 ? TLCS900::LD16m_da24 : TLCS900::LD16m_da16;
-    MI.setOpcode(Opc);
-    MI.addOperand(MCOperand::createImm(Addr));
-    MI.addOperand(MCOperand::createReg(SrcReg));
-    Size = PrefixSize + 1;
-    return MCDisassembler::Success;
-  }
   if (IsDst && SubOp >= 0x60 && SubOp <= 0x67) {
     unsigned SrcReg = decodeGPR(SubOp & 0x7);
     bool Is24 = (AddrBytes == 3);
@@ -1407,47 +1388,47 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
         // GPR-enum register to a GR8-typed operand and silently produce
         // text that cannot reassemble, exactly the bug this table's own
         // comment above already documents for the is16 slot.
-        {0x80, {TLCS900::ADD8_da16, TLCS900::ADD8_da24_gpr},
-               {TLCS900::ADD16_da16, TLCS900::ADD16_da24},
+        {0x80, {0, 0},
+               {0, 0},
                {TLCS900::ADD32_da16, TLCS900::ADD32_da24}, true},
-        {0xA0, {TLCS900::SUB8_da16, TLCS900::SUB8_da24_gpr},
-               {TLCS900::SUB16_da16, TLCS900::SUB16_da24},
+        {0xA0, {0, 0},
+               {0, 0},
                {TLCS900::SUB32_da16, TLCS900::SUB32_da24}, true},
         // ⚠ The 32-bit slots are {da16, da24} and only the da24 half exists
         // for AND/OR: TLCS900InstrInfo.td defines AND32_da24 and OR32_da24 but
         // no 16-bit-address sibling, so a 0 here is a genuine "no definition"
         // and is refused rather than rounded to the 16-bit form.
-        {0xC0, {TLCS900::AND8_da16, TLCS900::AND8_da24_gpr},
-               {TLCS900::AND16_da16, TLCS900::AND16_da24},
+        {0xC0, {0, 0},
+               {0, 0},
                {0, TLCS900::AND32_da24}, true},
         // XOR16_da24 exists; there is no 16-bit-address sibling, and no
         // 32-bit XOR at all, so those slots stay 0 and are refused.
-        {0xD0, {TLCS900::XOR8_da16, TLCS900::XOR8_da24_gpr},
-               {0, TLCS900::XOR16_da24}, {0, 0}, true},
-        {0xE0, {TLCS900::OR8_da16, TLCS900::OR8_da24_gpr},
-               {TLCS900::OR16_da16, TLCS900::OR16_da24},
+        {0xD0, {0, 0},
+               {0, 0}, {0, 0}, true},
+        {0xE0, {0, 0},
+               {0, 0},
                {0, TLCS900::OR32_da24}, true},
-        {0xF0, {TLCS900::CP8_da16, TLCS900::CP8_da24_gpr},
-               {TLCS900::CP16_da16, TLCS900::CP16_da24},
+        {0xF0, {0, 0},
+               {0, 0},
                {TLCS900::CP32_da16, TLCS900::CP32_da24}, false},
         // Mem-destination: (addr) = (addr) op reg
-        {0x88, {TLCS900::ADD8m_da16, TLCS900::ADD8m_da24_gpr},
-               {TLCS900::ADD16m_da16, TLCS900::ADD16m_da24},
+        {0x88, {0, 0},
+               {0, 0},
                {TLCS900::ADD32m_da16, TLCS900::ADD32m_da24}, false},
-        {0xA8, {TLCS900::SUB8m_da16, TLCS900::SUB8m_da24_gpr},
-               {TLCS900::SUB16m_da16, TLCS900::SUB16m_da24},
+        {0xA8, {0, 0},
+               {0, 0},
                {TLCS900::SUB32m_da16, TLCS900::SUB32m_da24}, false},
-        {0xC8, {TLCS900::AND8m_da16, TLCS900::AND8m_da24_gpr},
-               {TLCS900::AND16m_da16, TLCS900::AND16m_da24},
+        {0xC8, {0, 0},
+               {0, 0},
                {0, TLCS900::AND32m_da24}, false},
-        {0xD8, {TLCS900::XOR8m_da16, TLCS900::XOR8m_da24_gpr},
-               {TLCS900::XOR16m_da16, TLCS900::XOR16m_da24},
+        {0xD8, {0, 0},
+               {0, 0},
                {0, 0}, false},
-        {0xE8, {TLCS900::OR8m_da16, TLCS900::OR8m_da24_gpr},
-               {TLCS900::OR16m_da16, TLCS900::OR16m_da24},
+        {0xE8, {0, 0},
+               {0, 0},
                {0, TLCS900::OR32m_da24}, false},
-        {0xF8, {TLCS900::CP8m_da16, TLCS900::CP8m_da24_gpr},
-               {TLCS900::CP16m_da16, TLCS900::CP16m_da24},
+        {0xF8, {0, 0},
+               {0, 0},
                {TLCS900::CP32m_da16, TLCS900::CP32m_da24}, false},
     };
     unsigned AluBase = SubOp & 0xF8;
