@@ -22,6 +22,7 @@
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Casting.h"
@@ -422,6 +423,7 @@ class TLCS900AsmParser : public MCTargetAsmParser {
   ParseStatus parseEncodingSelector(OperandVector &Operands);
   ParseStatus tryParseAutoIncOperand(OperandVector &Operands);
   bool finalizeMemOperands(MCInst &Inst, SMLoc IDLoc);
+  bool parseAddressExpression(const MCExpr *&Res, SMLoc &Loc);
 
   bool parseOperand(OperandVector &Operands);
 
@@ -529,6 +531,61 @@ ParseStatus TLCS900AsmParser::tryParseRegister(MCRegister &Reg,
   return ParseStatus::Success;
 }
 
+static int autoIncRegAddr(StringRef Name);
+
+/// A name this assembler reads as a REGISTER: a current-bank register
+/// (MatchRegisterName) or one of the sixteen bank registers xwa0..xhl3.
+static bool isRegisterName(StringRef Name) {
+  return MatchRegisterName(Name.lower()) || autoIncRegAddr(Name) >= 0;
+}
+
+/// The first symbol reference in E whose name is a register, or null.
+static const MCSymbolRefExpr *findRegisterSymbol(const MCExpr *E) {
+  switch (E->getKind()) {
+  case MCExpr::SymbolRef: {
+    const auto *SRE = cast<MCSymbolRefExpr>(E);
+    return isRegisterName(SRE->getSymbol().getName()) ? SRE : nullptr;
+  }
+  case MCExpr::Binary: {
+    const auto *BE = cast<MCBinaryExpr>(E);
+    if (const MCSymbolRefExpr *R = findRegisterSymbol(BE->getLHS()))
+      return R;
+    return findRegisterSymbol(BE->getRHS());
+  }
+  case MCExpr::Unary:
+    return findRegisterSymbol(cast<MCUnaryExpr>(E)->getSubExpr());
+  default:
+    return nullptr;
+  }
+}
+
+/// parseAddressExpression - parseExpression for an ADDRESS, DISPLACEMENT or
+/// IMMEDIATE, refusing an expression that names a register.
+///
+/// A name the operand parsers do not take as a register falls through to the
+/// expression parser, which reads it as a SYMBOL.  `(xbc3)`, `(xwa3+5)` and
+/// `(5+xsp)` therefore assembled to a DIRECT address with a relocation
+/// against an undefined symbol `xbc3` / `xsp` -- the bytes of another
+/// instruction, caught only by the link (and not at all if something defines
+/// the symbol).  This is the `(+xde)` trap of TOOLCHAIN_VERSION UPDATE 17 in
+/// every other operand shape, so it gets the same answer: a register name is
+/// never a symbol.
+bool TLCS900AsmParser::parseAddressExpression(const MCExpr *&Res, SMLoc &Loc) {
+  Loc = getLexer().getLoc();
+  if (getParser().parseExpression(Res))
+    return true;
+  if (const MCSymbolRefExpr *R = findRegisterSymbol(Res)) {
+    StringRef N = R->getSymbol().getName();
+    if (autoIncRegAddr(N) >= 0 && !MatchRegisterName(N.lower()))
+      return Error(Loc, "'" + N + "' is a bank register; the only operands "
+                        "that take one are (" + N + "+) and (-" + N + ")");
+    return Error(Loc, "'" + N + "' is a register, not a symbol: a register "
+                      "is written first inside the parentheses, (" + N +
+                      "+d)");
+  }
+  return false;
+}
+
 /// parseDirectAddrOperand - Parse a parenthesized direct address: (expr)
 /// Returns an immediate operand containing the address value.
 ParseStatus TLCS900AsmParser::parseDirectAddrOperand(OperandVector &Operands) {
@@ -546,7 +603,8 @@ ParseStatus TLCS900AsmParser::parseDirectAddrOperand(OperandVector &Operands) {
   Parser.Lex(); // consume '('
 
   const MCExpr *Addr;
-  if (getParser().parseExpression(Addr))
+  SMLoc ALoc;
+  if (parseAddressExpression(Addr, ALoc))
     return ParseStatus::Failure;
 
   if (getLexer().isNot(AsmToken::RParen))
@@ -576,6 +634,16 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
     StringRef RegName = getLexer().getTok().getString();
     Reg = MatchRegisterName(RegName.lower());
     if (Reg) {
+      // ⚠ The base of every register-indirect form -- (r), (r+d), (r+D:8),
+      // (r+D:16), (r+Rn) -- is a 32-bit register: the encodings hold its
+      // 3-bit field (or its register-file address) and nothing else.  Any
+      // other register used to be encoded BY INDEX, so `ld a, (a)` assembled
+      // ld A,(XBC), `(qiz+0:8)` became (XIZ+0) and `(h-1)` (XIZ-1), in
+      // silence.  (R+) / (-R) are parsed before this and say the same.
+      if (!TLCS900MCRegisterClasses[TLCS900::GPRRegClassID].contains(Reg))
+        return Error(getLexer().getLoc(),
+                     "the base of a register-indirect operand is a 32-bit "
+                     "register (xwa..xsp), not '" + RegName + "'");
       Parser.Lex(); // consume register
 
       const MCExpr *Disp = MCConstantExpr::create(0, getContext());
@@ -608,11 +676,13 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
             return ParseStatus::Success;
           }
         }
-        if (getParser().parseExpression(Disp))
+        SMLoc DLoc;
+        if (parseAddressExpression(Disp, DLoc))
           return ParseStatus::Failure;
       } else if (getLexer().is(AsmToken::Minus)) {
         // parseExpression handles the negative sign
-        if (getParser().parseExpression(Disp))
+        SMLoc DLoc;
+        if (parseAddressExpression(Disp, DLoc))
           return ParseStatus::Failure;
       }
 
@@ -657,7 +727,8 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
 
   // Direct memory: (symbol), (0x1234), (.equ_const)
   const MCExpr *Addr;
-  if (getParser().parseExpression(Addr))
+  SMLoc ALoc;
+  if (parseAddressExpression(Addr, ALoc))
     return ParseStatus::Failure;
 
   // Optional address-width request: (0x8a:8), (0x2075:16), (0x8a:24).
@@ -1028,10 +1099,13 @@ bool TLCS900AsmParser::parseOperand(OperandVector &Operands) {
     return false;
   }
 
-  // Try expression (immediate, label, etc.)
+  // Try expression (immediate, label, etc.)  A register name inside it is
+  // an error (parseAddressExpression), not an undefined symbol: `ld xwa,
+  // xbc3` would otherwise load the address of a symbol called xbc3.
   const MCExpr *Expr;
-  if (getParser().parseExpression(Expr))
-    return Error(S, "unknown operand");
+  SMLoc ELoc;
+  if (parseAddressExpression(Expr, ELoc))
+    return true;
 
   SMLoc E = SMLoc::getFromPointer(getLexer().getLoc().getPointer());
   Operands.push_back(TLCS900Operand::createImm(Expr, S, E));
