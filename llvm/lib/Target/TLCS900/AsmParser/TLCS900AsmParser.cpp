@@ -1116,7 +1116,9 @@ bool TLCS900AsmParser::finalizeMemOperands(MCInst &Inst, SMLoc IDLoc) {
 
 /// checkOpcodeFieldImm - range-check the immediates that live in an OPCODE
 /// byte's low bits: a bit number (BIT/SET/RES/CHG/TSET/LDCF/STCF), an INC/DEC
-/// count, and the 3-bit value of the extended-register LD/CP short forms.
+/// count, the 3-bit value of the extended-register LD/CP short forms, and the
+/// EI level / SWI number (0..7; `ei 8` assembled 06 08, which the CPU runs as
+/// ei 0, and `swi 8` f8 = swi 0).
 /// Returns true (having reported) on error.
 ///
 /// Their encoders keep only the low bits, so a value that does not fit used
@@ -1176,6 +1178,12 @@ bool TLCS900AsmParser::checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc) {
   case TLCS900II::ERPSmallImm: // (bank, imm)
     Idx = 1;
     Kind = IsIncDec(Sub) ? Count : Imm3;
+    break;
+  case TLCS900II::SingleByteImm8: // EI level (06 n), SWI n (F8+n): 0..7
+    if (Opc != 0x06 && Opc != 0xF8)
+      return false;
+    Idx = 0;
+    Kind = Imm3;
     break;
   default:
     return false;

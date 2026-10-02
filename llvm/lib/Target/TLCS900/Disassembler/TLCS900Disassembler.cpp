@@ -2773,12 +2773,15 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::getInstruction(
   case 0x19: // POP F
     return decodeSingleByte(MI, Size, TLCS900::POP_F);
 
-  // EI level: 0x06, level_byte — 2 bytes
+  // EI level: 0x06, level_byte — 2 bytes.  The level is 0..7 (MAME's core
+  // keeps `imm & 7`); a byte above 7 used to print masked -- 06 08 as `ei 0`,
+  // which re-assembles to 06 00 -- so it is refused instead (248 of the 256
+  // `06 xx` decodes failed the round trip in the wave 3a V1 sweep).
   case 0x06:
-    if (Bytes.size() < 2)
+    if (Bytes.size() < 2 || Bytes[1] > 7)
       return MCDisassembler::Fail;
     MI.setOpcode(TLCS900::EI);
-    MI.addOperand(MCOperand::createImm(Bytes[1] & 0x7));
+    MI.addOperand(MCOperand::createImm(Bytes[1]));
     Size = 2;
     return MCDisassembler::Success;
 

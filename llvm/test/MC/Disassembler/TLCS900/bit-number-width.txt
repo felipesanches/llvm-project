@@ -4,6 +4,7 @@
 # RUN: echo "0xd9 0x31 0x10" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
 # RUN: echo "0xe8 0x30 0x05" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
 # RUN: echo "0xeb 0x33 0x05" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0x06 0x08" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
 #
 # Register bit operations: prefix C8+r / D8+r, sub-opcode 0x30-0x34, then the
 # bit number in a whole byte.  Only 0..7 (byte register) and 0..15 (word
@@ -25,5 +26,10 @@
 
 # REFUSED (the echo RUN lines): c9 30 14 / c9 30 08 (bit > 7 of a byte
 # register), d9 31 10 (bit > 15 of a word register), e8 30 05 / eb 33 05
-# (no bit operation on a 32-bit register; MAME: db).
+# (no bit operation on a 32-bit register; MAME: db), and 06 08 -- an EI level
+# above 7, which printed masked as `ei 0` and re-assembled to 06 00 (MAME's
+# core keeps `imm & 7`).
+# unidasm: 06 07  ei 0x07
+# CHECK: ei 7{{.*}}encoding: [0x06,0x07]
+0x06 0x07
 # REFUSE: <stdin>:1:1: warning: invalid instruction encoding

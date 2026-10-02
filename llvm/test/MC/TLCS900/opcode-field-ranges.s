@@ -42,6 +42,12 @@ set 15, bc
 ; unidasm: d7 ea af  ld QDE,0x07
 ; CHECK: ld qde, 7                ; encoding: [0xd7,0xea,0xaf]
 ld qde, 7
+; unidasm: 06 07  ei 0x07
+; CHECK: ei 7                     ; encoding: [0x06,0x07]
+ei 7
+; unidasm: ff  swi 7
+; CHECK: swi 7                    ; encoding: [0xff]
+swi 7
 ; a constant defined BEFORE its use is a constant where it is written
 .equ BIT3, 3
 ; unidasm: b0 cb  bit 3,(XWA)
@@ -78,6 +84,14 @@ inc 9, qwa
 ld qde, 8
 ; ERR: error: 8 does not fit a 3-bit immediate here (must be 0..7)
 cp qwa, 8
+; EI level / SWI number: 0..7 (`ei 8` assembled 06 08, run as ei 0 by the
+; CPU, and decoded back as `ei 0`; `swi 8` assembled f8 = swi 0)
+; ERR: error: 8 does not fit a 3-bit immediate here (must be 0..7)
+ei 8
+; ERR: error: -1 does not fit a 3-bit immediate here (must be 0..7)
+ei -1
+; ERR: error: 8 does not fit a 3-bit immediate here (must be 0..7)
+swi 8
 ; ERR: error: a bit number lives in the opcode byte and must be a constant known where it is written (no relocation reaches an opcode field)
 bit LATER, (xwa)
 ; ERR: error: an INC/DEC count lives in the opcode byte and must be a constant known where it is written (no relocation reaches an opcode field)
