@@ -431,6 +431,7 @@ class TLCS900AsmParser : public MCTargetAsmParser {
   bool finalizeMemOperands(MCInst &Inst, SMLoc IDLoc);
   bool parseAddressExpression(const MCExpr *&Res, SMLoc &Loc);
   bool checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc);
+  bool checkRawPseudoOperands(const MCInst &Inst, SMLoc IDLoc);
 
   bool parseOperand(OperandVector &Operands);
 
@@ -508,6 +509,8 @@ bool TLCS900AsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
     if (finalizeMemOperands(Inst, IDLoc))
       return true;
     if (checkOpcodeFieldImm(Inst, IDLoc))
+      return true;
+    if (checkRawPseudoOperands(Inst, IDLoc))
       return true;
     Out.emitInstruction(Inst, STI);
     return false;
@@ -1142,7 +1145,7 @@ bool TLCS900AsmParser::checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc) {
   unsigned Opc = TLCS900II::getOpcode(TS);
   unsigned Sub = TLCS900II::getSubOpcode(TS);
   auto IsIncDec = [](unsigned O) { return O == 0x60 || O == 0x68; };
-  enum { Bit, Count, Imm3 } Kind = Bit;
+  enum { Bit, Count, Imm3, ShiftCount } Kind = Bit;
   int Idx;
   int64_t Hi = 7;
   switch (TLCS900II::getInstFormat(TS)) {
@@ -1179,6 +1182,12 @@ bool TLCS900AsmParser::checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc) {
     Idx = 1;
     Kind = IsIncDec(Sub) ? Count : Imm3;
     break;
+  case TLCS900II::PrefixShift: // SLA..SRL / RLC..RR r, n: (rd, rs1, n)
+    if (Opc < 0xE8 || Opc > 0xEF)
+      return false; // LDC r, cr: a control-register number, not a count
+    Idx = D.getNumOperands() - 1;
+    Kind = ShiftCount;
+    break;
   case TLCS900II::SingleByteImm8: // EI level (06 n), SWI n (F8+n): 0..7
     if (Opc != 0x06 && Opc != 0xF8)
       return false;
@@ -1191,9 +1200,10 @@ bool TLCS900AsmParser::checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc) {
   if (Idx >= (int)Inst.getNumOperands())
     return false;
   const MCOperand &Op = Inst.getOperand(Idx);
-  const char *What = Kind == Count ? "an INC/DEC count"
-                     : Kind == Bit ? "a bit number"
-                                   : "a 3-bit immediate";
+  const char *What = Kind == Count        ? "an INC/DEC count"
+                     : Kind == ShiftCount ? "a shift/rotate count"
+                     : Kind == Bit        ? "a bit number"
+                                          : "a 3-bit immediate";
   int64_t V;
   if (Op.isImm())
     V = Op.getImm();
@@ -1201,6 +1211,18 @@ bool TLCS900AsmParser::checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc) {
     return Error(IDLoc, Twine(What) + " lives in the opcode byte and must be "
                             "a constant known where it is written (no "
                             "relocation reaches an opcode field)");
+  if (Kind == ShiftCount) {
+    // The CPU reads the count byte as `count & 0x0F`, 0 meaning 16 (TLCS-900
+    // "#4 = 1-16"; MAME's core `(s & 0x0f) ? (s & 0x0f) : 16`): 17 shifted by
+    // 1 in silence, and `srl xhl, 0` -- MAME's disassembler's raw field,
+    // written 1,276 times in the tree -- named a shift by 16.
+    if (V < 1 || V > 16)
+      return Error(IDLoc, Twine(V) + " is not a shift/rotate count: the "
+                              "count is 1..16 (16 is encoded as 0" +
+                              (V == 0 ? "; write `16`, not the raw field 0)"
+                                      : ")"));
+    return false;
+  }
   if (Kind == Count) {
     if (V < 1 || V > 8)
       return Error(IDLoc, Twine(V) + " is not an INC/DEC count: the count is "
@@ -1212,6 +1234,62 @@ bool TLCS900AsmParser::checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc) {
   if (V < 0 || V > Hi)
     return Error(IDLoc, Twine(V) + " does not fit " + What + " here (must "
                             "be 0.." + Twine(Hi) + ")");
+  return false;
+}
+
+/// checkRawPseudoOperands - range-check the raw-operand pseudos that write a
+/// bit number, a condition code or an 8-bit address as separate numbers
+/// (`bit_dd8 3, 0x34` = f0 34 cb, `jp_dd8 cc, a`, `andcfn_ri xwa, n`,
+/// `ret_cc_ri xwa, cc`).  Their encoders add the number into a sub-opcode or
+/// keep the low byte, so a value that did not fit became ANOTHER instruction
+/// in silence (wave 3a V1 re-verification): `bit_dd8 8, 0x34` assembled
+/// f0 34 d0 = jp F,0x34; `set_dd8 0x30, 1` f0 01 e8 = call T,0x01;
+/// `res_dd8 8, 0x34` set 0; `bit_dd8 3, 0x1234` bit 3,(0x34); and a forward
+/// reference dropped the address byte or hit an assertion.  Bit 0..7,
+/// condition 0..15, address 0..0xFF per byte, all constants.  The real
+/// spellings (`bit 3, (0x34:8)`) were already checked by checkOpcodeFieldImm.
+bool TLCS900AsmParser::checkRawPseudoOperands(const MCInst &Inst,
+                                              SMLoc IDLoc) {
+  // {operand index, max value, what}; up to three per opcode.
+  struct Lim { int Idx; int64_t Max; const char *What; };
+  SmallVector<Lim, 3> L;
+  switch (Inst.getOpcode()) {
+  case TLCS900::RES_DD8: case TLCS900::SET_DD8: case TLCS900::BIT_DD8:
+  case TLCS900::CHG_DD8: case TLCS900::LDCF_DD8: case TLCS900::TSET_DD8:
+  case TLCS900::STCF_DD8:
+    L = {{0, 7, "a bit number"}, {1, 0xFF, "an 8-bit direct address"}};
+    break;
+  case TLCS900::JP_DD8:
+    L = {{0, 15, "a condition code"}, {1, 0xFF, "an 8-bit direct address"}};
+    break;
+  case TLCS900::TSET_DD16: case TLCS900::LDCF_DD16:
+    L = {{0, 7, "a bit number"},
+         {1, 0xFF, "an address byte"},
+         {2, 0xFF, "an address byte"}};
+    break;
+  case TLCS900::ANDCFN_RI: case TLCS900::ORCFN_RI: case TLCS900::XORCFN_RI:
+    L = {{1, 7, "a bit number"}};
+    break;
+  case TLCS900::CALL_CC_RI: case TLCS900::JP_CC_RI: case TLCS900::RET_CC_RI:
+    L = {{1, 15, "a condition code"}};
+    break;
+  default:
+    return false;
+  }
+  for (const Lim &X : L) {
+    if (X.Idx >= (int)Inst.getNumOperands())
+      continue;
+    const MCOperand &Op = Inst.getOperand(X.Idx);
+    int64_t V;
+    if (Op.isImm())
+      V = Op.getImm();
+    else if (!Op.isExpr() || !Op.getExpr()->evaluateAsAbsolute(V))
+      return Error(IDLoc, Twine(X.What) + " of this raw-operand pseudo must "
+                              "be a constant known where it is written");
+    if (V < 0 || V > X.Max)
+      return Error(IDLoc, Twine(V) + " does not fit " + X.What +
+                              " (must be 0.." + Twine(X.Max) + ")");
+  }
   return false;
 }
 

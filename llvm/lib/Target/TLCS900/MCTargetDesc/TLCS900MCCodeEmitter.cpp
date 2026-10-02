@@ -588,7 +588,13 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(Opcode);
     unsigned ImmIdx = Desc.getNumOperands() - 1;
     const MCOperand &ImmOp = MI.getOperand(ImmIdx);
-    CB.push_back(static_cast<char>(ImmOp.isImm() ? ImmOp.getImm() : 1));
+    int64_t Amt = ImmOp.isImm() ? ImmOp.getImm() : 1;
+    // A shift/rotate count (0xE8..0xEF) is 1..16, and the CPU reads the byte
+    // as `count & 0x0F`, 0 meaning 16: encode 16 as 0 (the parser has
+    // range-checked an assembled count; codegen emits 1..16 only).
+    if (Opcode >= 0xE8 && Opcode <= 0xEF)
+      Amt &= 0x0F;
+    CB.push_back(static_cast<char>(Amt));
     break;
   }
 

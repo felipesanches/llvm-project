@@ -451,6 +451,17 @@ def : Pat<(tlcs900_wrapper tjumptable:$addr), (LD32ri tjumptable:$addr)>;
 // All arithmetic instructions modify the Status Register (flags).
 //===----------------------------------------------------------------------===//
 
+// A shift or rotate count lives in a byte the CPU reads as `count & 0x0F`,
+// with 0 meaning 16 (TLCS-900 "#4 = 1-16"; MAME's core: `(s & 0x0f) ? (s &
+// 0x0f) : 16`).  One instruction therefore shifts 1..16; codegen asked for
+// `sla xde, 24` (x << 24), which assembled ee ec 18 and SHIFTED BY 8.  The
+// ri patterns take 1..16 and the 17..31 patterns below split the shift.
+def shamt1to16  : ImmLeaf<i32, [{ return Imm >= 1 && Imm <= 16; }]>;
+def shamt17to31 : ImmLeaf<i32, [{ return Imm >= 17 && Imm <= 31; }]>;
+def ShAmtMinus16 : SDNodeXForm<imm, [{
+  return CurDAG->getTargetConstant(N->getZExtValue() - 16, SDLoc(N), MVT::i32);
+}]>;
+
 let Constraints = "$rd = $rs1", Defs = [SR] in {
 
 // ADD rd, rs — rd = rd + rs (affects S, Z, H, V, N, C)
@@ -565,14 +576,14 @@ def XOR32ri : PrefixRegImmInst<0xCD, 6, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$i
 // Encoding: E8+rd, 0xEC, amt (3 bytes)
 def SLA32ri : PrefixShiftInst<0xEC, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                               "sla", "$rd, $imm",
-                              [(set GPR:$rd, (shl GPR:$rs1, (i32 imm:$imm)))]>,
+                              [(set GPR:$rd, (shl GPR:$rs1, (i32 shamt1to16:$imm)))]>,
               Sched<[WriteShift, ReadIALU]>;
 
 // SRA rd, #imm — Shift Right Arithmetic by immediate
 // Encoding: E8+rd, 0xED, amt (3 bytes)
 def SRA32ri : PrefixShiftInst<0xED, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                               "sra", "$rd, $imm",
-                              [(set GPR:$rd, (sra GPR:$rs1, (i32 imm:$imm)))]>,
+                              [(set GPR:$rd, (sra GPR:$rs1, (i32 shamt1to16:$imm)))]>,
               Sched<[WriteShift, ReadIALU]>;
 
 // SLL rd, #imm — Shift Left Logical (same result as SLA, different flags)
@@ -585,7 +596,7 @@ def SLL32ri : PrefixShiftInst<0xEE, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
 // Encoding: E8+rd, 0xEF, amt (3 bytes)
 def SRL32ri : PrefixShiftInst<0xEF, (outs GPR:$rd), (ins GPR:$rs1, i32imm:$imm),
                               "srl", "$rd, $imm",
-                              [(set GPR:$rd, (srl GPR:$rs1, (i32 imm:$imm)))]>,
+                              [(set GPR:$rd, (srl GPR:$rs1, (i32 shamt1to16:$imm)))]>,
               Sched<[WriteShift, ReadIALU]>;
 
 // Variable shift pseudos — expanded by custom inserter into:
@@ -3801,31 +3812,53 @@ def LDC_32_CR : PrefixShiftInst<0x2F, (outs), (ins GPR:$rs1, i32imm:$cr),
 }
 }
 
-// RLC/RRC with immediate count (3 bytes: prefix+reg, 0xE8/0xE9, count)
-// Uses PrefixShift format. Existing PrefixRotate hardcodes count=1.
+// RLC/RRC/RL/RR with a count (3 bytes: prefix+reg, 0xE8..0xEB, count).
+// Uses PrefixShift format; the one-operand PrefixRotate forms (`rlc a`) are
+// the same bytes with count 1.  The count is 1..16 like a shift's (the CPU
+// reads `count & 0x0F`, 0 meaning 16); these were the raw-field pseudos
+// `rlc_i_8` / `rrc_i_8` ... until the shift-count change, and the decoder
+// printed `rrc h` for ce e9 02, dropping the count.
 let Defs = [SR], hasSideEffects = 0 in {
 let OpSize = OpSize8.Value in {
 def RLC_I_8 : PrefixShiftInst<0xE8, (outs GR8:$rd),
-    (ins GR8:$src1, i32imm:$cnt), "rlc_i_8", "$rd, $cnt", []>,
+    (ins GR8:$src1, i32imm:$cnt), "rlc", "$rd, $cnt", []>,
     Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
 def RRC_I_8 : PrefixShiftInst<0xE9, (outs GR8:$rd),
-    (ins GR8:$src1, i32imm:$cnt), "rrc_i_8", "$rd, $cnt", []>,
+    (ins GR8:$src1, i32imm:$cnt), "rrc", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RL_I_8 : PrefixShiftInst<0xEA, (outs GR8:$rd),
+    (ins GR8:$src1, i32imm:$cnt), "rl", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RR_I_8 : PrefixShiftInst<0xEB, (outs GR8:$rd),
+    (ins GR8:$src1, i32imm:$cnt), "rr", "$rd, $cnt", []>,
     Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
 }
 let OpSize = OpSize16.Value in {
 def RLC_I_16 : PrefixShiftInst<0xE8, (outs GR16:$rd),
-    (ins GR16:$src1, i32imm:$cnt), "rlc_i_16", "$rd, $cnt", []>,
+    (ins GR16:$src1, i32imm:$cnt), "rlc", "$rd, $cnt", []>,
     Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
 def RRC_I_16 : PrefixShiftInst<0xE9, (outs GR16:$rd),
-    (ins GR16:$src1, i32imm:$cnt), "rrc_i_16", "$rd, $cnt", []>,
+    (ins GR16:$src1, i32imm:$cnt), "rrc", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RL_I_16 : PrefixShiftInst<0xEA, (outs GR16:$rd),
+    (ins GR16:$src1, i32imm:$cnt), "rl", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RR_I_16 : PrefixShiftInst<0xEB, (outs GR16:$rd),
+    (ins GR16:$src1, i32imm:$cnt), "rr", "$rd, $cnt", []>,
     Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
 }
 let OpSize = OpSize32.Value in {
 def RLC_I_32 : PrefixShiftInst<0xE8, (outs GPR:$rd),
-    (ins GPR:$src1, i32imm:$cnt), "rlc_i_32", "$rd, $cnt", []>,
+    (ins GPR:$src1, i32imm:$cnt), "rlc", "$rd, $cnt", []>,
     Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
 def RRC_I_32 : PrefixShiftInst<0xE9, (outs GPR:$rd),
-    (ins GPR:$src1, i32imm:$cnt), "rrc_i_32", "$rd, $cnt", []>,
+    (ins GPR:$src1, i32imm:$cnt), "rrc", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RL_I_32 : PrefixShiftInst<0xEA, (outs GPR:$rd),
+    (ins GPR:$src1, i32imm:$cnt), "rl", "$rd, $cnt", []>,
+    Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
+def RR_I_32 : PrefixShiftInst<0xEB, (outs GPR:$rd),
+    (ins GPR:$src1, i32imm:$cnt), "rr", "$rd, $cnt", []>,
     Sched<[WriteIALU]> { let Constraints = "$rd = $src1"; }
 }
 }
@@ -5576,3 +5609,16 @@ def : InstAlias<"scc $cc, $rd", (SCC8 GR8:$rd, cc:$cc)>;
 def : InstAlias<"scc $cc, $rd", (SCC16 GR16:$rd, cc:$cc)>;
 
 include "TLCS900EncodingFamilies.td"
+
+//===----------------------------------------------------------------------===//
+// Shift-count legalization (see shamt1to16)
+//===----------------------------------------------------------------------===//
+
+// Constant shifts of 17..31: one shift by 16, then one by the rest.
+def : Pat<(shl GPR:$a, (i32 shamt17to31:$n)),
+          (SLA32ri (SLA32ri GPR:$a, 16), (ShAmtMinus16 imm:$n))>;
+def : Pat<(sra GPR:$a, (i32 shamt17to31:$n)),
+          (SRA32ri (SRA32ri GPR:$a, 16), (ShAmtMinus16 imm:$n))>;
+def : Pat<(srl GPR:$a, (i32 shamt17to31:$n)),
+          (SRL32ri (SRL32ri GPR:$a, 16), (ShAmtMinus16 imm:$n))>;
+

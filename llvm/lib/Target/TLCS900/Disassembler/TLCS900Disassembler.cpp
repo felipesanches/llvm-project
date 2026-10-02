@@ -256,6 +256,11 @@ static const unsigned RRCops[3] = {TLCS900::RRC8, TLCS900::RRC16, TLCS900::RRC32
 static const unsigned RLops[3] = {TLCS900::RL8, TLCS900::RL16, TLCS900::RL32};
 static const unsigned RRops[3] = {TLCS900::RR8, TLCS900::RR16, TLCS900::RR32};
 
+static const unsigned RLCIops[3] = {TLCS900::RLC_I_8, TLCS900::RLC_I_16, TLCS900::RLC_I_32};
+static const unsigned RRCIops[3] = {TLCS900::RRC_I_8, TLCS900::RRC_I_16, TLCS900::RRC_I_32};
+static const unsigned RLIops[3] = {TLCS900::RL_I_8, TLCS900::RL_I_16, TLCS900::RL_I_32};
+static const unsigned RRIops[3] = {TLCS900::RR_I_8, TLCS900::RR_I_16, TLCS900::RR_I_32};
+
 static const unsigned SLAops[3] = {TLCS900::SLA8ri, TLCS900::SLA16ri, TLCS900::SLA32ri};
 static const unsigned SRAops[3] = {TLCS900::SRA8ri, TLCS900::SRA16ri, TLCS900::SRA32ri};
 static const unsigned SRLops[3] = {TLCS900::SRL8ri, TLCS900::SRL16ri, TLCS900::SRL32ri};
@@ -497,30 +502,47 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGenericRegPrefix(
     return MCDisassembler::Success;
   }
 
-  // Rotate: prefix + opcode + count(1) — 3 bytes
+  // Rotate: prefix + opcode + count — 3 bytes.  The CPU reads the count byte
+  // as `count & 0x0F`, 0 meaning 16; count 1 prints the one-operand form
+  // (`rlc a`), any other `rlc a, n`.  This used to print `rlc a` whatever the
+  // count (ce e9 02 -> `rrc h`, which re-encodes ce e9 01).  A byte with its
+  // high nibble set is refused: the CPU ignores those bits, and no spelling
+  // that names the count the CPU uses re-encodes them.
   case 0xE8: case 0xE9: case 0xEA: case 0xEB: {
     if (Bytes.size() < 3)
       return MCDisassembler::Fail;
+    unsigned Count = Bytes[2];
+    if (Count & 0xF0)
+      return MCDisassembler::Fail;
+    if (Count == 0)
+      Count = 16;
     const unsigned *Table;
     switch (SB) {
-    case 0xE8: Table = RLCops; break;
-    case 0xE9: Table = RRCops; break;
-    case 0xEA: Table = RLops; break;
-    case 0xEB: Table = RRops; break;
+    case 0xE8: Table = Count == 1 ? RLCops : RLCIops; break;
+    case 0xE9: Table = Count == 1 ? RRCops : RRCIops; break;
+    case 0xEA: Table = Count == 1 ? RLops : RLIops; break;
+    case 0xEB: Table = Count == 1 ? RRops : RRIops; break;
     default: llvm_unreachable("handled above");
     }
     MI.setOpcode(Table[OpSize]);
     MI.addOperand(MCOperand::createReg(Reg));
     MI.addOperand(MCOperand::createReg(Reg));
+    if (Count != 1)
+      MI.addOperand(MCOperand::createImm(Count));
     Size = 3;
     return MCDisassembler::Success;
   }
 
   // Shift immediate: prefix + opcode + amount — 3 bytes
+  // The count byte is read as `count & 0x0F`, 0 meaning 16 (see Rotate).
   case 0xEC: case 0xED: case 0xEE: case 0xEF: {
     if (Bytes.size() < 3)
       return MCDisassembler::Fail;
     unsigned Amount = Bytes[2];
+    if (Amount & 0xF0)
+      return MCDisassembler::Fail;
+    if (Amount == 0)
+      Amount = 16;
     const unsigned *Table;
     switch (SB) {
     case 0xEC: Table = SLAops; break;

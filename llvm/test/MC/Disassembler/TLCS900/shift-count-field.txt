@@ -1,0 +1,37 @@
+# RUN: llvm-mc -triple=tlcs900 -disassemble -show-encoding < %s 2>/dev/null | FileCheck %s
+# RUN: echo "0xeb 0xef 0x10" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+#
+# A shift/rotate count byte of 0 MEANS 16 (the CPU reads `count & 0x0F`, 0
+# meaning 16; MAME's DISASSEMBLER prints the raw 0).  Every decode prints 16,
+# the only spelling the assembler accepts for that byte.  Rotates print their
+# count (ce e9 02 used to print `rrc h`, dropping it); a count of 1 prints the
+# one-operand form.  A count byte with its high nibble set is refused -- the
+# CPU ignores those bits and no truthful spelling re-encodes them.  MAME
+# unidasm's reading quoted.
+
+# unidasm: eb ef 00  srl 0x00,XHL
+# CHECK: srl xhl, 16{{.*}}encoding: [0xeb,0xef,0x00]
+0xeb 0xef 0x00
+# unidasm: c9 ec 00  sla 0x00,A
+# CHECK: sla a, 16{{.*}}encoding: [0xc9,0xec,0x00]
+0xc9 0xec 0x00
+# unidasm: d8 ed 0f  sra 0x0f,WA
+# CHECK: sra wa, 15{{.*}}encoding: [0xd8,0xed,0x0f]
+0xd8 0xed 0x0f
+# unidasm: ce e8 02  rlc 0x02,H
+# CHECK: rlc h, 2{{.*}}encoding: [0xce,0xe8,0x02]
+0xce 0xe8 0x02
+# unidasm: c9 e9 00  rrc 0x00,A
+# CHECK: rrc a, 16{{.*}}encoding: [0xc9,0xe9,0x00]
+0xc9 0xe9 0x00
+# unidasm: d8 ea 03  rl 0x03,WA
+# CHECK: rl wa, 3{{.*}}encoding: [0xd8,0xea,0x03]
+0xd8 0xea 0x03
+# unidasm: ea eb 04  rr 0x04,XDE
+# CHECK: rr xde, 4{{.*}}encoding: [0xea,0xeb,0x04]
+0xea 0xeb 0x04
+# unidasm: ce e9 01  rrc 0x01,H
+# CHECK: rrc h{{.*}}encoding: [0xce,0xe9,0x01]
+0xce 0xe9 0x01
+# unidasm: eb ef 10  srl 0x10,XHL  (the CPU shifts 16; no spelling re-encodes 0x10)
+# REFUSE: warning: invalid instruction encoding

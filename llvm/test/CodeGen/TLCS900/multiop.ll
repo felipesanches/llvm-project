@@ -15,9 +15,13 @@ define i32 @add_and_shift(i32 %a, i32 %b) {
 
 ; abs(a) = (a < 0) ? -a : a
 ; Branchless abs: mask = sra(a, 31); result = (a ^ mask) - mask
+; One TLCS-900 shift moves at most 16 bits (the CPU reads the count byte as
+; count & 0x0F, 0 meaning 16): this used to CHECK `sra xwa, 31`, which
+; assembled to a shift by 15 and left the mask wrong.  31 is two shifts.
 define i32 @abs_manual(i32 %a) {
 ; CHECK-LABEL: abs_manual:
-; CHECK:       sra {{x[a-z]+}}, 31
+; CHECK:       sra [[R:x[a-z]+]], 16
+; CHECK-NEXT:  sra [[R]], 15
 ; CHECK:       xor
 ; CHECK:       sub
 ; CHECK:       ret
