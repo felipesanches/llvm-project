@@ -396,6 +396,9 @@ public:
 class TLCS900AsmParser : public MCTargetAsmParser {
   const MCSubtargetInfo &STI;
   MCAsmParser &Parser;
+  // Set only for matchAndEmitInstruction's second matching pass: SP is then
+  // accepted where a GR16 operand is expected (validateTargetOperandClass).
+  bool AcceptSPAsGR16 = false;
 
 #define GET_ASSEMBLER_HEADER
 #include "TLCS900GenAsmMatcher.inc"
@@ -404,6 +407,9 @@ class TLCS900AsmParser : public MCTargetAsmParser {
                                OperandVector &Operands, MCStreamer &Out,
                                uint64_t &ErrorInfo,
                                bool MatchingInlineAsm) override;
+
+  unsigned validateTargetOperandClass(MCParsedAsmOperand &Op,
+                                      unsigned Kind) override;
 
   bool parseRegister(MCRegister &Reg, SMLoc &StartLoc,
                      SMLoc &EndLoc) override;
@@ -467,7 +473,36 @@ bool TLCS900AsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                                bool MatchingInlineAsm) {
   MCInst Inst;
 
-  switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
+  unsigned Result =
+      MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm);
+
+  // SP is the 16-bit register whose field is 7, in every 16-bit register
+  // field the TLCS-900 has -- d1 1e 23 87 is add SP,(0x231e), d5 01 27 is
+  // ld SP,(XWA0+) -- but GR16, the class the 16-bit operands are typed with,
+  // leaves SP out because codegen must never allocate it.  So the decoder
+  // printed `add sp, (8990:16)` and the assembler refused that text: 21,388
+  // probes of the wave 3a V1 sweeps failed the round trip this way and no
+  // spelling at all reached those instructions.  A SECOND matching pass,
+  // taken only when the first fails and an operand is SP, accepts SP for a
+  // GR16 operand.  A spelling that matched before matches exactly as before
+  // (`push sp` keeps its own GR16SP form), so no existing text moves.
+  if (Result != Match_Success &&
+      llvm::any_of(Operands, [](const std::unique_ptr<MCParsedAsmOperand> &O) {
+        return O->isReg() && O->getReg() == TLCS900::SP;
+      })) {
+    MCInst Retry;
+    uint64_t RetryErrorInfo;
+    AcceptSPAsGR16 = true;
+    unsigned R2 = MatchInstructionImpl(Operands, Retry, RetryErrorInfo,
+                                       MatchingInlineAsm);
+    AcceptSPAsGR16 = false;
+    if (R2 == Match_Success) {
+      Inst = Retry;
+      Result = R2;
+    }
+  }
+
+  switch (Result) {
   case Match_Success:
     Inst.setLoc(IDLoc);
     if (finalizeMemOperands(Inst, IDLoc))
@@ -507,6 +542,15 @@ bool TLCS900AsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   }
 
   llvm_unreachable("Unexpected match result");
+}
+
+unsigned TLCS900AsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
+                                                      unsigned Kind) {
+  auto &Op = static_cast<TLCS900Operand &>(AsmOp);
+  if (AcceptSPAsGR16 && Kind == MCK_GR16 && Op.isReg() &&
+      Op.getReg() == TLCS900::SP)
+    return Match_Success;
+  return Match_InvalidOperand;
 }
 
 bool TLCS900AsmParser::parseRegister(MCRegister &Reg, SMLoc &StartLoc,
