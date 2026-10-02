@@ -647,6 +647,7 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
       Parser.Lex(); // consume register
 
       const MCExpr *Disp = MCConstantExpr::create(0, getContext());
+      SMLoc DLoc = getLexer().getLoc();
       if (getLexer().is(AsmToken::Plus)) {
         Parser.Lex(); // consume '+'
         // ⚠ `(Xrr+Rn)` is the REGISTER-INDEXED operand, a DIFFERENT ENCODING
@@ -676,15 +677,26 @@ ParseStatus TLCS900AsmParser::parseMemriOperand(OperandVector &Operands) {
             return ParseStatus::Success;
           }
         }
-        SMLoc DLoc;
         if (parseAddressExpression(Disp, DLoc))
           return ParseStatus::Failure;
       } else if (getLexer().is(AsmToken::Minus)) {
         // parseExpression handles the negative sign
-        SMLoc DLoc;
         if (parseAddressExpression(Disp, DLoc))
           return ParseStatus::Failure;
       }
+
+      // ⚠ A constant displacement must fit the d16 field HERE, before
+      // anything else reads it.  A width request `:8` / `:16` and (R+) / (-R)
+      // ride in this same immediate as TAG BITS far above d16 (1<<40, 1<<41,
+      // 1<<42 -- TLCS900BaseInfo.h), and the encoder trusts a tagged value:
+      // `ld a, (xbc+0x40000000005)` assembled c5 05 21 = ld A,(XBC0+), and
+      // `(xbc+0x10000000005)` the d8 form, in silence, where the old pin said
+      // "too large for d16".
+      if (const auto *CE = dyn_cast<MCConstantExpr>(Disp))
+        if (!isInt<16>(CE->getValue()))
+          return Error(DLoc, "displacement " + Twine(CE->getValue()) +
+                                 " does not fit the signed 16-bit (Xrr+d16) "
+                                 "field (-32768..32767)");
 
       // Optional DISPLACEMENT WIDTH request, `(xsp+0:8)` / `(xiz+5:16)`:
       // the (Xrr+d8) and (Xrr+d16) encodings both hold a small displacement,

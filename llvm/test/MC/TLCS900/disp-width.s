@@ -19,9 +19,9 @@
 ; became an ordinary displacement -- pinned below.
 
 .ifdef ERR2
-; the retired 65536 sentinel ("d16 carrying 0") is now just out of range
-; (an encoder error, so it cannot share a run with the parser errors below)
-; ERR2: error: displacement 65536 too large for d16 encoding
+; the retired 65536 sentinel ("d16 carrying 0") is now just out of range --
+; refused by the PARSER since the T1 fix round (it was an encoder error)
+; ERR2: error: displacement 65536 does not fit the signed 16-bit (Xrr+d16) field (-32768..32767)
 ld a, (xiz+65536)
 .else
 .ifndef ERR
@@ -74,6 +74,14 @@ cp (xix+0:8), 5
 lda xwa, (xsp+256)
 ; CHECK: lda xwa, (xsp+256)   ; encoding: [0xf3,0xfd,0x00,0x01,0x30]
 lda xwa, (xsp+0x0100)
+
+; the ends of the d16 field
+; unidasm: c3 e5 ff 7f 21  ld A,(XBC+0x7fff)
+; CHECK: ld a, (xbc+32767)    ; encoding: [0xc3,0xe5,0xff,0x7f,0x21]
+ld a, (xbc+32767)
+; unidasm: c3 e5 00 80 21  ld A,(XBC+0x8000)  (signed: -32768)
+; CHECK: ld a, (xbc-32768)    ; encoding: [0xc3,0xe5,0x00,0x80,0x21]
+ld a, (xbc-32768)
 .else
 ; ERR: error: displacement 128 does not fit the signed 8-bit (Xrr+d8) field
 ld a, (xiz+128:8)
@@ -85,6 +93,26 @@ ld a, (xiz+sym:8)
 ld a, (xiz+1:24)
 ; ERR: error: expected a displacement width of 8 or 16 after ':'
 ld a, (xiz+1:x)
+
+; A displacement too wide for d16 is refused BEFORE the width and (R+)/(-R)
+; tag bits that ride in the same immediate (1<<40, 1<<41, 1<<42) can be read
+; from it.  At 4867e03232a6 these four assembled in silence:
+;   (xbc+0x40000000005)      c5 05 21           = MAME ld A,(XBC0+)
+;   (xbc+(1<<42)+0x2e4)      c4 e4 21           = ld A,(-XBC)
+;   (xbc+0x10000000005)      89 05 21           = (XBC+0x05), the d8 form
+;   (xbc+0x20000000005)      c3 e5 05 00 21     = the d16 form
+; ERR: error: displacement 4398046511109 does not fit the signed 16-bit (Xrr+d16) field (-32768..32767)
+ld a, (xbc+0x40000000005)
+; ERR: error: displacement 4398046511844 does not fit the signed 16-bit (Xrr+d16) field (-32768..32767)
+ld a, (xbc+(1<<42)+0x2e4)
+; ERR: error: displacement 1099511627781 does not fit the signed 16-bit (Xrr+d16) field (-32768..32767)
+ld a, (xbc+0x10000000005)
+; ERR: error: displacement 2199023255557 does not fit the signed 16-bit (Xrr+d16) field (-32768..32767)
+ld a, (xbc+0x20000000005)
+; ERR: error: displacement 32768 does not fit the signed 16-bit (Xrr+d16) field (-32768..32767)
+ld a, (xbc+32768)
+; ERR: error: displacement -32769 does not fit the signed 16-bit (Xrr+d16) field (-32768..32767)
+ld a, (xbc-32769)
 
 .endif
 .endif
