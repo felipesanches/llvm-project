@@ -18,6 +18,7 @@
 #include "TLCS900MCCodeEmitter.h"
 #include "TLCS900BaseInfo.h"
 #include "TLCS900FixupKinds.h"
+#include "TLCS900MCAsmInfo.h"
 #include "TLCS900MCTargetDesc.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
@@ -26,6 +27,7 @@
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCValue.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/Debug.h"
@@ -194,6 +196,19 @@ void TLCS900MCCodeEmitter::emitFixup(const MCInst &MI, const MCOperand &MO,
       } else {
         Expr = MCBinaryExpr::createAdd(
             Expr, MCConstantExpr::create(-2, Ctx), Ctx);
+      }
+    }
+    // sym@hi16 / sym@lo16 -- only meaningful in a 16-bit immediate.
+    MCValue SpecVal;
+    if (Expr->evaluateAsRelocatable(SpecVal, nullptr) &&
+        SpecVal.getSpecifier() != TLCS900::S_None) {
+      if (Kind != FK_Data_2) {
+        Ctx.reportError(MI.getLoc(),
+                        "@hi16/@lo16 is only valid in a 16-bit immediate");
+      } else {
+        FixupKind = (MCFixupKind)(SpecVal.getSpecifier() == TLCS900::S_HI16
+                                      ? TLCS900::fixup_tlcs900_hi16
+                                      : TLCS900::fixup_tlcs900_lo16);
       }
     }
     Fixups.push_back(MCFixup::create(FixupOffset, Expr, FixupKind));

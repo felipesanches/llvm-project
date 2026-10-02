@@ -18,6 +18,14 @@
 namespace llvm {
   class Triple;
 
+namespace TLCS900 {
+// `sym@hi16` / `sym@lo16`: the high / low 16 bits of a 32-bit address, as
+// two 16-bit immediates (the firmware's C compiler passes a far pointer as
+// `pushw hi; pushw lo`).  Resolved by the linker through R_TLCS900_HI16 /
+// R_TLCS900_LO16.
+enum Specifier : uint8_t { S_None = 0, S_HI16 = 1, S_LO16 = 2 };
+} // namespace TLCS900
+
 class TLCS900MCAsmInfo : public MCAsmInfoELF {
   void anchor() override;
 

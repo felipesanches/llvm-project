@@ -18,6 +18,11 @@ using namespace llvm;
 
 void TLCS900MCAsmInfo::anchor() { }
 
+static const MCAsmInfo::AtSpecifier atSpecifiers[] = {
+    {TLCS900::S_HI16, "hi16"},
+    {TLCS900::S_LO16, "lo16"},
+};
+
 TLCS900MCAsmInfo::TLCS900MCAsmInfo(const Triple &TheTriple) {
   // TLCS900 is little endian
   IsLittleEndian = true;
@@ -41,4 +46,6 @@ TLCS900MCAsmInfo::TLCS900MCAsmInfo(const Triple &TheTriple) {
   SupportsDebugInformation    = true;
   ExceptionsType              = ExceptionHandling::DwarfCFI;
   DwarfRegNumForCFI           = true;
+
+  initializeVariantKinds(atSpecifiers);
 }

@@ -13,6 +13,7 @@
 
 #include "TLCS900AsmBackend.h"
 #include "TLCS900FixupKinds.h"
+#include "TLCS900MCAsmInfo.h"
 #include "TLCS900MCTargetDesc.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/BinaryFormat/ELF.h"
@@ -84,6 +85,23 @@ bool TLCS900AsmBackend::evaluateTargetFixup(
   // Branch expression fixups (calr (addr - . - 3), etc.) use FKF_IsTarget
   // so we can manually resolve same-section symbol differences that the
   // generic ELF writer can't handle.
+  unsigned Kind = Fixup.getKind();
+  if (Kind == TLCS900::fixup_tlcs900_hi16 ||
+      Kind == TLCS900::fixup_tlcs900_lo16) {
+    // Fold now only when the symbol is an absolute constant (.set/.equ);
+    // a label's address is the linker's (R_TLCS900_HI16 / LO16).
+    const MCSymbol *Sym = Target.getAddSym();
+    int64_t Abs = 0;
+    if (Target.getSubSym() || (Sym && !(Sym->isVariable() &&
+        Sym->getVariableValue()->evaluateAsAbsolute(Abs, Asm)))) {
+      Value = 0;
+      return false;
+    }
+    uint64_t V = uint64_t(Abs + Target.getConstant());
+    Value = Kind == TLCS900::fixup_tlcs900_hi16 ? (V >> 16) & 0xffff
+                                                : V & 0xffff;
+    return true;
+  }
   const MCSymbol *Add = Target.getAddSym();
   const MCSymbol *Sub = Target.getSubSym();
   Value = Target.getConstant();
@@ -94,6 +112,18 @@ bool TLCS900AsmBackend::evaluateTargetFixup(
   // Always mark as resolved — these expressions should be fully evaluable
   // at assembly time since both sides are in the same section.
   return true;
+}
+
+bool TLCS900AsmBackend::shouldForceRelocation(const MCAssembler &Asm,
+                                              const MCFixup &Fixup,
+                                              const MCValue &Target,
+                                              const MCSubtargetInfo *STI) {
+  // A @hi16/@lo16 that evaluateTargetFixup folded (an absolute symbol) is
+  // final; the generic rule would force a relocation for any specifier.
+  if (unsigned(Fixup.getKind()) == TLCS900::fixup_tlcs900_hi16 ||
+      unsigned(Fixup.getKind()) == TLCS900::fixup_tlcs900_lo16)
+    return false;
+  return MCAsmBackend::shouldForceRelocation(Asm, Fixup, Target, STI);
 }
 
 std::optional<MCFixupKind>
@@ -123,6 +153,8 @@ TLCS900AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
        MCFixupKindInfo::FKF_IsTarget},
       {"fixup_tlcs900_branch_expr16", 0, 16,
        MCFixupKindInfo::FKF_IsTarget},
+      {"fixup_tlcs900_hi16", 0, 16, MCFixupKindInfo::FKF_IsTarget},
+      {"fixup_tlcs900_lo16", 0, 16, MCFixupKindInfo::FKF_IsTarget},
   };
 
   if (Kind >= FirstLiteralRelocationKind)

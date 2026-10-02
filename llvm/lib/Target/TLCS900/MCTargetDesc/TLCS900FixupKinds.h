@@ -31,6 +31,11 @@ enum Fixups {
   // 16-bit branch displacement expression (user-computed, contains ".").
   // Uses FKF_IsTarget so the backend can resolve same-section differences.
   fixup_tlcs900_branch_expr16,
+  // sym@hi16 / sym@lo16 in a 16-bit immediate: the high / low half of a
+  // 32-bit address.  FKF_IsTarget, so an absolute (.set/.equ) symbol is
+  // folded at assembly time; a section symbol becomes R_TLCS900_HI16/LO16.
+  fixup_tlcs900_hi16,
+  fixup_tlcs900_lo16,
 
   // Marker.
   fixup_tlcs900_invalid,

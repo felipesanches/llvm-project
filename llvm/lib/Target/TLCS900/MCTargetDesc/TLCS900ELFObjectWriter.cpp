@@ -7,8 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/TLCS900FixupKinds.h"
+#include "MCTargetDesc/TLCS900MCAsmInfo.h"
 #include "MCTargetDesc/TLCS900MCTargetDesc.h"
 #include "llvm/BinaryFormat/ELF.h"
+#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCValue.h"
@@ -37,6 +39,15 @@ unsigned TLCS900ELFObjectWriter::getRelocType(MCContext &Ctx,
                                               const MCFixup &Fixup,
                                               bool IsPCRel) const {
   unsigned Kind = Fixup.getKind();
+
+  if (Kind == TLCS900::fixup_tlcs900_hi16)
+    return ELF::R_TLCS900_HI16;
+  if (Kind == TLCS900::fixup_tlcs900_lo16)
+    return ELF::R_TLCS900_LO16;
+  if (Target.getSpecifier()) {
+    Ctx.reportError(Fixup.getLoc(), "@hi16/@lo16 needs a 16-bit immediate");
+    return ELF::R_TLCS900_NONE;
+  }
 
   switch (Kind) {
   default:
