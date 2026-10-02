@@ -459,7 +459,17 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGenericRegPrefix(
   case 0x30: case 0x31: case 0x32: case 0x33: case 0x34: {
     if (Bytes.size() < 3)
       return MCDisassembler::Fail;
-    unsigned BitNum = Bytes[2] & 0x1F;
+    // The bit number is the whole third byte, but only 0..7 (byte register)
+    // or 0..15 (word register) name a bit: MAME's CPU core masks the rest
+    // away (op_RESBIR: `m_imm1 & 0x07`), so `c9 30 14` CLEARS BIT 4 OF A.
+    // Printed as `res 20, a` -- what this used to do, after masking with
+    // 0x1F -- the text names a bit the CPU does not touch, and the assembler
+    // now refuses it (checkOpcodeFieldImm); no truthful spelling re-encodes
+    // to 14, so the decode is refused.  The 32-bit register forms do not
+    // exist (MAME: `e8 30` is db).
+    unsigned BitNum = Bytes[2];
+    if (OpSize == 2 || BitNum > (OpSize == 0 ? 7u : 15u))
+      return MCDisassembler::Fail;
     if (SB == 0x33) {
       // BIT: no output, operands are (bit, reg)
       MI.setOpcode(BITops[OpSize]);

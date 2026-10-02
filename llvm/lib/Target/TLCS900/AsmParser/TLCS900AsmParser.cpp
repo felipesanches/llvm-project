@@ -424,6 +424,7 @@ class TLCS900AsmParser : public MCTargetAsmParser {
   ParseStatus tryParseAutoIncOperand(OperandVector &Operands);
   bool finalizeMemOperands(MCInst &Inst, SMLoc IDLoc);
   bool parseAddressExpression(const MCExpr *&Res, SMLoc &Loc);
+  bool checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc);
 
   bool parseOperand(OperandVector &Operands);
 
@@ -470,6 +471,8 @@ bool TLCS900AsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   case Match_Success:
     Inst.setLoc(IDLoc);
     if (finalizeMemOperands(Inst, IDLoc))
+      return true;
+    if (checkOpcodeFieldImm(Inst, IDLoc))
       return true;
     Out.emitInstruction(Inst, STI);
     return false;
@@ -1064,6 +1067,99 @@ bool TLCS900AsmParser::finalizeMemOperands(MCInst &Inst, SMLoc IDLoc) {
                                        false));
     }
   }
+  return false;
+}
+
+/// checkOpcodeFieldImm - range-check the immediates that live in an OPCODE
+/// byte's low bits: a bit number (BIT/SET/RES/CHG/TSET/LDCF/STCF), an INC/DEC
+/// count, and the 3-bit value of the extended-register LD/CP short forms.
+/// Returns true (having reported) on error.
+///
+/// Their encoders keep only the low bits, so a value that does not fit used
+/// to become ANOTHER value in silence (wave 3a V1 panel, ENCODING-TRUTH):
+/// `chg 8, (xbc)` assembled b1 c0 = chg 0,(XBC); `bit 9, (xde+)` bit 1;
+/// `inc 9, (xbc)` inc 1; `inc 0x30, wa` inc 8; `ld qde, 8` ld QDE,0.
+///
+/// An INC/DEC count is 1..8 -- the field holds 1..7 and 0 MEANS 8 (TLCS-900
+/// "#3 = 1-8"; MAME's CPU core `m_imm1 ? m_imm1 : 8`) -- so `inc 0` is
+/// refused rather than read as 8: it is the raw field MAME's disassembler
+/// prints, and it named a count the CPU never adds.  The tree was respelled
+/// `inc 8` first (disasm 83a3b70d).
+///
+/// The value must also be a CONSTANT where it is written: no relocation
+/// reaches an opcode field, and the encoders read a symbolic operand as 0 or
+/// 1 -- `bit LATER, (xwa)` with `.equ LATER, 5` further down assembled
+/// b0 c8, bit 0, in silence.
+bool TLCS900AsmParser::checkOpcodeFieldImm(const MCInst &Inst, SMLoc IDLoc) {
+  const MCInstrDesc &D = MII.get(Inst.getOpcode());
+  uint64_t TS = D.TSFlags;
+  unsigned Opc = TLCS900II::getOpcode(TS);
+  unsigned Sub = TLCS900II::getSubOpcode(TS);
+  auto IsIncDec = [](unsigned O) { return O == 0x60 || O == 0x68; };
+  enum { Bit, Count, Imm3 } Kind = Bit;
+  int Idx;
+  int64_t Hi = 7;
+  switch (TLCS900II::getInstFormat(TS)) {
+  case TLCS900II::PrefixIncDec: // INC/DEC n, r: (rd, rs1, n)
+  case TLCS900II::MemIncDec:    // INC/DEC n, (mem): (base, disp, n)
+    Idx = 2;
+    Kind = Count;
+    break;
+  case TLCS900II::DirectSrcIncDec: // INC/DEC n, (addr): (addr, n)
+    Idx = 1;
+    Kind = Count;
+    break;
+  case TLCS900II::MemDstBitOp: // op n, (mem): (base, disp, n)
+    Idx = 2;
+    break;
+  case TLCS900II::DirectDstBitOp: // op n, (addr): (addr, n)
+    if ((Opc & 0xF0) == 0xD0 || (Opc & 0xF0) == 0xE0)
+      return false; // JP/CALL cc: a condition code, four bits
+    Idx = 1;
+    if (IsIncDec(Opc))
+      Kind = Count;
+    break;
+  case TLCS900II::PrefixBit: // BIT n, r: (n, r); SET/RES/CHG/TSET: (rd, n, rs)
+    Idx = D.getNumDefs() ? 1 : 0;
+    Hi = TLCS900II::getOpSize(TS) == TLCS900II::OpSize8    ? 7
+         : TLCS900II::getOpSize(TS) == TLCS900II::OpSize16 ? 15
+                                                           : 31;
+    break;
+  case TLCS900II::PrevBankSmallImm: // (imm, qd)
+    Idx = 0;
+    Kind = IsIncDec(Sub) ? Count : Imm3;
+    break;
+  case TLCS900II::ERPSmallImm: // (bank, imm)
+    Idx = 1;
+    Kind = IsIncDec(Sub) ? Count : Imm3;
+    break;
+  default:
+    return false;
+  }
+  if (Idx >= (int)Inst.getNumOperands())
+    return false;
+  const MCOperand &Op = Inst.getOperand(Idx);
+  const char *What = Kind == Count ? "an INC/DEC count"
+                     : Kind == Bit ? "a bit number"
+                                   : "a 3-bit immediate";
+  int64_t V;
+  if (Op.isImm())
+    V = Op.getImm();
+  else if (!Op.isExpr() || !Op.getExpr()->evaluateAsAbsolute(V))
+    return Error(IDLoc, Twine(What) + " lives in the opcode byte and must be "
+                            "a constant known where it is written (no "
+                            "relocation reaches an opcode field)");
+  if (Kind == Count) {
+    if (V < 1 || V > 8)
+      return Error(IDLoc, Twine(V) + " is not an INC/DEC count: the count is "
+                              "1..8 (8 is encoded as 0" +
+                              (V == 0 ? "; write `8`, not the raw field 0)"
+                                      : ")"));
+    return false;
+  }
+  if (V < 0 || V > Hi)
+    return Error(IDLoc, Twine(V) + " does not fit " + What + " here (must "
+                            "be 0.." + Twine(Hi) + ")");
   return false;
 }
 

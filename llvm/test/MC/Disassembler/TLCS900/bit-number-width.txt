@@ -1,0 +1,29 @@
+# RUN: llvm-mc -triple=tlcs900 -disassemble -show-encoding < %s 2>/dev/null | FileCheck %s
+# RUN: echo "0xc9 0x30 0x14" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xc9 0x30 0x08" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xd9 0x31 0x10" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xe8 0x30 0x05" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xeb 0x33 0x05" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+#
+# Register bit operations: prefix C8+r / D8+r, sub-opcode 0x30-0x34, then the
+# bit number in a whole byte.  Only 0..7 (byte register) and 0..15 (word
+# register) name a bit -- MAME's CPU core masks the rest away (op_RESBIR:
+# `m_imm1 & 0x07`), so c9 30 14 clears bit 4 of A.  The decoder used to mask
+# with 0x1F and print `res 20, a`, a bit the CPU does not touch and that the
+# assembler now refuses; those decodes are refused, as are the E8+r (32-bit
+# register) forms, which MAME reads as db.  MAME unidasm's reading quoted.
+
+# unidasm: c9 30 07  res 0x07,A
+# CHECK: res 7, a{{.*}}encoding: [0xc9,0x30,0x07]
+0xc9 0x30 0x07
+# unidasm: d9 31 0f  set 0x0f,BC
+# CHECK: set 15, bc{{.*}}encoding: [0xd9,0x31,0x0f]
+0xd9 0x31 0x0f
+# unidasm: c8 33 01  bit 0x01,W
+# CHECK: bit 1, w{{.*}}encoding: [0xc8,0x33,0x01]
+0xc8 0x33 0x01
+
+# REFUSED (the echo RUN lines): c9 30 14 / c9 30 08 (bit > 7 of a byte
+# register), d9 31 10 (bit > 15 of a word register), e8 30 05 / eb 33 05
+# (no bit operation on a 32-bit register; MAME: db).
+# REFUSE: <stdin>:1:1: warning: invalid instruction encoding

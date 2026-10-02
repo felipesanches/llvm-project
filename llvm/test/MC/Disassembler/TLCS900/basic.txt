@@ -218,22 +218,26 @@
 # CHECK: rr xhl
 0xeb 0xeb 0x01
 
-# === Bit manipulation (E8+r, opcode, bit) ===
+# === Bit manipulation (D8+r, opcode, bit) ===
+# (These pinned the E8+r forms -- `set 3, xde` for ea 31 03 -- which MAME
+# reads as db: there is no bit operation on a 32-bit register.  The decoder
+# refuses them since the wave 3a T1 fix round; see bit-number-width.txt.)
 
-# CHECK: set 3, xde
-0xea 0x31 0x03
+# unidasm: da 31 03  set 0x03,DE
+# CHECK: set 3, de
+0xda 0x31 0x03
 
-# CHECK: res 7, xwa
-0xe8 0x30 0x07
+# unidasm: d8 30 07  res 0x07,WA
+# CHECK: res 7, wa
+0xd8 0x30 0x07
 
-# CHECK: chg 0, xbc
-0xe9 0x32 0x00
+# unidasm: d9 32 00  chg 0x00,BC
+# CHECK: chg 0, bc
+0xd9 0x32 0x00
 
-# CHECK: bit 5, xhl
-0xeb 0x33 0x05
-
-# CHECK: tset 1, xwa
-0xe8 0x34 0x01
+# unidasm: db 33 05  bit 0x05,HL
+# CHECK: bit 5, hl
+0xdb 0x33 0x05
 
 # === Memory load (A0+base[+d8], 0x20+dst) ===
 
