@@ -111,6 +111,7 @@ def InstFormatPrefixDisp16 : InstFormat<83>;
 def InstFormatMemToMemDst : InstFormat<84>;
 def InstFormatMemToMemSrc : InstFormat<85>;
 def InstFormatSriRRAddr16 : InstFormat<86>;
+def InstFormatSriRRCount : InstFormat<87>;
 
 // Operand size values for TSFlags.
 class OpSizeVal<bits<2> val> {
@@ -1083,6 +1084,18 @@ class SriRRImmInst<bits<8> opc, bits<8> sub_opc, int sz, dag outs, dag ins,
   let Opcode = opc;
   let SubOpcode = sub_opc;
   let Size = sz;
+}
+
+// SriRRCountInst: R+R addressing whose sub-opcode carries a count or a bit
+// number in bits 2-0.  Encoding: [prefix, 0x07, base_addr, idx_addr,
+// SubOpc + (field & 7)].  Operand 0: the field, Operands 1-2: base, index.
+class SriRRCountInst<bits<8> opc, bits<8> sub_opc, dag outs, dag ins,
+                     string opcodestr, string argstr, list<dag> pattern>
+    : TLCS900Inst<outs, ins, opcodestr, argstr, pattern> {
+  let InstFormat = InstFormatSriRRCount.Value;
+  let Opcode = opc;
+  let SubOpcode = sub_opc;
+  let Size = 5;
 }
 
 // SriRRQRegInst: R+R addressing whose INDEX is a previous-bank register.

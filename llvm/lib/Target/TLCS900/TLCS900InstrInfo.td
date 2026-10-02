@@ -4678,6 +4678,120 @@ def CALLrr_m : SriRRUnaryInst<0xF3, 0xE0, (outs), (ins cc:$cc, MEMrr:$addr),
 }
 }
 
+// --- (base+idx16) on every source- and destination-memory operation -------
+//
+// Until 2026-10-02 the register-indexed operand `(xrr+rr)` existed only for
+// ld / lda / the stores / jp / call, so 2,282 lines in the KN5000 trees kept
+// it as raw-byte pseudos: `cpib_sri 0x07, 0xec, 0xf4, 0x7b` for
+// `cp (xhl+iy), 0x7b`, `bit_dri 7, 0x07, 0xec, 0xf4` for `bit 7, (xhl+iy)`.
+// Same encodings, same sub-opcode rows as the (Xrr) / (Xrr+d) forms:
+//   src prefix c3/d3/e3 07 base idx, then
+//     0x80+r add r,(m)  0x88+r add (m),r  0x38 add (m),#   (adc 90/98/39,
+//     sub a0/a8/3a, sbc b0/b8/3b, and c0/c8/3c, xor d0/d8/3d, or e0/e8/3e,
+//     cp f0/f8/3f); 0x60+n inc n,(m); 0x68+n dec; 0x04 push; 0x30+r ex (m),r
+//   dst prefix f3 07 base idx, then
+//     0x00 ld (m),#8  0x02 ld (m),#16  0xc8+b bit  0xb8+b set  0xb0+b res
+//     0xc0+b chg  0xa8+b tset  0x98+b ldcf  0xa0+b stcf
+// MAME unidasm reads each of them that way (c3 07 ec f4 3f 7b = cp
+// (XHL+IY),0x7b; f3 07 ec f4 cf = bit 7,(XHL+IY)).
+multiclass SriRRAlu<string mn, bits<8> rm, bits<8> mr, bits<8> im> {
+  let Defs = [SR], hasSideEffects = 0, mayLoad = 1 in {
+  def B_rm : SriRRRegInst<0xC3, rm, (outs GR8:$dst), (ins MEMrr:$addr),
+      mn, "$dst, $addr", []>, Sched<[WriteIALU, ReadMemBase]> {
+    let OpSize = OpSize8.Value; }
+  def W_rm : SriRRRegInst<0xC3, rm, (outs GR16:$dst), (ins MEMrr:$addr),
+      mn, "$dst, $addr", []>, Sched<[WriteIALU, ReadMemBase]> {
+    let OpSize = OpSize16.Value; }
+  def L_rm : SriRRRegInst<0xC3, rm, (outs GPR:$dst), (ins MEMrr:$addr),
+      mn, "$dst, $addr", []>, Sched<[WriteIALU, ReadMemBase]> {
+    let OpSize = OpSize32.Value; }
+  let mayStore = 1 in {
+  def B_mr : SriRRRegInst<0xC3, mr, (outs), (ins GR8:$src, MEMrr:$addr),
+      mn, "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+    let OpSize = OpSize8.Value; }
+  def W_mr : SriRRRegInst<0xC3, mr, (outs), (ins GR16:$src, MEMrr:$addr),
+      mn, "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+    let OpSize = OpSize16.Value; }
+  def L_mr : SriRRRegInst<0xC3, mr, (outs), (ins GPR:$src, MEMrr:$addr),
+      mn, "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+    let OpSize = OpSize32.Value; }
+  def B_mi : SriRRImmInst<0xC3, im, 6, (outs), (ins MEMrr:$addr, i32imm:$imm),
+      mn, "$addr, $imm", []>, Sched<[WriteSTW, ReadMemBase]> {
+    let OpSize = OpSize8.Value; }
+  def W_mi : SriRRImmInst<0xC3, im, 7, (outs), (ins MEMrr:$addr, i32imm:$imm),
+      !strconcat(mn, "w"), "$addr, $imm", []>, Sched<[WriteSTW, ReadMemBase]> {
+    let OpSize = OpSize16.Value; }
+  } // mayStore
+  } // Defs, hasSideEffects, mayLoad
+}
+defm ADDrr : SriRRAlu<"add", 0x80, 0x88, 0x38>;
+defm ADCrr : SriRRAlu<"adc", 0x90, 0x98, 0x39>;
+defm SUBrr : SriRRAlu<"sub", 0xA0, 0xA8, 0x3A>;
+defm SBCrr : SriRRAlu<"sbc", 0xB0, 0xB8, 0x3B>;
+defm ANDrr : SriRRAlu<"and", 0xC0, 0xC8, 0x3C>;
+defm XORrr : SriRRAlu<"xor", 0xD0, 0xD8, 0x3D>;
+defm ORrr  : SriRRAlu<"or",  0xE0, 0xE8, 0x3E>;
+defm CPrr  : SriRRAlu<"cp",  0xF0, 0xF8, 0x3F>;
+
+let hasSideEffects = 0, mayStore = 1 in {
+def LDrrB_mi : SriRRImmInst<0xF3, 0x00, 6, (outs), (ins MEMrr:$addr, i32imm:$imm),
+    "ld", "$addr, $imm", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value; }
+def LDrrW_mi : SriRRImmInst<0xF3, 0x02, 7, (outs), (ins MEMrr:$addr, i32imm:$imm),
+    "ldw", "$addr, $imm", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value; }
+}
+
+let Defs = [SR], hasSideEffects = 0, mayLoad = 1, mayStore = 1 in {
+def INCrrB_m : SriRRCountInst<0xC3, 0x60, (outs), (ins i32imm:$count, MEMrr:$addr),
+    "inc", "$count, $addr", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value; }
+def INCrrW_m : SriRRCountInst<0xC3, 0x60, (outs), (ins i32imm:$count, MEMrr:$addr),
+    "incw", "$count, $addr", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value; }
+def DECrrB_m : SriRRCountInst<0xC3, 0x68, (outs), (ins i32imm:$count, MEMrr:$addr),
+    "dec", "$count, $addr", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value; }
+def DECrrW_m : SriRRCountInst<0xC3, 0x68, (outs), (ins i32imm:$count, MEMrr:$addr),
+    "decw", "$count, $addr", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value; }
+}
+
+multiclass SriRRBitOp<string mn, bits<8> sub> {
+  def "" : SriRRCountInst<0xF3, sub, (outs), (ins i32imm:$bit, MEMrr:$addr),
+      mn, "$bit, $addr", []>, Sched<[WriteSTW, ReadMemBase]> {
+    let OpSize = OpSize8.Value; }
+}
+let hasSideEffects = 0, mayLoad = 1 in {
+defm BITrr_m  : SriRRBitOp<"bit", 0xC8>;
+let Defs = [SR] in defm LDCFrr_m : SriRRBitOp<"ldcf", 0x98>;
+}
+let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in {
+defm SETrr_m  : SriRRBitOp<"set", 0xB8>;
+defm RESrr_m  : SriRRBitOp<"res", 0xB0>;
+defm CHGrr_m  : SriRRBitOp<"chg", 0xC0>;
+let Defs = [SR] in defm TSETrr_m : SriRRBitOp<"tset", 0xA8>;
+let Uses = [SR] in defm STCFrr_m : SriRRBitOp<"stcf", 0xA0>;
+}
+
+let hasSideEffects = 0, mayLoad = 1, mayStore = 1, Uses = [XSP], Defs = [XSP] in {
+def PUSHrrB_m : SriRRImmInst<0xC3, 0x04, 5, (outs), (ins MEMrr:$addr),
+    "push", "$addr", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value; }
+def PUSHrrW_m : SriRRImmInst<0xC3, 0x04, 5, (outs), (ins MEMrr:$addr),
+    "pushw", "$addr", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value; }
+}
+
+let hasSideEffects = 0, mayLoad = 1, mayStore = 1 in {
+def EXrrB_m : SriRRRegInst<0xC3, 0x30, (outs), (ins GR8:$src, MEMrr:$addr),
+    "ex", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize8.Value; }
+def EXrrW_m : SriRRRegInst<0xC3, 0x30, (outs), (ins GR16:$src, MEMrr:$addr),
+    "ex", "$addr, $src", []>, Sched<[WriteSTW, ReadMemBase]> {
+  let OpSize = OpSize16.Value; }
+}
+
 // --- DPD (prefix F4): store immediate ---
 // ExtAddrModeOpImm: [F4, addr_reg, SubOpc, imm...]
 // 1 pre-op (base register byte), then SubOpcode, then trailing imm

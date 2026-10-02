@@ -1481,8 +1481,28 @@ void TLCS900MCCodeEmitter::encodeInstruction(
     CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(1)) * 4));
     CB.push_back(static_cast<char>(TLCS900II::getSubOpcode(TSFlags)));
     unsigned ImmBytesRR = Desc.getSize() - 5;
+    if (ImmBytesRR && MI.getNumOperands() == 3) {
+      // One immediate operand of ImmBytesRR bytes (`cpw (xbc+wa), 0x1234`).
+      emitImmediate(MI.getOperand(2).getImm(), ImmBytesRR, CB, &MI);
+      break;
+    }
     for (unsigned i = 0; i < ImmBytesRR; ++i)
       CB.push_back(static_cast<char>(MI.getOperand(2 + i).getImm() & 0xFF));
+    break;
+  }
+
+  case TLCS900II::SriRRCount: {
+    // [prefix, 0x07, base_addr, idx_addr, SubOpc + (field & 7)]
+    // Operand 0: count (INC/DEC 1..8, 8 -> 0) or bit number (0..7).
+    unsigned PrefixC = Opcode;
+    if (Opcode < 0xF0)
+      PrefixC += OpSize * 0x10;
+    CB.push_back(static_cast<char>(PrefixC));
+    CB.push_back(static_cast<char>(0x07)); // R+R 16-bit index mode
+    CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(1)) * 4));
+    CB.push_back(static_cast<char>(0xE0 + getRegEncoding(MI.getOperand(2)) * 4));
+    CB.push_back(static_cast<char>(TLCS900II::getSubOpcode(TSFlags) +
+                                   (MI.getOperand(0).getImm() & 7)));
     break;
   }
 

@@ -27,10 +27,12 @@ push 0x1234
 ; d3 07 f0 f8 20 -- see reg-indexed-operand.s. The operand is a distinct parser
 ; kind, so an index register can no longer reach the displacement slot at all;
 ; the confusion is impossible rather than diagnosed. What is left is a plain
-; operand-class mismatch on the forms that still have no definition -- the ALU
-; and PUSH sub-opcodes of the R+R table -- and that is a loud rejection, never
-; a byte.
+; operand-class mismatch on the forms that still have no definition, and that
+; is a loud rejection, never a byte.  (The ALU, PUSH, INC/DEC, EX and bit
+; sub-opcodes of the R+R table have definitions since 2026-10-02 --
+; reg-indexed-ops.s -- so `add wa, (xix+iz)` and `push (xix+iz)`, which this
+; file used as its examples, now assemble; MUL/DIV still do not.)
 ; CHECK: error: invalid operand for instruction
-add wa, (xix+iz)
+mul xwa, (xix+iz)
 ; CHECK: error: invalid operand for instruction
-push (xix+iz)
+div xwa, (xix+iz)

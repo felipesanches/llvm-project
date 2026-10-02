@@ -142,6 +142,10 @@ enum InstFormat : uint8_t {
   MemToMemSrc,        // src mem prefix + Opcode + addr16   ld (nn),(mem)
   // Memory-to-memory whose register-indirect half is REGISTER-INDEXED.
   SriRRAddr16,        // [prefix, 0x07, base_addr, idx_addr, SubOpc, addr16]
+  // R+R addressing with a 3-bit field in the sub-opcode that is a COUNT or a
+  // BIT NUMBER, not a condition code: INC/DEC n (1..8, 8 written as 0) and
+  // BIT/SET/RES/CHG/TSET/LDCF/STCF b (0..7).
+  SriRRCount,         // [prefix, 0x07, base_addr, idx_addr, SubOpc + (field & 7)]
 };
 
 // TSFlags bit field positions and masks.

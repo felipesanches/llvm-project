@@ -1273,6 +1273,30 @@ bool TLCS900AsmParser::checkRawPseudoOperands(const MCInst &Inst,
   case TLCS900::CALL_CC_RI: case TLCS900::JP_CC_RI: case TLCS900::RET_CC_RI:
     L = {{1, 15, "a condition code"}};
     break;
+  case TLCS900::BITrr_m: case TLCS900::SETrr_m: case TLCS900::RESrr_m:
+  case TLCS900::CHGrr_m: case TLCS900::TSETrr_m: case TLCS900::LDCFrr_m:
+  case TLCS900::STCFrr_m:
+    L = {{0, 7, "a bit number"}};
+    break;
+  case TLCS900::INCrrB_m: case TLCS900::INCrrW_m: case TLCS900::DECrrB_m:
+  case TLCS900::DECrrW_m: {
+    // 1..8 (the field writes 8 as 0); 0 is refused, as for the other INC/DEC forms
+    const MCOperand &Op = Inst.getOperand(0);
+    if (Op.isImm() && (Op.getImm() < 1 || Op.getImm() > 8))
+      return Error(IDLoc, Twine(Op.getImm()) +
+                              " is not an INC/DEC count (must be 1..8)");
+    return false;
+  }
+  case TLCS900::ADDrrB_mi: case TLCS900::ADCrrB_mi: case TLCS900::SUBrrB_mi:
+  case TLCS900::SBCrrB_mi: case TLCS900::ANDrrB_mi: case TLCS900::XORrrB_mi:
+  case TLCS900::ORrrB_mi: case TLCS900::CPrrB_mi: case TLCS900::LDrrB_mi:
+    L = {{2, 0xFF, "an 8-bit immediate"}};
+    break;
+  case TLCS900::ADDrrW_mi: case TLCS900::ADCrrW_mi: case TLCS900::SUBrrW_mi:
+  case TLCS900::SBCrrW_mi: case TLCS900::ANDrrW_mi: case TLCS900::XORrrW_mi:
+  case TLCS900::ORrrW_mi: case TLCS900::CPrrW_mi: case TLCS900::LDrrW_mi:
+    L = {{2, 0xFFFF, "a 16-bit immediate"}};
+    break;
   default:
     return false;
   }
