@@ -1,0 +1,12 @@
+# RUN: echo "0xf0 0x1e 0x08" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xe8 0x1c 0x05" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck --check-prefix=REFUSE %s
+# RUN: echo "0xd9 0x1c 0x05" | llvm-mc -triple=tlcs900 -disassemble 2>&1 | FileCheck %s
+#
+# Decodes of deleted pseudo-instructions (wave 3a T1 fix round), quoting MAME
+# unidasm.  f0 1e 08 printed `call_dd8 30` (MAME: db -- 0x08 is no
+# destination sub-opcode); e8 1c 05 printed `djnz xwa, 5` (MAME: db -- DJNZ
+# has no 32-bit register form) and re-assembled as the word form d8 1c.
+# REFUSE: <stdin>:1:1: warning: invalid instruction encoding
+#
+# unidasm: d9 1c 05  djnz BC,..
+# CHECK: djnz16 bc, 5

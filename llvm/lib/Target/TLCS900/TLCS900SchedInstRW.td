@@ -272,12 +272,10 @@ def : InstRW<[WriteDirect],
     CP32_da16, CP32_da24, CP32m_da16, CP32m_da24,
     // Direct address bit/flag ops
     BIT_da16, BIT_da24, SET_da16, SET_da24, RES_da16, RES_da24,
-    CHG_da24, TSET_da16, TSET_da24,
+    CHG_da24,
     // Direct address INC/DEC
     INC8_da16, INC8_da24, DEC8_da16, DEC8_da24,
     INC16_da16, INC16_da24, DEC16_da16, DEC16_da24,
-    INC8_dda16, INC8_dda24, DEC8_dda16, DEC8_dda24,
-    INC16_dda16, INC16_dda24, DEC16_dda16, DEC16_dda24,
     // Direct address ADC/SBC
     ADC8_da24, SBC8_da24, ADC8i_da24, SBC8i_da24,
     // Direct address PUSH

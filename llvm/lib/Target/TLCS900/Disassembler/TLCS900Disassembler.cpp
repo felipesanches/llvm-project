@@ -241,7 +241,7 @@ static const unsigned EXTSops[3] = {TLCS900::EXTS8, TLCS900::EXTS16, TLCS900::EX
 static const unsigned EXTZops[3] = {TLCS900::EXTZ8, TLCS900::EXTZ16, TLCS900::EXTZ32};
 static const unsigned INCops[3] = {TLCS900::INC8, TLCS900::INC16, TLCS900::INC32};
 static const unsigned DECops[3] = {TLCS900::DEC8, TLCS900::DEC16, TLCS900::DEC32};
-static const unsigned DJNZops[3] = {TLCS900::DJNZ8, TLCS900::DJNZ16, TLCS900::DJNZ32};
+static const unsigned DJNZops[2] = {TLCS900::DJNZ8, TLCS900::DJNZ16};
 
 static const unsigned BITops[3] = {TLCS900::BIT8, TLCS900::BIT16, TLCS900::BIT32};
 static const unsigned SETops[3] = {TLCS900::SET8, TLCS900::SET16, TLCS900::SET32};
@@ -442,9 +442,11 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeGenericRegPrefix(
   case 0x13: // EXTS
     return decodePrefixUnary(MI, Size, EXTSops[OpSize], Reg);
 
-  // DJNZ: prefix(rd) + 0x1C + d8 — 3 bytes
+  // DJNZ: prefix(rd) + 0x1C + d8 — 3 bytes.  Byte and word registers only:
+  // MAME reads e8 1c as db, and the 32-bit-named text it used to print
+  // (`djnz xwa, 5`) re-encoded as the WORD form d8 1c.
   case 0x1C: {
-    if (Bytes.size() < 3)
+    if (Bytes.size() < 3 || OpSize == 2)
       return MCDisassembler::Fail;
     int8_t Disp = static_cast<int8_t>(Bytes[2]);
     MI.setOpcode(DJNZops[OpSize]);
@@ -1588,11 +1590,10 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeDirectAddr(
   // `f1 13 04 b8`.  157 distinct v10 samples were affected.  Confirmed
   // against MAME unidasm on all seven sub-opcodes.
   //
-  // ⚠ 0xA0 is decoded as STCF, not TSET.  TSET_da16 and TSET_da24 are declared
-  // with opcode 0xA0 and are the wrong name for it; their encoding is left
-  // alone because committed source spells those bytes `tsetda`, and
+  // ⚠ 0xA0 is decoded as STCF, not TSET.  (TSET_da16 / TSET_da24 encoded
+  // 0xA0 under the name TSET; deleted in the wave 3a T1 fix round.)
   // LDCF_da16/STCF_da16/TSETda16 (and their _da24 siblings) are the correctly
-  // named definitions this decodes to instead.
+  // named definitions this decodes to.
   if (IsDst && SubOp >= 0x98 && SubOp <= 0xCF) {
     bool Is24 = (AddrBytes == 3);
     unsigned Opc = 0;
@@ -1703,13 +1704,9 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeD8Prefix(
       return MCDisassembler::Success;
     }
 
-    // CALL (addr8): sub-opcode 0x08
-    if (SubOp == 0x08) {
-      MI.setOpcode(TLCS900::CALL_DD8);
-      MI.addOperand(MCOperand::createImm(Addr8));
-      Size = 3;
-      return MCDisassembler::Success;
-    }
+    // (Sub-opcode 0x08 used to decode as CALL_DD8, `call_dd8 30` for
+    // f0 1e 08.  MAME reads it as db -- 0x08 is no destination sub-opcode --
+    // and the def is deleted; the bytes fall through to a refusal.)
 
     // ANDCF A, (addr8): sub-opcode 0x28
     if (SubOp == 0x28) {
@@ -2396,9 +2393,10 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeERPPrefix(
   }
 
   // --- ERPImmAfterInst: [bank, SubOpc, 1 trailing byte] ---
-  // ⚠ NOTE: XORCF_ERPB (0xE2) and LDCF_ERPB (0xE6) are DELIBERATELY not
-  // decoded here. Both are unverified (zero uses anywhere in the disasm
-  // tree, unlike every other mnemonic below) and both COLLIDE with the
+  // ⚠ NOTE: XORCF_ERPB (0xE2) and LDCF_ERPB (0xE6) were DELIBERATELY not
+  // decoded here, and the defs are deleted since the wave 3a T1 fix round
+  // (MAME: c7 e4 e6 = or H,C).  Both were unverified (zero uses anywhere in
+  // the disasm tree, unlike every other mnemonic below) and both COLLIDE with the
   // OR_BERP register range (0xE0 + reg_enc spans 0xE0-0xE7): the word-sized
   // analogues of XORCF/LDCF use sub-opcodes 0x22/0x23 (see XORCF_ERPW /
   // LDCF_ERPW), so 0xE2/0xE6 for the byte form look like a copy-paste guess

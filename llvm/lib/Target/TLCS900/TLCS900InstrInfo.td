@@ -1395,10 +1395,18 @@ def LDA16 : MemLoadDstInst<0x20, 4, (outs GR16:$rd), (ins MEMri:$addr),
 // Encoding: D8+rd, 0x1C, d8 (3 bytes) — uses 16-bit prefix (D8)
 // DJNZ only exists in C8 (8-bit) and D8 (16-bit) prefix tables, NOT E8 (32-bit).
 // We use OpSize16 so the encoder emits a D8 prefix, decrementing the low 16 bits.
+//
+// Codegen (TLCS900DJNZOpt) models the counter as a GPR, but the CPU
+// decrements its LOW WORD, so the operand is gpraslo16: the text names the
+// 16-bit register -- `djnz bc, L`, d9 1c, MAME djnz BC -- as DJNZ16
+// (`djnz16 bc, L`) does.  It printed and accepted `djnz xbc, L` until the
+// wave 3a T1 fix round, a 32-bit name for a 16-bit decrement (304 tree
+// lines, respelled `djnz16` in disasm 83a3b70d); that spelling is refused.
 let Constraints = "$rd = $rs1", isBranch = 1, isTerminator = 1, Defs = [SR],
     OpSize = OpSize16.Value in
-def DJNZ32 : PrefixDJNZInst<0x1C, (outs GPR:$rd), (ins GPR:$rs1, brtarget:$target),
-                             "djnz", "$rd, $target", []>,
+def DJNZ32 : PrefixDJNZInst<0x1C, (outs gpraslo16:$rd),
+                            (ins gpraslo16:$rs1, brtarget:$target),
+                            "djnz", "$rd, $target", []>,
              Sched<[WriteIALU, WriteJmp]>;
 
 // DJNZ8 rd, target — 8-bit decrement and jump if not zero
@@ -3358,38 +3366,13 @@ def CHG_da24 : DirectDstBitOpInst<0xC0, 5, (outs),
                                     (ins directaddr:$addr, i32imm:$bit),
                                     "chgda_24", "$bit, $addr", []>,
                Sched<[WriteSTW]>;
-def TSET_da24 : DirectDstBitOpInst<0xA0, 5, (outs),
-                                     (ins directaddr:$addr, i32imm:$bit),
-                                     "tsetda_24", "$bit, $addr", []>,
-                Sched<[WriteSTW]>;
 } // AddrWidth
 } // mayLoad, mayStore, hasSideEffects
 
-// 24-bit address: INC/DEC/INCW/DECW via F2 prefix
-let Defs = [SR], mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
-let AddrWidth = 1 in {
-let OpSize = OpSize8.Value in {
-def INC8_dda24 : DirectDstBitOpInst<0x60, 5, (outs),
-                                      (ins directaddr:$addr, i32imm:$count),
-                                      "incdd8_24", "$count, $addr", []>,
-                 Sched<[WriteSTW]>;
-def DEC8_dda24 : DirectDstBitOpInst<0x68, 5, (outs),
-                                      (ins directaddr:$addr, i32imm:$count),
-                                      "decdd8_24", "$count, $addr", []>,
-                 Sched<[WriteSTW]>;
-} // OpSize8
-let OpSize = OpSize16.Value in {
-def INC16_dda24 : DirectDstBitOpInst<0x60, 5, (outs),
-                                       (ins directaddr:$addr, i32imm:$count),
-                                       "incdd16_24", "$count, $addr", []>,
-                  Sched<[WriteSTW]>;
-def DEC16_dda24 : DirectDstBitOpInst<0x68, 5, (outs),
-                                       (ins directaddr:$addr, i32imm:$count),
-                                       "decdd16_24", "$count, $addr", []>,
-                  Sched<[WriteSTW]>;
-} // OpSize16
-} // AddrWidth
-} // Defs, mayLoad, mayStore, hasSideEffects
+// (24-bit address INC/DEC via the F2 prefix -- `incdd8_24` & co. -- deleted in
+// the wave 3a T1 fix round: INC/DEC is not in the destination table at all.
+// `incdd8 1, (30)` assembled f1 1e 00 61, MAME ld (0x001e),XBC.  The real
+// forms are the SOURCE-prefixed `inc 1, (addr)` -- C1/C2 + addr + 0x60+n.)
 
 // F2 conditional CALL: F2 + addr24 + (0xE0+cc) — 5 bytes
 let isCall = 1, Defs = [XSP], Uses = [XSP], hasSideEffects = 0, AddrWidth = 1 in
@@ -3567,20 +3550,13 @@ def RES_da16 : DirectDstBitOpInst<0xB0, 4, (outs),
                                    "resda", "$bit, $addr", []>,
                Sched<[WriteSTW]>;
 
-// TSET from 16-bit address: F1 + addr16 + (0xA0+bit)
 // ⚠ 0xA0 IS NOT TSET.  The destination sub-opcode table is 0x98 LDCF,
 // 0xA0 STCF, 0xA8 TSET, 0xB0 RES, 0xB8 SET, 0xC0 CHG, 0xC8 BIT -- identical to
 // the register-indirect one, and confirmed against MAME unidasm on all seven.
-// This definition and TSET_da24 have carried the wrong name since they were
-// added; their ENCODING is not changed here, because committed source spells
-// these bytes `tsetda`, and changing what an existing spelling assembles to is
-// the one thing this backend never does. The correctly-named siblings below
-// are what the disassembler prints, so a decode and a re-assembly agree and
-// the misnomer stops spreading.
-def TSET_da16 : DirectDstBitOpInst<0xA0, 4, (outs),
-                                    (ins directaddr:$addr, i32imm:$bit),
-                                    "tsetda", "$bit, $addr", []>,
-                Sched<[WriteSTW]>;
+// TSET_da16 / TSET_da24 (`tsetda` / `tsetda_24`) encoded 0xA0+bit, i.e. STCF,
+// under the name TSET; they were kept while source spelled them, and were
+// DELETED in the wave 3a T1 fix round once no source did.  The siblings below
+// carry the real sub-opcodes and are what the disassembler prints.
 
 // LDCF/STCF/TSET from a 16-bit address, at the sub-opcodes they really have.
 def LDCF_da16 : DirectDstBitOpInst<0x98, 4, (outs),
@@ -3614,31 +3590,10 @@ def TSETda24 : DirectDstBitOpInst<0xA8, 5, (outs),
 
 } // mayLoad, mayStore, hasSideEffects
 
-//--- Destination direct: INC/DEC (addr) via F1 prefix ---
-// INC: 0x60+count, DEC: 0x68+count (same sub-opcode as source, but via F1 prefix)
-
-let Defs = [SR], mayLoad = 1, mayStore = 1, hasSideEffects = 0 in {
-let OpSize = OpSize8.Value in {
-def INC8_dda16 : DirectDstBitOpInst<0x60, 4, (outs),
-                                     (ins directaddr:$addr, i32imm:$count),
-                                     "incdd8", "$count, $addr", []>,
-                 Sched<[WriteSTW]>;
-def DEC8_dda16 : DirectDstBitOpInst<0x68, 4, (outs),
-                                     (ins directaddr:$addr, i32imm:$count),
-                                     "decdd8", "$count, $addr", []>,
-                 Sched<[WriteSTW]>;
-} // OpSize8
-let OpSize = OpSize16.Value in {
-def INC16_dda16 : DirectDstBitOpInst<0x60, 4, (outs),
-                                      (ins directaddr:$addr, i32imm:$count),
-                                      "incdd16", "$count, $addr", []>,
-                  Sched<[WriteSTW]>;
-def DEC16_dda16 : DirectDstBitOpInst<0x68, 4, (outs),
-                                      (ins directaddr:$addr, i32imm:$count),
-                                      "decdd16", "$count, $addr", []>,
-                  Sched<[WriteSTW]>;
-} // OpSize16
-} // Defs, mayLoad, mayStore, hasSideEffects
+// (Destination-direct INC/DEC via F1 -- `incdd8` / `decdd16` & co. -- deleted in
+// the wave 3a T1 fix round: the destination table has no INC/DEC, so
+// `incdd8 1, (30)` assembled f1 1e 00 61 = MAME ld (0x001e),XBC and `decdd8`
+// f1 1e 00 69 = db.  INC/DEC (addr) is the source-prefixed form.)
 
 //--- Source direct: LD (dst_addr), (src_addr) — sub-opcode 0x19 ---
 // Memory-to-memory transfer via direct addressing.
@@ -3942,8 +3897,9 @@ def OR_WERP : ERPRegInst<0xE0, (outs), (ins GR16:$rs, i32imm:$bank),
     "orw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def CP_WERP : ERPRegInst<0xF0, (outs), (ins GR16:$rs, i32imm:$bank),
     "cpw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
-def MUL_WERP : ERPRegInst<0x40, (outs), (ins GR16:$rs, i32imm:$bank),
-    "mulw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
+// (MUL_WERP `mulw_erp bc, 0xfa` -- d7 fa 41, MAME mul XBC,QIZ: the 16-bit
+// name for the 32-bit result -- deleted in the wave 3a T1 fix round; the real
+// form is MUL_PBW, `mul xbc, qiz`.)
 def EX_WERP : ERPRegInst<0xB8, (outs), (ins GR16:$rs, i32imm:$bank),
     "exw_erp", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def LDI_WERP : ERPSmallImmInst<0xA8, (outs), (ins i32imm:$bank, i32imm:$imm),
@@ -4232,9 +4188,8 @@ def STCFA_DD8 : D8UnaryInst<0xF0, 0x2C, (outs), (ins i32imm:$addr),
 // JP cc, (addr8): [F0, addr8, 0xD0 + cc]  (3 bytes)
 def JP_DD8 : ExtImmModInst<0xF0, 0xD0, 3, (outs), (ins i32imm:$cc, i32imm:$addr),
     "jp_dd8", "$cc, $addr", []>;
-// CALL (addr8): [F0, addr8, 0x08]  (3 bytes)
-def CALL_DD8 : D8UnaryInst<0xF0, 0x08, (outs), (ins i32imm:$addr),
-    "call_dd8", "$addr", []>;
+// (CALL_DD8, `call_dd8` = [F0, addr8, 0x08], deleted in the wave 3a T1 fix
+// round: MAME reads f0 1e 08 as db -- 0x08 is no destination sub-opcode.)
 
 // --- DD8 (prefix F0): register operations ---
 // D8Reg: [F0, addr8, SubOpc + reg_enc]  (3 bytes)
@@ -4784,52 +4739,12 @@ def RRW_RI : MemRegSuffixInst<0x90, 0x7B, (outs), (ins GPR:$reg),
     "rrw_ri", "$reg", []>, Sched<[WriteIALU]>;
 }
 
-// --- MUL/MULS/DIV/DIVS with source-memory register indirect ---
-// [SrcPrefix+addr_reg, SubOpc|data_reg], [SrcPrefix+addr_reg, disp, SubOpc|data_reg]
-// 8-bit: prefix 0x80/0x88, 16-bit: prefix 0x90/0x98
-let Defs = [SR], hasSideEffects = 0 in {
-// MUL — sub 0x40
-def MUL8_RI : MemRegRegSuffixInst<0x80, 0x40, (outs),
-    (ins GPR:$addr, GR8:$data),
-    "mul8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-def MUL16_RI : MemRegRegSuffixInst<0x90, 0x40, (outs),
-    (ins GPR:$addr, GR16:$data),
-    "mul16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-def MUL16_RID8 : MemRegRegDispSuffixInst<0x98, 0x40, (outs),
-    (ins GPR:$addr, i32imm:$disp, GR16:$data),
-    "mul16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
-// MUL 8-bit with displacement — sub 0x40
-def MUL8_RID8 : MemRegRegDispSuffixInst<0x88, 0x40, (outs),
-    (ins GPR:$addr, i32imm:$disp, GR8:$data),
-    "mul8_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
-// MULS — sub 0x48
-def MULS8_RI : MemRegRegSuffixInst<0x80, 0x48, (outs),
-    (ins GPR:$addr, GR8:$data),
-    "muls8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-def MULS16_RI : MemRegRegSuffixInst<0x90, 0x48, (outs),
-    (ins GPR:$addr, GR16:$data),
-    "muls16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-def MULS16_RID8 : MemRegRegDispSuffixInst<0x98, 0x48, (outs),
-    (ins GPR:$addr, i32imm:$disp, GR16:$data),
-    "muls16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
-// DIV — sub 0x50
-def DIV8_RI : MemRegRegSuffixInst<0x80, 0x50, (outs),
-    (ins GPR:$addr, GR8:$data),
-    "div8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-def DIV16_RI : MemRegRegSuffixInst<0x90, 0x50, (outs),
-    (ins GPR:$addr, GR16:$data),
-    "div16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-// DIVS — sub 0x58
-def DIVS8_RI : MemRegRegSuffixInst<0x80, 0x58, (outs),
-    (ins GPR:$addr, GR8:$data),
-    "divs8_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-def DIVS16_RI : MemRegRegSuffixInst<0x90, 0x58, (outs),
-    (ins GPR:$addr, GR16:$data),
-    "divs16_ri", "$addr, $data", []>, Sched<[WriteIALU]>;
-def DIVS16_RID8 : MemRegRegDispSuffixInst<0x98, 0x58, (outs),
-    (ins GPR:$addr, i32imm:$disp, GR16:$data),
-    "divs16_rid8", "$addr, $disp, $data", []>, Sched<[WriteIALU]>;
-}
+// (MUL/MULS/DIV/DIVS source-memory pseudos -- mul8_ri, mul16_rid8, divs16_ri,
+// ... -- deleted in the wave 3a T1 fix round.  They named the 16-bit register
+// where the CPU writes the 32-bit one (`mul16_ri xbc, wa` = 91 40 = MAME
+// mul XWA,(XBC)), or a byte register with an EVEN field (`mul8_ri xbc, b` =
+// 81 42 = mul ??,(XBC)).  The real forms are MUL8m / MUL16m & co.:
+// `mul xwa, (xbc)`, `divs xbc, (xwa+42)`.)
 
 // --- LD source-memory register indirect (load from memory) ---
 // [SrcPrefix + addr_reg, (disp,) 0x20 | data_reg]
@@ -4856,16 +4771,9 @@ def LD_DST16_RID8 : MemRegRegDispSuffixInst<0xB8, 0x50, (outs),
     "ld_dst16_rid8", "$addr, $disp, $data", []>, Sched<[WriteSTW]>;
 }
 
-// --- LDA (load address, dest-memory register indirect) ---
-// [B0/B8 + addr_reg, (disp,) 0x20 | data_reg]
-let hasSideEffects = 0 in {
-def LDA_RI : MemRegRegSuffixInst<0xB0, 0x20, (outs),
-    (ins GPR:$addr, GPR:$data),
-    "lda_ri", "$addr, $data", []>, Sched<[WriteSTW]>;
-def LDA_RID8 : MemRegRegDispSuffixInst<0xB8, 0x20, (outs),
-    (ins GPR:$addr, i32imm:$disp, GPR:$data),
-    "lda_rid8", "$addr, $disp, $data", []>, Sched<[WriteSTW]>;
-}
+// (LDA_RI / LDA_RID8 -- `lda_ri xbc, xsp` = b1 27 = MAME lda SP,XBC: a
+// 32-bit name for the 16-bit LDA -- deleted in the wave 3a T1 fix round; the
+// real forms are LDA16 / LDA32: `lda sp, (xbc)`, `lda xsp, (xbc)`.)
 
 // --- EX (exchange, source-memory register indirect) ---
 // [SrcPrefix + addr_reg, 0x30 | data_reg]
@@ -5281,11 +5189,9 @@ def SLL_ERPB : ERPImmAfterInst<0xEE, 4, (outs), (ins i32imm:$bank, i32imm:$n),
     "sll_erpb", "$bank, $n", []>, Sched<[WriteSTW]>;
 def SRL_ERPB : ERPImmAfterInst<0xEF, 4, (outs), (ins i32imm:$bank, i32imm:$n),
     "srl_erpb", "$bank, $n", []>, Sched<[WriteSTW]>;
-// ERPUnaryInst byte: [C7, bank, sub_opc]
-def XORCF_ERPB : ERPUnaryInst<0xE2, (outs), (ins i32imm:$bank),
-    "xorcf_erpb", "$bank", []>, Sched<[WriteSTW]>;
-def LDCF_ERPB : ERPUnaryInst<0xE6, (outs), (ins i32imm:$bank),
-    "ldcf_erpb", "$bank", []>, Sched<[WriteSTW]>;
+// (XORCF_ERPB 0xE2 / LDCF_ERPB 0xE6 deleted in the wave 3a T1 fix round:
+// `ldcf_erpb 0xe4` = c7 e4 e6 = MAME or H,C -- ERP sub-opcodes 0xE0-0xE7 are
+// OR r,R.  XORCF/LDCF A,r are 0x2A / 0x2B.)
 // ERPRegInst byte: [C7, bank, sub_opc + reg_enc]
 def CP_ERPB_RR : ERPRegInst<0xF0, (outs), (ins GR8:$rd, i32imm:$bank),
     "cp_erpb_rr", "$rd, $bank", []>, Sched<[WriteSTW]>;
@@ -5349,18 +5255,12 @@ def LDI_ERPW : ERPImmAfterInst<0x03, 5, (outs), (ins i32imm:$bank, i32imm:$lo, i
 // ERPUnaryInst word: [D7, bank, sub_opc]
 def BS1B_ERPW : ERPUnaryInst<0x0F, (outs), (ins i32imm:$bank),
     "bs1b_erpw", "$bank", []>, Sched<[WriteSTW]>;
-def SRL_A_ERPW : ERPUnaryInst<0x82, (outs), (ins i32imm:$bank),
-    "srl_a_erpw", "$bank", []>, Sched<[WriteSTW]>;
-def SLA_ERPW : ERPUnaryInst<0x84, (outs), (ins i32imm:$bank),
-    "sla_erpw", "$bank", []>, Sched<[WriteSTW]>;
-def SLL_A_ERPW : ERPUnaryInst<0x9C, (outs), (ins i32imm:$bank),
-    "sll_a_erpw", "$bank", []>, Sched<[WriteSTW]>;
+// (SRL_A_ERPW 0x82, SLA_ERPW 0x84, SLL_A_ERPW 0x9C, CPL_ERPW 0xDA and
+// NEG_ERPW 0xDD deleted in the wave 3a T1 fix round: each encoded ANOTHER
+// operation -- MAME reads d7 e4 82 as add DE,BC, d7 e4 84 add IX,BC, d7 e4 9c
+// ld BC,IX, d7 e4 da cp BC,2, d7 e4 dd cp BC,5.)
 def EX_ERPW : ERPUnaryInst<0xBA, (outs), (ins i32imm:$bank),
     "ex_erpw", "$bank", []>, Sched<[WriteSTW]>;
-def CPL_ERPW : ERPUnaryInst<0xDA, (outs), (ins i32imm:$bank),
-    "cpl_erpw", "$bank", []>, Sched<[WriteSTW]>;
-def NEG_ERPW : ERPUnaryInst<0xDD, (outs), (ins i32imm:$bank),
-    "neg_erpw", "$bank", []>, Sched<[WriteSTW]>;
 def OR_ERPW_CF : ERPUnaryInst<0xE3, (outs), (ins i32imm:$bank),
     "or_erpw_cf", "$bank", []>, Sched<[WriteSTW]>;
 // ERPSmallImmInst word: [D7, bank, 0xD8 + imm3]
@@ -5371,8 +5271,9 @@ def ADD_ERPW_RR : ERPRegInst<0x80, (outs), (ins GR16:$rs, i32imm:$bank),
     "add_erpw_rr", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def LD_ERPW_RR : ERPRegInst<0x88, (outs), (ins GR16:$rs, i32imm:$bank),
     "ld_erpw_rr", "$rs, $bank", []>, Sched<[WriteSTW]>;
-def LD2_ERPW_RR : ERPRegInst<0x98, (outs), (ins GR16:$rs, i32imm:$bank),
-    "ld2_erpw_rr", "$rs, $bank", []>, Sched<[WriteSTW]>;
+// (LD2_ERPW_RR -- 0x98+R, LDFR_WERP's encoding, read backwards: `ld2_erpw_rr
+// IX, 0xEE` is d7 ee 9c, MAME ld QHL,IX, a STORE of IX -- deleted in the wave
+// 3a T1 fix round; spelled `ld qhl, ix` or `ldfr_werp ix, 0xee`.)
 def EX_ERPW_RR : ERPRegInst<0xB8, (outs), (ins GR16:$rs, i32imm:$bank),
     "ex_erpw_rr", "$rs, $bank", []>, Sched<[WriteSTW]>;
 def OR_ERPW_RR : ERPRegInst<0xE0, (outs), (ins GR16:$rs, i32imm:$bank),
@@ -5469,9 +5370,9 @@ def PUSH_SD16B : ExtAddrModeSuffixInst<4, 0x04,
 def EX_SD16B : ExtImmModInst<0xC1, 0x30, 4,
     (outs), (ins GR8:$reg, i32imm:$lo, i32imm:$hi),
     "ex_sd16b", "$reg, $lo, $hi", []>;
-def MUL_SD16B : ExtImmModInst<0xC1, 0x40, 4,
-    (outs), (ins i32imm:$ridx, i32imm:$lo, i32imm:$hi),
-    "mul_sd16b", "$ridx, $lo, $hi", []>;
+// (MUL_SD16B / MULS_SD16W -- the register as a raw field, `mul_sd16b 1, 0x86,
+// 0x39`, and `mul_sd16b 0, ..` = MAME mul ??,(..) -- deleted in the wave 3a
+// T1 fix round: `mul wa, (0x3986:16)`, `muls xwa, (0xb7da:16)`.)
 def SLA_SD16B : ExtAddrModeSuffixInst<4, 0x7C,
     (outs), (ins i32imm:$lo, i32imm:$hi),
     "sla_sd16b", "$lo, $hi", []>;
@@ -5480,9 +5381,6 @@ let OpSize = OpSize16.Value in {
 def PUSH_SD16W : ExtAddrModeSuffixInst<4, 0x04,
     (outs), (ins i32imm:$lo, i32imm:$hi),
     "push_sd16w", "$lo, $hi", []>;
-def MULS_SD16W : ExtImmModInst<0xC1, 0x48, 4,
-    (outs), (ins i32imm:$ridx, i32imm:$lo, i32imm:$hi),
-    "muls_sd16w", "$ridx, $lo, $hi", []>;
 } // OpSize16
 } // Opcode = 0xC1
 

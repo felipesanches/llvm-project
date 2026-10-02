@@ -141,9 +141,8 @@ stcfa_dd8 32
 ; Destination 8-bit direct: Control flow — prefix F0
 ; ==========================================================================
 
-; CALL (addr8): [F0, addr, 0x08]
-; CHECK: call_dd8 8              ; encoding: [0xf0,0x08,0x08]
-call_dd8 8
+; (`call_dd8` -- [F0, addr, 0x08] -- is deleted: MAME reads f0 08 08 as db.
+; See deleted-pseudos.s.)
 
 ; JP cc, (addr8): [F0, addr, 0xD0+cc]
 ; CHECK: jp_dd8 8, 10            ; encoding: [0xf0,0x0a,0xd8]

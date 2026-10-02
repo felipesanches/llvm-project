@@ -75,5 +75,5 @@ scc z, xwa
 scc nc, xde
 
 ; Test DJNZ
-; CHECK: djnz	xwa, target
-djnz xwa, target
+; CHECK: djnz	wa, target
+djnz wa, target

@@ -201,7 +201,9 @@ retd 256
 ; DJNZ rd, disp: D8+r, 0x1C, disp8
 ; ==========================================================================
 
-; CHECK: djnz xwa, 0        ; encoding: [0xd8,0x1c,0x00]
-djnz xwa, 0
+; unidasm: d8 1c 00  djnz WA,..  -- the WORD register (the 32-bit name
+; `djnz xwa` is refused since the wave 3a T1 fix round)
+; CHECK: djnz wa, 0         ; encoding: [0xd8,0x1c,0x00]
+djnz wa, 0
 
 ; Note: SCC is isCodeGenOnly (empty encoding), not tested here.

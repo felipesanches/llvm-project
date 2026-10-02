@@ -205,5 +205,6 @@ divs xhl, wa
 ; ==========================================================================
 
 ; DJNZ rd, disp8: D8+r, 0x1C, disp8
-; CHECK: djnz xwa, 0        ; encoding: [0xd8,0x1c,0x00]
-djnz xwa, 0
+; unidasm: d8 1c 00  djnz WA,..
+; CHECK: djnz wa, 0         ; encoding: [0xd8,0x1c,0x00]
+djnz wa, 0

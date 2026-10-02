@@ -86,9 +86,8 @@
 # CHECK: stcf a, (32:8)
 0xf0 0x20 0x2c
 
-# CALL (addr8): [F0, addr, 0x08]
-# CHECK: call_dd8 8
-0xf0 0x08 0x08
+# (f0 08 08 decoded as `call_dd8 8`; MAME reads it as db and it is refused
+# since the wave 3a T1 fix round -- see deleted-pseudos.txt.)
 
 # JP cc, (addr8): [F0, addr, 0xD0+cc]
 # CHECK: jp_dd8 8, 10
