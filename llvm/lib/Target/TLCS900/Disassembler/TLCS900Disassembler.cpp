@@ -2475,6 +2475,11 @@ MCDisassembler::DecodeStatus TLCS900Disassembler::decodeERPPrefix(
     default: break;
     }
     if (Opc) {
+      // An INC/DEC count field of 0 MEANS 8 (as for every other INC/DEC
+      // decode here); `incb_erp 0, 0` is refused by the assembler since the
+      // count range check of the wave 3a T1 fix round.
+      if ((Base == 0x60 || Base == 0x68) && Imm3 == 0)
+        Imm3 = 8;
       MI.setOpcode(Opc);
       MI.addOperand(MCOperand::createImm(Bank));
       MI.addOperand(MCOperand::createImm(Imm3));

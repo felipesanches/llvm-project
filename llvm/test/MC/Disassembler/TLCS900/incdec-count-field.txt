@@ -1,0 +1,26 @@
+# RUN: llvm-mc -triple=tlcs900 -disassemble -show-encoding < %s | FileCheck %s
+#
+# An INC/DEC count field of 0 MEANS 8 (TLCS-900 "#3 = 1-8"; MAME's CPU core
+# `m_imm1 ? m_imm1 : 8`; MAME's DISASSEMBLER prints the raw 0).  Every decode
+# prints 8, the only count the assembler accepts for that field since the
+# wave 3a T1 fix round -- the ERP byte form printed the raw 0 (`incb_erp 0,
+# 0`), which no longer re-assembled.  MAME unidasm's reading quoted.
+
+# unidasm: d8 68  dec 0,WA
+# CHECK: dec 8, wa{{.*}}encoding: [0xd8,0x68]
+0xd8 0x68
+# unidasm: 81 60  inc 0,(XBC)
+# CHECK: inc 8, (xbc){{.*}}encoding: [0x81,0x60]
+0x81 0x60
+# unidasm: c1 1e 1e 60  inc 0,(0x1e1e)
+# CHECK: inc 8, (7710:16){{.*}}encoding: [0xc1,0x1e,0x1e,0x60]
+0xc1 0x1e 0x1e 0x60
+# unidasm: d7 e2 60  inc 0,QWA
+# CHECK: inc 8, qwa{{.*}}encoding: [0xd7,0xe2,0x60]
+0xd7 0xe2 0x60
+# unidasm: c7 00 60  inc 0,RA0
+# CHECK: incb_erp 0, 8{{.*}}encoding: [0xc7,0x00,0x60]
+0xc7 0x00 0x60
+# unidasm: c7 fb 68  dec 0,QIZH
+# CHECK: decb_erp 251, 8{{.*}}encoding: [0xc7,0xfb,0x68]
+0xc7 0xfb 0x68
